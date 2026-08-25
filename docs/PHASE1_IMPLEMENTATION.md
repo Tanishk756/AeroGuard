@@ -18,6 +18,11 @@ React/Vite frontend -> FastAPI backend -> SQLAlchemy -> SQLite
 - Basic application logging that does not include credentials or secret values.
 - Pytest coverage for startup, both routes, database connectivity, and configuration validation.
 
+Stage C adds secure authentication in a separate migration and does not change
+the Stage B baseline. It uses Argon2id password hashes and opaque random
+server-side sessions stored as SHA-256 hashes, with login, logout, and current
+user routes under `/api/v1`.
+
 ## Windows commands
 
 From `C:\AeroGuard`:
@@ -37,6 +42,7 @@ The development API is then available at:
 ## Deferred scope
 
 Authentication, RBAC, audit logging, sensors, simulation, AI, frontend
+integration, and later application tables are outside Stage B. Tauri and native
 integration, and later application tables are outside Stage B. Tauri and native
 packaging are also temporarily deferred because Windows Application Control is
 blocking `cargo.exe`. No Windows security policy or Rust installation changes

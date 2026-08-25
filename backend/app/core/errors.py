@@ -10,6 +10,13 @@ from fastapi.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 
+class AuthError(Exception):
+    def __init__(self, code: str, message: str, status_code: int = 401):
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+
+
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     correlation_id = request.state.correlation_id
     logger.exception("Unhandled application error", extra={"correlation_id": correlation_id})
@@ -43,6 +50,10 @@ def _error_response(request: Request, status_code: int, code: str, message: str)
         },
         headers={"X-Correlation-ID": correlation_id},
     )
+
+
+async def auth_exception_handler(request: Request, exc: AuthError) -> JSONResponse:
+    return _error_response(request, exc.status_code, exc.code, exc.message)
 
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:

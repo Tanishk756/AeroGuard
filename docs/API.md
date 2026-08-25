@@ -1,3 +1,4 @@
+This document defines the intended API domains and the implemented Stage B/C routes. Later domains remain planned.
 # API design
 
 This document defines the intended API domains and endpoint categories for AeroGuard. It does not implement the API or define final concrete routes yet.
@@ -26,6 +27,22 @@ Categories:
 - auth/session endpoints
 - token lifecycle operations
 - user self-service access management
+
+Stage C implements `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, and
+`GET /api/v1/me` using opaque server-side sessions in an HttpOnly cookie.
+Login failures are returned as `AUTH_INVALID_CREDENTIALS`; protected requests
+use stable codes for unauthenticated, expired, revoked, and disabled sessions.
+## 7. Stage C session contract
+
+The session cookie is named `aeroguard_session`, is HttpOnly, uses `SameSite=Lax`,
+and is scoped to `/api/v1`. It is not returned in JSON. `Secure` is false only
+for explicit local HTTP development and must be true outside local development.
+Allowed browser origins are configuration-driven and credentialed CORS never
+uses a wildcard. State-changing requests with an Origin header outside the
+allowlist are rejected. CORS is not treated as a substitute for CSRF protection.
+
+## 8. Documentation status
+Authentication route contracts are implemented in Stage C. Other API domains remain planned and require separate phases.
 
 ### 2.2 User and role management
 

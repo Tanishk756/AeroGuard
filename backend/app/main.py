@@ -4,10 +4,14 @@ import logging
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import router as api_router
 from app.core.config import get_settings
 from app.core.errors import (
+    AuthError,
+    auth_exception_handler,
     http_exception_handler,
     new_correlation_id,
     unhandled_exception_handler,
@@ -21,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.application_name, version=settings.version, debug=settings.debug)
 app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_exception_handler(AuthError, auth_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
@@ -32,6 +37,35 @@ async def correlation_id_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
     return response
+
+
+@app.middleware("http")
+async def csrf_origin_middleware(request: Request, call_next):
+    if settings.csrf_protection_enabled and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("origin")
+        if origin and origin not in settings.allowed_origins:
+            correlation_id = getattr(request.state, "correlation_id", new_correlation_id())
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "code": "csrf_origin_rejected",
+                        "message": "Request origin is not allowed.",
+                        "correlation_id": correlation_id,
+                    }
+                },
+                headers={"X-Correlation-ID": correlation_id},
+            )
+    return await call_next(request)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Correlation-ID"],
+)
 
 
 app.include_router(api_router, prefix=settings.api_prefix)

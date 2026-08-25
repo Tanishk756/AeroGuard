@@ -1,3 +1,4 @@
+This document defines the conceptual data model and records the implemented Stage C identity/session schema. Other domain entities remain planned.
 # Data model
 
 This document defines the intended conceptual data model for AeroGuard. It describes the planned domain entities and relationships without creating database migrations or serialized schema implementations.
@@ -32,6 +33,11 @@ Relationships:
 - many-to-one with organization or tenant context
 - many-to-many with roles
 - one-to-many with audit events and sessions
+
+Stage C persists `users` with `id`, normalized unique `username`,
+`display_name`, normalized unique `email`, Argon2id `password_hash`,
+`status` (`ACTIVE` or `DISABLED`), UTC-normalized timestamps, and nullable
+`last_login_at`. Roles and audit events are not implemented.
 
 ### 2.2 Role
 
@@ -82,6 +88,11 @@ Relationships:
 
 - belongs to one user
 - linked to audit logs and notifications
+
+Stage C persists `sessions` with `id`, `user_id`, a unique SHA-256 hash of an
+opaque random cookie secret, `created_at`, `expires_at`, `last_seen_at`,
+nullable `revoked_at`, and bounded nullable `client_ip` and `user_agent`.
+Raw session secrets are never persisted.
 
 ### 2.5 Sensor
 

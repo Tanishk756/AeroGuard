@@ -51,6 +51,27 @@ Verify `http://127.0.0.1:8000/api/v1/health` and
 `http://127.0.0.1:8000/api/v1/system/info` while the server is running.
 
 Tauri/native packaging is temporarily deferred because Windows Application
+
+Apply the authentication migration and create a developer-selected user only
+through the interactive command below. It never creates an administrator or a
+default password, and password input is hidden:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic -c .\backend\alembic.ini upgrade head
+```
+
+Use the correct module invocation from the repository root instead:
+
+```powershell
+.\.venv\Scripts\python.exe -m alembic -c .\backend\alembic.ini upgrade head
+Push-Location .\backend
+..\.venv\Scripts\python.exe -m app.cli create-user
+Pop-Location
+```
+
+Authentication uses the `aeroguard_session` HttpOnly cookie. Local development
+uses HTTP with `Secure=false`; production-like environments require
+`AEROGUARD_SESSION_COOKIE_SECURE=true`, configured origins, and HTTPS.
 Control is blocking `cargo.exe`. Do not disable or modify Smart App Control,
 Defender, or Code Integrity, and do not reinstall Rust to work around it.
 
