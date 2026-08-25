@@ -1,0 +1,105 @@
+:root {
+  color-scheme: dark;
+  --bg: #07131d;
+  --panel: #0d1b2a;
+  --panel-alt: #13273c;
+  --line: rgba(148, 163, 184, 0.2);
+  --text: #e2e8f0;
+  --muted: #8ca8bc;
+  --accent: #4ec9f5;
+  --success: #22c55e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.developer-shell {
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: linear-gradient(180deg, #07131d, #0a1825);
+}
+
+.developer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.developer-header h1 {
+  margin: 0.2rem 0 0;
+  font-size: 2rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+}
+
+.developer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.panel {
+  background: rgba(13, 27, 42, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.stack-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  color: var(--muted);
+}
+
+.service-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+  border: 1px solid var(--line);
+}
+
+.status-pill.success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+}

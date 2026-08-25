@@ -1,0 +1,27 @@
+{
+  "name": "aeroguard",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "bootstrap": "pwsh -File scripts/bootstrap.ps1",
+    "dev:operator": "npm --prefix apps/operator run dev",
+    "dev:admin": "npm --prefix apps/admin run dev",
+    "dev:developer": "npm --prefix apps/developer run dev",
+    "typecheck": "npm --prefix apps/operator run typecheck && npm --prefix apps/admin run typecheck && npm --prefix apps/developer run typecheck",
+    "lint": "npm --prefix apps/operator run lint && npm --prefix apps/admin run lint && npm --prefix apps/developer run lint"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/node": "^22.10.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

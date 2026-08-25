@@ -8,6 +8,26 @@ Project maintainer: Tanishk Singhal
 Email: tanishksinghal6285@gmail.com
 GitHub: Tanishk756
 
+## Local Python virtual environment
+
+AeroGuard backend dependencies must be installed into a project-local virtual environment named .venv. This prevents contamination of the system Python environment and keeps the project Windows-friendly.
+
+PowerShell commands:
+
+```powershell
+./scripts/setup-venv.ps1
+./scripts/activate-venv.ps1
+```
+
+Once the environment is active, backend commands should use the virtual environment Python explicitly:
+
+```powershell
+.\.venv\Scripts\python.exe --version
+.\.venv\Scripts\python.exe -m pip install -r .\backend\requirements.txt
+```
+
+Do not install backend packages into the global Python installation.
+
 ## 1. Windows-first development requirements
 
 The project is designed primarily for Windows-based development workflows. This means the repo should be maintainable and runnable without requiring Linux-first tooling or mandatory container dependencies.

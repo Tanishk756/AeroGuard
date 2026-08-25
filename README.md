@@ -20,6 +20,19 @@ It is not intended to provide autonomous weapon engagement, hostile targeting, d
 
 The repository is in a foundation-only stage. The code base does not yet contain production implementations, simulation engines, AI services, or operational interfaces. Planned system components are documented here as architecture intent, not delivered functionality.
 
+## Local development environment
+
+AeroGuard uses a project-local Python virtual environment for backend dependencies. Do not install backend packages into the global Python environment.
+
+PowerShell workflow:
+
+```powershell
+./scripts/setup-venv.ps1
+./scripts/activate-venv.ps1
+```
+
+This creates and activates .venv under the repository root, and backend commands should use .venv\Scripts\python.exe instead of the global Python interpreter.
+
 ## Planned architecture direction
 
 The intended technology direction is:
