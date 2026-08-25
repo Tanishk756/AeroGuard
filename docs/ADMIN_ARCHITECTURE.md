@@ -198,6 +198,11 @@ The Admin Console must enforce:
 - separation between admin and operator roles
 - no bypass of policy enforcement or auth checks
 
+Stage D provides the backend RBAC foundation for these expectations. The exact
+eight system roles are seeded deterministically, system roles are protected from
+rename/deletion, and management APIs enforce permissions server-side. The
+frontend must not be treated as an authorization boundary.
+
 ## 4. Design principles
 
 - keep governance and operational tasks functionally separate

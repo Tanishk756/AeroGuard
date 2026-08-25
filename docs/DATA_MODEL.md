@@ -94,6 +94,11 @@ opaque random cookie secret, `created_at`, `expires_at`, `last_seen_at`,
 nullable `revoked_at`, and bounded nullable `client_ip` and `user_agent`.
 Raw session secrets are never persisted.
 
+Stage D adds `roles`, `permissions`, `user_roles`, and `role_permissions`.
+Role and permission names/keys are unique. Association tables use composite
+primary keys to prevent duplicate assignments. System roles are marked with
+`is_system`; future scope/tenant relationships are not implemented.
+
 ### 2.5 Sensor
 
 Represents a system, sensor, or data source contributing information.

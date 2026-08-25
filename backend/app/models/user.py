@@ -32,3 +32,4 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    roles: Mapped[list["Role"]] = relationship(secondary="user_roles", back_populates="users")

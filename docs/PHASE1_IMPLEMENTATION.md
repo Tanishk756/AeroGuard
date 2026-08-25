@@ -23,6 +23,11 @@ the Stage B baseline. It uses Argon2id password hashes and opaque random
 server-side sessions stored as SHA-256 hashes, with login, logout, and current
 user routes under `/api/v1`.
 
+Stage D adds deterministic RBAC vocabulary and role-permission assignments in
+`0003_rbac.py`, live permission dependencies, protected system information, and
+the RBAC management API foundation. No future subsystem is implemented by its
+permission vocabulary, and audit logging remains deferred.
+
 ## Windows commands
 
 From `C:\AeroGuard`:

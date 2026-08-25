@@ -42,6 +42,11 @@ uses a wildcard. State-changing requests with an Origin header outside the
 allowlist are rejected. CORS is not treated as a substitute for CSRF protection.
 
 ## 8. Documentation status
+
+Stage D implements permission-protected `system/info` and the RBAC management
+surface: `/roles`, `/permissions`, and explicit user-role and role-permission
+assignment routes. Health remains public; `/me` remains authentication-only.
+The RBAC permission vocabulary does not implement future domains.
 Authentication route contracts are implemented in Stage C. Other API domains remain planned and require separate phases.
 
 ### 2.2 User and role management

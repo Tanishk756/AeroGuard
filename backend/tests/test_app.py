@@ -22,9 +22,5 @@ def test_health_endpoint(client):
 def test_system_info_endpoint(client):
     response = client.get("/api/v1/system/info")
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["application"] == "AeroGuard"
-    assert payload["version"] == "0.1.0"
-    assert payload["python_version"]
-    assert payload["platform"]
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_UNAUTHENTICATED"

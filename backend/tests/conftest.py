@@ -17,9 +17,10 @@ if str(BACKEND_ROOT) not in sys.path:
 @pytest.fixture
 def database():
     from app.database.base import Base
+    from app.database.session import create_database_engine
     import app.models  # noqa: F401
 
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    engine = create_database_engine("sqlite://", poolclass=StaticPool)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
     try:
@@ -45,3 +46,12 @@ def client(database):
             yield test_client
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def rbac_user(database):
+    from app.services.auth import create_user
+    from app.services.rbac import seed_rbac
+
+    seed_rbac(database)
+    return create_user(database, "stage-d-user", "Stage D User", "stage-d@example.invalid", "stage-d-test-password")

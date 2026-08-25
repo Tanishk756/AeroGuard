@@ -13,6 +13,7 @@ from app.database.session import get_db
 from app.models.session import Session as AuthSession
 from app.models.user import User
 from app.services.auth import hash_session_secret
+from app.services.authorization import AuthorizationService
 
 
 def get_auth_context(
@@ -46,3 +47,39 @@ def get_auth_context(
 
 def get_current_user(context: tuple[AuthSession, User] = Depends(get_auth_context)) -> User:
     return context[1]
+
+
+def require_permission(permission_key: str):
+    def dependency(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        if not AuthorizationService(db).has_permission(user, permission_key):
+            raise AuthError("AUTH_FORBIDDEN", "You do not have permission to perform this action.", 403)
+        return user
+
+    return dependency
+
+
+def require_any_permission(*permission_keys: str):
+    if not permission_keys:
+        raise ValueError("At least one permission is required")
+
+    def dependency(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+        if not AuthorizationService(db).has_any_permission(user, permission_keys):
+            raise AuthError("AUTH_FORBIDDEN", "You do not have permission to perform this action.", 403)
+        return user
+
+    return dependency
+
+
+def require_all_permissions(*permission_keys: str):
+    if not permission_keys:
+        raise ValueError("At least one permission is required")
+
+    def dependency(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+        if not AuthorizationService(db).has_all_permissions(user, permission_keys):
+            raise AuthError("AUTH_FORBIDDEN", "You do not have permission to perform this action.", 403)
+        return user
+
+    return dependency
