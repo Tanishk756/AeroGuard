@@ -1,0 +1,49 @@
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Node / front-end
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Rust
+/target/
+Cargo.lock
+
+# Generated artifacts
+*.log
+*.sqlite3
+*.db
+*.tmp
+*.bak
+
+# Local environment files
+.env
+.env.*
+
+# Binary and package outputs
+*.zip
+*.tar.gz
+*.whl
+
+# Generated docs if ever added later
+site/

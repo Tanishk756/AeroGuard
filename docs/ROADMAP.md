@@ -1,0 +1,195 @@
+# Roadmap
+
+This roadmap defines the planned delivery phases for AeroGuard from repository bootstrap through production-oriented operations. It is intentionally a planning document, not an implementation status report.
+
+## Phase 0: repository bootstrap and foundation
+
+Objectives:
+
+- establish the repository structure and project conventions
+- document architecture direction and safety boundaries
+- define engineering standards and review expectations
+- record required subsystem boundaries and project scope
+
+Deliverables:
+
+- repository structure and documents
+- licensing, security, and contribution guidance
+- architectural documentation set
+- placeholder directories for future subsystem development
+
+## Phase 1: platform foundations
+
+Objectives:
+
+- formalize workspace and repo tooling expectations for Windows-first development
+- define data contract and event contract standards
+- establish test and quality practices
+- define backend, frontend, and native boundary conventions
+
+Planned work:
+
+- backend API skeleton and directory structure
+- frontend application skeletons for operator/admin/developer consoles
+- shared package contracts, schemas, and interfaces
+- CI and repository checks configuration as available in the project toolchain
+
+## Phase 2: frontend and developer experience
+
+Objectives:
+
+- deliver the Operator Console shell and workspace concepts
+- build Admin Console foundation
+- establish Developer/API Console and tooling surfaces
+- create reusable UI patterns around tactical mission interfaces
+
+Planned UI capabilities:
+
+- dockable panels and workspace layouts
+- map-centric operations views
+- alert feed and timeline surfaces
+- command palette and keyboard-driven workflows
+- dark tactical design language and accessibility baseline
+
+## Phase 3: backend and data services
+
+Objectives:
+
+- establish service-layer architecture and API domains
+- implement identity, authorization, and RBAC scaffolding
+- define persistence layers for configuration, sensor records, and incidents
+- produce typed event interfaces and integration boundaries
+
+Planned work:
+
+- FastAPI service skeleton
+- Pydantic model contracts
+- session and auditing scaffolds
+- database abstraction boundaries and migration planning
+
+## Phase 4: simulation and sensor ingestion
+
+Objectives:
+
+- create scenario definitions and environment simulation flows
+- prototype synthetic sensor data and state generation
+- support lab and training workflows without conflating simulation with real data
+
+Planned work:
+
+- synthetic sensor models
+- scenario execution environment
+- track generation and observation streams
+- simulation metadata and provenance controls
+
+## Phase 5: sensor fusion and track management
+
+Objectives:
+
+- correlate observations from multiple sources
+- manage evolving object tracks and confidence metadata
+- produce consistent threat context and state transitions
+
+Planned work:
+
+- observation normalization and correlation
+- track lifecycle and state management
+- trajectory estimation and confidence scoring
+- alignment with replay and audit requirements
+
+## Phase 6: AI and analytics
+
+Objectives:
+
+- integrate model-driven analysis and recommendation workflows
+- support anomaly detection, classification, and behavior assessment
+- define safe and transparent AI use patterns
+
+Planned work:
+
+- model registry and evaluation workflows
+- dataset management and labeling structures
+- analytics pipelines and reporting
+- review of model outputs with human oversight
+
+## Phase 7: threat intelligence and incident workflows
+
+Objectives:
+
+- assess threat patterns and escalation logic
+- support incident reviews, operator workflows, and historical analysis
+- provide structured reporting and decision support
+
+Planned work:
+
+- threat context models
+- incident lifecycle management
+- analyst workflow surfaces
+- integrated reporting views and summaries
+
+## Phase 8: admin, governance, and operational control
+
+Objectives:
+
+- provide secure configuration and policy administration
+- govern sensors, users, roles, AI models, and feature flags
+- support database operations, backup, and rollback considerations
+
+Planned work:
+
+- user and role administration
+- sensor profiles and scenario management
+- policy and feature flag controls
+- health monitoring, notifications, and audit review
+
+## Phase 9: analytics, replay, and performance
+
+Objectives:
+
+- add time-based analysis, replay, and historical retrieval
+- validate performance-critical paths
+- optimize event throughput and UI rendering fidelity
+
+Planned work:
+
+- replay systems and time-slice navigation
+- analytical query layers for operational review
+- profiling and performance regression checks
+- real-time throughput tuning for maps, alerts, and streams
+
+## Phase 10: testing, validation, and hardening
+
+Objectives:
+
+- verify subsystem behavior with unit, integration, API, and regression tests
+- perform security review and audit validation
+- validate documentation and operational safety constraints
+
+Planned work:
+
+- coverage for backend APIs and contracts
+- frontend interaction and workflow tests
+- event bus and stream reliability tests
+- performance benchmarking for high-volume paths
+
+## Phase 11: production readiness and packaging
+
+Objectives:
+
+- package desktop experiences and operational distributions
+- define release engineering and rollback processes
+- validate security and admin controls in deployment workflows
+
+Planned work:
+
+- release build and packaging flows
+- environment-specific configuration
+- deployment review and upgrade strategy
+- support and maintenance documentation
+
+## Delivery principles
+
+- Do not claim subsystem completion before validation.
+- Keep each phase small and testable.
+- Separate product capability from research or prototype state.
+- Treat safety, authentication, and audit controls as essential requirements.
