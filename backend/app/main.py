@@ -1,0 +1,37 @@
+"""FastAPI application entry point."""
+
+import logging
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+
+from app.api.v1.router import router as api_router
+from app.core.config import get_settings
+from app.core.errors import (
+    http_exception_handler,
+    new_correlation_id,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
+from app.core.logging import configure_logging
+
+settings = get_settings()
+configure_logging(settings.log_level)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title=settings.application_name, version=settings.version, debug=settings.debug)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID") or new_correlation_id()
+    request.state.correlation_id = correlation_id
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = correlation_id
+    return response
+
+
+app.include_router(api_router, prefix=settings.api_prefix)

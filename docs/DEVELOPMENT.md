@@ -1,6 +1,8 @@
 # Development guide
 
-This document defines the intended development workflow for AeroGuard. It is a planning and standards document for future implementation work.
+This document defines the development workflow for AeroGuard. Stage B backend
+commands below are implemented and verified; later subsystem workflows remain
+planned.
 
 ## Maintainer
 
@@ -27,6 +29,30 @@ Once the environment is active, backend commands should use the virtual environm
 ```
 
 Do not install backend packages into the global Python installation.
+
+## Stage B backend commands
+
+From the repository root (`C:\AeroGuard`), install and migrate with the local
+environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r .\backend\requirements.txt
+.\.venv\Scripts\python.exe -m alembic -c .\backend\alembic.ini upgrade head
+```
+
+Run the backend tests and start the development server:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir .\backend --reload
+```
+
+Verify `http://127.0.0.1:8000/api/v1/health` and
+`http://127.0.0.1:8000/api/v1/system/info` while the server is running.
+
+Tauri/native packaging is temporarily deferred because Windows Application
+Control is blocking `cargo.exe`. Do not disable or modify Smart App Control,
+Defender, or Code Integrity, and do not reinstall Rust to work around it.
 
 ## 1. Windows-first development requirements
 
@@ -104,6 +130,6 @@ AI-assisted work should:
 
 When a major subsystem is introduced or significantly changed, the project documentation should be updated to match the new design boundaries and intended responsibilities.
 
-## 8. Planned non-goals for this phase
+## 8. Planned non-goals for later phases
 
-This document defines the engineering workflow and operating principles for the project. It does not claim that all tooling, testing, and automation have been configured or executed.
+This document defines the engineering workflow and operating principles for the project. Stage B's backend test and run commands are configured; authentication, frontend integration, and native packaging remain outside this phase.
