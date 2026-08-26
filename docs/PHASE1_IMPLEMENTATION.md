@@ -33,9 +33,11 @@ Stage F3 delivers detection association, deterministic track lifecycle
 management, and read-only track query endpoints, Stage F4 delivers
 multi-sensor kinematic fusion, track quality scoring, 2D/3D geofencing,
 deterministic operational threat prioritization, alert generation/deduplication,
-and read-only intelligence query APIs, and Stage F5 delivers the scenario
+and read-only intelligence query APIs, Stage F5 delivers the scenario
 management and deterministic simulation engine driving synthetic multi-sensor
-observations into the live operational pipeline.
+observations into the live operational pipeline, and Stage F6 delivers
+the historical operations, unified timeline aggregation, descriptive SQL analytics,
+and deterministic virtual-clock replay and comparison subsystem.
 
 ## Windows commands
 

@@ -219,3 +219,10 @@ trajectory generation with constant-velocity and waypoint navigation, synthetic 
 sensor models (Radar, Optical, RF) with range/FOV gating and Gaussian noise, scenario
 execution lifecycle management, and full integration into the F2-F4 operational pipeline
 along with scenario and geofence REST APIs. WebSocket streaming and UI remain future work.
+
+Stage F6 adds the historical querying, timeline aggregation, descriptive analytics, and
+deterministic replay and run comparison subsystem. Operating strictly as a read-only analysis
+layer over canonical operational truth (F1-F5), it provides bounded historical queries,
+unified operational timeline reconstruction with microsecond deterministic tie-breaking,
+aggregate descriptive SQL metrics, virtual clock replay stepping, and canonical structural
+run comparisons. It introduces zero new database migrations, zero external brokers, and zero audit log pollution.

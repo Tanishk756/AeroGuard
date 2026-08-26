@@ -183,6 +183,10 @@ Planned work:
 - profiling and performance regression checks
 - real-time throughput tuning for maps, alerts, and streams
 
+Stage F6 delivers the historical querying, multi-source operational timeline aggregation,
+descriptive SQL analytics, virtual clock deterministic replay stepping, and canonical
+structural replay run comparison engine. Real-time WebSocket streaming and UI visualization remain future work.
+
 ## Phase 10: testing, validation, and hardening
 
 Objectives:

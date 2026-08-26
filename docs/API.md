@@ -196,6 +196,27 @@ Stage F4 implements read-only operational intelligence endpoints:
 - `GET /api/v1/geofences` and `GET /api/v1/geofences/{geofence_id}` (requires `scenarios.read`, supports `enabled`, cursor pagination)
 Threat evaluation, alert generation, and geofence evaluation are computed internally during tracking and lifecycle progression; no public write routes are exposed.
 
+Stage F5 implements scenario and simulation execution endpoints:
+- `GET /api/v1/scenarios` and `POST /api/v1/scenarios` (requires `scenarios.read` / `scenarios.write`)
+- `GET /api/v1/scenarios/{id}`, `PATCH /api/v1/scenarios/{id}`, `DELETE /api/v1/scenarios/{id}` (requires `scenarios.read` / `scenarios.write`)
+- `POST /api/v1/scenarios/{id}/prepare`, `POST /api/v1/scenarios/{id}/start`, `POST /api/v1/scenarios/{id}/pause`, `POST /api/v1/scenarios/{id}/resume`, `POST /api/v1/scenarios/{id}/stop`, `POST /api/v1/scenarios/{id}/reset`, `POST /api/v1/scenarios/{id}/step` (requires `scenarios.run`)
+- `GET /api/v1/geofences` and `POST /api/v1/geofences` CRUD (requires `scenarios.read` / `scenarios.write`)
+
+Stage F6 implements historical querying, descriptive analytics, and deterministic replay endpoints:
+- Historical queries:
+  - `GET /api/v1/history/detections` (requires `sensors.read`, bounded time window, deterministic pagination)
+  - `GET /api/v1/history/tracks/{id}` and `GET /api/v1/history/tracks/{id}/state` (requires `tracks.read`)
+  - `GET /api/v1/history/alerts` (requires `alerts.read`)
+  - `GET /api/v1/history/threats` (requires `threats.read`)
+  - `GET /api/v1/history/timeline` (requires any of `sensors.read`, `tracks.read`, `alerts.read`, `threats.read`)
+- Descriptive analytics:
+  - `GET /api/v1/analytics/summary` (requires any operational read permission)
+  - `GET /api/v1/analytics/detections` (`sensors.read`), `GET /api/v1/analytics/tracks` (`tracks.read`), `GET /api/v1/analytics/alerts` (`alerts.read`), `GET /api/v1/analytics/threats` (`threats.read`)
+- Replay & comparison:
+  - `POST /api/v1/replay/query` (requires `scenarios.read` | `tracks.read` | `scenarios.run`)
+  - `POST /api/v1/replay/step` (requires `scenarios.read` | `tracks.read` | `scenarios.run`)
+  - `POST /api/v1/replay/compare` (requires `scenarios.read` | `tracks.read` | `scenarios.run`)
+
 ## 3. Planned endpoint categories
 
 The API will likely be grouped by business capability rather than a single monolithic surface. Category examples include:
@@ -209,9 +230,11 @@ The API will likely be grouped by business capability rather than a single monol
 - v1/tracks
 - v1/incidents
 - v1/alerts
+- v1/history
+- v1/analytics
+- v1/replay
 - v1/models
 - v1/datasets
-- v1/analytics
 - v1/admin
 - v1/audit
 
@@ -246,4 +269,4 @@ Future implementations should plan for:
 
 ## 7. Documentation status
 
-This file defines the intended API boundaries and categories. Stages C, D, E, F1, F2, F3, F4, and F5 have implemented concrete routes: authentication, RBAC, audit, sensor registry, single-detection ingestion, track queries, threat assessments, operational alerts, geofence management CRUD, and scenario simulation execution controls. Future API domains remain planned.
+This file defines the intended API boundaries and categories. Stages C, D, E, F1, F2, F3, F4, F5, and F6 have implemented concrete routes: authentication, RBAC, audit, sensor registry, single-detection ingestion, track queries, threat assessments, operational alerts, geofence management CRUD, scenario simulation execution controls, historical queries, unified timelines, descriptive analytics, and deterministic replay/comparison. Future API domains remain planned.
