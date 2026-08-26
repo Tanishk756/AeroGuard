@@ -290,17 +290,20 @@ Represents security, administrative, or operational traceability records.
 
 Key attributes:
 
-- audit_id
-- actor
-- action
-- resource
+- id, event_type, event_version
+- actor user/session, action, target
 - timestamp
 - result
-- metadata
+- correlation_id, permission, metadata
 
 Relationships:
 
-- tied to user, session, resource, or system event
+- nullable SET NULL references to user and session; target references are typed identifiers
+
+Stage E stores these records in `audit_events` with indexes for timestamp/id,
+event type, result, actor, and target. Records are append-only through the
+service, ORM protection, and SQLite mutation triggers; this is not cryptographic
+immutability.
 
 ## 3. Relationship model
 

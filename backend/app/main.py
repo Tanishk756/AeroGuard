@@ -1,6 +1,7 @@
 """FastAPI application entry point."""
 
 import logging
+import re
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -32,7 +33,8 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
-    correlation_id = request.headers.get("X-Correlation-ID") or new_correlation_id()
+    supplied = request.headers.get("X-Correlation-ID")
+    correlation_id = supplied if supplied and re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", supplied) else new_correlation_id()
     request.state.correlation_id = correlation_id
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id

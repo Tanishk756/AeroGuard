@@ -145,6 +145,9 @@ The admin console should provide tools to review:
 - AI model and dataset changes
 - policy changes and incidents
 
+Stage E provides the backend audit records and read-only query API. Audit UI
+and export workflows remain outside this stage.
+
 ### 2.16 System health
 
 Monitoring surfaces for:

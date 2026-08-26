@@ -25,8 +25,8 @@ user routes under `/api/v1`.
 
 Stage D adds deterministic RBAC vocabulary and role-permission assignments in
 `0003_rbac.py`, live permission dependencies, protected system information, and
-the RBAC management API foundation. No future subsystem is implemented by its
-permission vocabulary, and audit logging remains deferred.
+the RBAC management API foundation. Stage E adds local append-only audit
+events, transaction-aware security event recording, and the read-only audit API.
 
 ## Windows commands
 

@@ -174,6 +174,10 @@ Categories:
 - system health
 - notifications and logs
 
+Stage E implements the read-only `/api/v1/audit/events` collection and
+`/api/v1/audit/events/{id}` detail endpoint. Both require `audit.read`, use
+bounded filters, and use descending timestamp/id cursor pagination.
+
 ## 3. Planned endpoint categories
 
 The API will likely be grouped by business capability rather than a single monolithic surface. Category examples include:

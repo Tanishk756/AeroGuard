@@ -5,6 +5,7 @@ from getpass import getpass
 from app.database.session import SessionLocal
 from app.services.auth import create_user
 from app.services.rbac import bootstrap_super_admin, seed_rbac
+from app.services.audit import AuditService
 
 
 def create_user_interactively() -> None:
@@ -32,6 +33,7 @@ def bootstrap_rbac_interactively() -> None:
     confirmation = input("Type BOOTSTRAP to grant SUPER_ADMIN: ").strip()
     with SessionLocal() as db:
         user = bootstrap_super_admin(db, username, confirmation == "BOOTSTRAP")
+        AuditService(db).record_event("SUPER_ADMIN_BOOTSTRAPPED", "bootstrap_super_admin", "SUCCESS", target_type="user", target_id=user.id, metadata={"source": "cli"})
         db.commit()
     print(f"Granted SUPER_ADMIN to {user.username}.")
 

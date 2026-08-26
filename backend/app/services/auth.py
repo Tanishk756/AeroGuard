@@ -67,6 +67,8 @@ def create_session(
     client_ip: str | None,
     user_agent: str | None,
     settings: Settings | None = None,
+    *,
+    commit: bool = True,
 ) -> tuple[AuthSession, str]:
     settings = settings or get_settings()
     raw_secret = secrets.token_urlsafe(48)
@@ -82,8 +84,10 @@ def create_session(
     )
     user.last_login_at = now
     db.add(session)
-    db.commit()
-    db.refresh(session)
+    db.flush()
+    if commit:
+        db.commit()
+        db.refresh(session)
     return session, raw_secret
 
 
@@ -101,7 +105,8 @@ def resolve_session(db: Session, raw_secret: str) -> tuple[AuthSession, User] | 
     return session, user
 
 
-def revoke_session(db: Session, session: AuthSession) -> None:
+def revoke_session(db: Session, session: AuthSession, *, commit: bool = True) -> None:
     if session.revoked_at is None:
         session.revoked_at = datetime.now(UTC).replace(tzinfo=None)
-        db.commit()
+        if commit:
+            db.commit()
