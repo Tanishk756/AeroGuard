@@ -190,6 +190,12 @@ All three endpoints require `tracks.read`, use bounded pagination, and support
 bounded filters (`state`, `classification`, `last_seen_from`, `last_seen_to`).
 Detection processing is internal; no public track mutation endpoints are exposed.
 
+Stage F4 implements read-only operational intelligence endpoints:
+- `GET /api/v1/threats` and `GET /api/v1/threats/{track_id}` (requires `threats.read`, supports `level`, `min_score`, cursor pagination)
+- `GET /api/v1/alerts` and `GET /api/v1/alerts/{alert_id}` (requires `alerts.read`, supports `status`, `severity`, `type`, `track_id`, `sensor_id`, `created_from`, `created_to`, cursor pagination)
+- `GET /api/v1/geofences` and `GET /api/v1/geofences/{geofence_id}` (requires `scenarios.read`, supports `enabled`, cursor pagination)
+Threat evaluation, alert generation, and geofence evaluation are computed internally during tracking and lifecycle progression; no public write routes are exposed.
+
 ## 3. Planned endpoint categories
 
 The API will likely be grouped by business capability rather than a single monolithic surface. Category examples include:

@@ -1,9 +1,9 @@
-"""Geofence data contracts with application-level geometry validation."""
+"""Geofence data contracts with application-level geometry validation and response schemas."""
 
 from datetime import datetime
 from typing import Any
 
-from pydantic import Field, FiniteFloat, field_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator
 
 from app.schemas._operational import OperationalSchema
 
@@ -41,3 +41,22 @@ class GeofenceSchema(OperationalSchema):
         else:
             raise ValueError("geometry type must be bbox or polygon")
         return value
+
+
+class GeofenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    enabled: bool
+    geometry: dict[str, Any]
+    min_altitude: float | None = None
+    max_altitude: float | None = None
+    metadata: dict = Field(alias="metadata_json")
+    created_at: datetime
+    updated_at: datetime
+
+
+class GeofencePage(BaseModel):
+    items: list[GeofenceResponse]
+    next_cursor: str | None = None

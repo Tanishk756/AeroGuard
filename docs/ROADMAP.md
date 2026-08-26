@@ -109,6 +109,13 @@ Stage F3 delivers deterministic detection association, track lifecycle managemen
 and append-only history persistence. Alert generation, threat scoring, and realtime
 event distribution remain future work.
 
+Stage F4 delivers multi-sensor kinematic/spatial consensus, continuous track quality
+scoring, source diversity calculation, multi-source classification reconciliation,
+coasting confidence decay, 2D/3D geofence volume evaluation, deterministic operational
+threat priority scoring, server-side alert generation with deduplication, and read-only
+query APIs for threats, alerts, and geofences. AI/ML, autonomous actions, weaponization,
+and external message brokers remain future work.
+
 ## Phase 6: AI and analytics
 
 Objectives:

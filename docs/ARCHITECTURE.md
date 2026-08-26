@@ -205,3 +205,10 @@ Stage F3 adds deterministic detection association, track lifecycle management,
 and append-only history persistence. Gating, normalized scoring, deterministic
 tie-breaking, and read-only track query APIs are implemented without threat scoring,
 alerts, or external broker infrastructure.
+
+Stage F4 adds multi-sensor kinematic and spatial consensus, track quality scoring,
+source diversity quantification, multi-source classification reconciliation,
+coasting confidence decay, 2D/3D geofence volume evaluation, deterministic operational
+threat priority scoring, alert rule evaluation and deduplication, and read-only APIs
+for threats, alerts, and geofences. AI/ML, autonomous actions, weaponization, and
+external message brokers remain strictly out of scope.

@@ -6,8 +6,12 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.alerts.rules import evaluate_track_lost_alert
+from app.alerts.service import AlertService
+from app.fusion.quality import compute_track_quality, decay_coasting_confidence
 from app.models.sensor import SensorSourceClass
 from app.models.track import Track, TrackHistory, TrackState
+from app.threats.service import ThreatAssessmentService
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,8 @@ class TrackLifecycleService:
     def __init__(self, db: Session, config: LifecycleConfig | None = None):
         self.db = db
         self.config = config or LifecycleConfig()
+        self.alert_service = AlertService(db)
+        self.threat_service = ThreatAssessmentService(db)
 
     def advance(self, now: datetime | None = None) -> list[TrackStateTransition]:
         if now is None:
@@ -93,6 +99,19 @@ class TrackLifecycleService:
         old_state = track.state
         track.state = new_state
         track.updated_at = now
+
+        # Apply coasting confidence decay and update threat assessment on STALE transition
+        if new_state == TrackState.STALE:
+            elapsed = (now - track.last_seen_at).total_seconds()
+            track.confidence = decay_coasting_confidence(track.confidence, elapsed)
+            quality = compute_track_quality(self.db, track, now=now)
+            self.threat_service.evaluate_track(track, quality, now=now)
+        elif new_state == TrackState.LOST:
+            lost_alert = evaluate_track_lost_alert(track)
+            if lost_alert:
+                self.alert_service.process_candidates([lost_alert], now=now)
+        elif new_state == TrackState.ARCHIVED:
+            self.alert_service.resolve_track_alerts(track.id, now=now)
 
         seq = (
             self.db.scalar(

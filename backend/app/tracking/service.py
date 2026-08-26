@@ -8,9 +8,19 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.alerts.rules import (
+    evaluate_data_quality_alert,
+    evaluate_detection_alert,
+    evaluate_geofence_breach_alerts,
+)
+from app.alerts.service import AlertService
+from app.fusion.classification import reconcile_classification
+from app.fusion.consensus import fuse_kinematics
+from app.fusion.quality import compute_track_quality
 from app.models.association import TrackAssociation, TrackAssociationDecision
 from app.models.detection import Detection
 from app.models.track import Track, TrackHistory, TrackState
+from app.threats.service import ThreatAssessmentService
 from app.tracking.association import (
     AssociationDecision,
     generate_track_id,
@@ -66,6 +76,8 @@ class TrackingService:
         self.candidate_provider = candidate_provider or DetectionCandidateProvider(
             db, window_seconds=self.lifecycle_config.late_detection_window_seconds
         )
+        self.threat_service = ThreatAssessmentService(db)
+        self.alert_service = AlertService(db)
 
     def process_detection(self, detection: Detection) -> TrackingResult:
         """Process a single persisted detection through gating, scoring, assignment, and persistence."""
@@ -124,12 +136,6 @@ class TrackingService:
             evaluated_candidates.append((cand, gate_res, score_res))
 
         # 4. Deterministic Tie Breaking
-        # Ordering:
-        # 1. highest score (-score)
-        # 2. smallest horizontal distance
-        # 3. smallest absolute time delta
-        # 4. oldest first_seen_at
-        # 5. lexical track UUID
         if evaluated_candidates:
             evaluated_candidates.sort(
                 key=lambda item: (
@@ -211,8 +217,17 @@ class TrackingService:
                 self.db.add(history_entry)
                 self.db.add(association_entry)
                 self.db.flush()
+
+                # Stage F4: Compute initial track quality & threat assessment
+                quality = compute_track_quality(self.db, track, now=now)
+                threat_eval = self.threat_service.evaluate_track(track, quality, now=now)
+                breach_alerts = evaluate_geofence_breach_alerts(
+                    track, threat_eval.geofence_results, threat_factors=threat_eval.factors
+                )
+                if breach_alerts:
+                    self.alert_service.process_candidates(breach_alerts, now=now)
+                self.db.flush()
         except IntegrityError:
-            # Handle race condition on duplicate detection processing
             existing_assoc = self.db.scalar(
                 select(TrackAssociation).where(
                     TrackAssociation.detection_id == detection.id
@@ -279,6 +294,8 @@ class TrackingService:
         candidate_count: int,
         now: datetime,
     ) -> TrackingResult:
+        prev_state = track.state
+
         # Check if sensor is contributing for the first time
         existing_sensor_assoc = self.db.scalar(
             select(TrackAssociation.id).where(
@@ -289,32 +306,32 @@ class TrackingService:
         if existing_sensor_assoc is None:
             track.source_count += 1
 
-        # Only advance position and last_seen_at if detection is newer or equal
+        # Stage F4: Multi-sensor kinematic consensus
+        fused = fuse_kinematics(track, detection)
         if detection.timestamp >= track.last_seen_at:
-            track.latitude = detection.latitude
-            track.longitude = detection.longitude
-            if detection.altitude is not None:
-                track.altitude = detection.altitude
-            if detection.velocity is not None:
-                track.velocity = detection.velocity
-            if detection.heading is not None:
-                track.heading = detection.heading
+            track.latitude = fused.latitude
+            track.longitude = fused.longitude
+            if fused.altitude is not None:
+                track.altitude = fused.altitude
+            if fused.velocity is not None:
+                track.velocity = fused.velocity
+            if fused.heading is not None:
+                track.heading = fused.heading
             track.last_seen_at = detection.timestamp
 
         # Deterministic confidence smoothing
         track.confidence = round(0.7 * track.confidence + 0.3 * detection.confidence, 6)
 
-        # Preserve first non-null classification
-        if track.classification is None and detection.classification is not None:
-            track.classification = detection.classification
+        # Stage F4: Multi-source classification reconciliation
+        reconciliation = reconcile_classification(self.db, track, latest_detection=detection)
+        if reconciliation.reconciled_classification is not None:
+            track.classification = reconciliation.reconciled_classification
 
         # Lifecycle state updates
         if track.state == TrackState.NEW:
-            # Count qualifying associations within confirmation window from first_seen_at
             window_end = track.first_seen_at + timedelta(
                 seconds=self.lifecycle_config.confirmation_window_seconds
             )
-            # Count existing associations within window
             assoc_count = (
                 self.db.scalar(
                     select(func.count(TrackAssociation.id)).where(
@@ -325,8 +342,6 @@ class TrackingService:
                 )
                 or 0
             )
-            # Total qualifying detections = existing associations + 1 (the current detection)
-            # (Note: the initial creation detection was sequence 1 / association 1)
             total_qualifying = assoc_count + 1
             if (
                 total_qualifying >= self.lifecycle_config.confirmation_count
@@ -334,7 +349,6 @@ class TrackingService:
             ):
                 track.state = TrackState.ACTIVE
         elif track.state == TrackState.STALE:
-            # Coasting track reconfirmed upon valid associated detection
             track.state = TrackState.ACTIVE
 
         track.updated_at = now
@@ -387,6 +401,32 @@ class TrackingService:
             with self.db.begin_nested():
                 self.db.add(history_entry)
                 self.db.add(association_entry)
+                self.db.flush()
+
+                # Stage F4: Compute track quality, threat assessment, and operational alerts
+                quality = compute_track_quality(
+                    self.db, track, latest_distance_meters=gate_res.horizontal_distance, now=now
+                )
+                threat_eval = self.threat_service.evaluate_track(track, quality, now=now)
+
+                alert_candidates = []
+                det_alert = evaluate_detection_alert(
+                    track, previous_state=prev_state, threat_factors=threat_eval.factors
+                )
+                if det_alert:
+                    alert_candidates.append(det_alert)
+
+                breach_alerts = evaluate_geofence_breach_alerts(
+                    track, threat_eval.geofence_results, threat_factors=threat_eval.factors
+                )
+                alert_candidates.extend(breach_alerts)
+
+                quality_alert = evaluate_data_quality_alert(track, quality)
+                if quality_alert:
+                    alert_candidates.append(quality_alert)
+
+                if alert_candidates:
+                    self.alert_service.process_candidates(alert_candidates, now=now)
                 self.db.flush()
         except IntegrityError:
             existing_assoc = self.db.scalar(

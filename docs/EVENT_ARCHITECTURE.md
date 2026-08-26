@@ -142,3 +142,8 @@ detection telemetry is not written as an audit event.
 Stage F3 defines the in-process `DetectionAssociated` operational event contract
 emitted upon association or new track creation. Stage E audit infrastructure
 remains separate and is not invoked for routine telemetry association.
+
+Stage F4 defines frozen dataclass operational event contracts:
+- `ThreatAssessed`: in-process event emitted upon track threat evaluation (`track_id`, `score`, `level`, `factors`, `timestamp`).
+- `AlertRaised`: in-process event emitted when an operational alert candidate is accepted and persisted (`alert_id`, `type`, `severity`, `track_id`, `sensor_id`, `reason`, `timestamp`).
+Neither event creates `AuditEvent` records, preserving strict isolation between the security audit trail and high-rate operational telemetry.

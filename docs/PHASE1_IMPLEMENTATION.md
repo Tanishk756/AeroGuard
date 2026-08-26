@@ -29,8 +29,11 @@ the RBAC management API foundation. Stage E adds local append-only audit
 events, transaction-aware security event recording, and the read-only audit API.
 Stage F1 then adds operational persistence, Stage F2 adds sensor
 abstraction and validated single-detection ingestion without tracking logic,
-and Stage F3 delivers detection association, deterministic track lifecycle
-management, and read-only track query endpoints.
+Stage F3 delivers detection association, deterministic track lifecycle
+management, and read-only track query endpoints, and Stage F4 delivers
+multi-sensor kinematic fusion, track quality scoring, 2D/3D geofencing,
+deterministic operational threat prioritization, alert generation/deduplication,
+and read-only intelligence query APIs.
 
 ## Windows commands
 

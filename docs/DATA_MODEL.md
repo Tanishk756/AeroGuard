@@ -204,6 +204,13 @@ Key attributes:
 - reasons
 - status
 
+Stage F4 uses the persisted `threat_assessments` table to store deterministic
+operational threat priority scores (0..100), threat levels (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`),
+and structured explainable JSON factor breakdowns. Records are upserted per track.
+Alerts are persisted in `alerts` with server-side deduplication against active `OPEN`
+or `ACKNOWLEDGED` alerts to prevent alert storming. Geofences are evaluated from `geofences`.
+Routine operational telemetry, threat evaluations, and alerts do not generate `audit_events`.
+
 Relationships:
 
 - may reference track, scenario, or incident data
