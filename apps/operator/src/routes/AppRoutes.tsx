@@ -3,9 +3,12 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { AlertsPage } from '../pages/AlertsPage';
 import { AnalyticsPage } from '../pages/AnalyticsPage';
+import { AuditLogPage } from '../pages/AuditLogPage';
+import { DiagnosticsPage } from '../pages/DiagnosticsPage';
 import { HistoryPage } from '../pages/HistoryPage';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
+import { RbacPage } from '../pages/RbacPage';
 import { ReplayPage } from '../pages/ReplayPage';
 import { ScenariosPage } from '../pages/ScenariosPage';
 import { SensorsPage } from '../pages/SensorsPage';
@@ -91,6 +94,30 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute requiredAnyPermissions={['sensors.read', 'tracks.read', 'alerts.read', 'threats.read']}>
               <AnalyticsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="audit"
+          element={
+            <ProtectedRoute requiredPermission="audit.read">
+              <AuditLogPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="rbac"
+          element={
+            <ProtectedRoute requiredAnyPermissions={['roles.read', 'permissions.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.assign']}>
+              <RbacPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="diagnostics"
+          element={
+            <ProtectedRoute requiredPermission="system.read">
+              <DiagnosticsPage />
             </ProtectedRoute>
           }
         />

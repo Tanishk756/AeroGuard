@@ -39,7 +39,8 @@ observations into the live operational pipeline, Stage F6 delivers
 the historical operations, unified timeline aggregation, descriptive SQL analytics,
 and deterministic virtual-clock replay and comparison subsystem, Stage UI1
 delivers the Operator Console frontend foundation, Stage UI2 delivers the
-Operational Map & Mission Workspace, and Stage UI3 delivers Mission Operations & Interaction.
+Operational Map & Mission Workspace, Stage UI3 delivers Mission Operations & Interaction,
+and Stage UI4 delivers Mission Governance, Security Audit & Administrative Operations.
 
 ## Windows commands
 

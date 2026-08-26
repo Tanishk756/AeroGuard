@@ -10,3 +10,5 @@ export * from './common';
 export * from './geofence';
 export * from './workspace';
 export * from './scenario';
+export * from './audit';
+export * from './rbac';

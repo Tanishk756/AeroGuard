@@ -72,6 +72,27 @@ export const AppSidebar: React.FC = () => {
     },
   ];
 
+  const governanceNavItems: NavItemConfig[] = [
+    {
+      path: '/app/audit',
+      label: 'Security Audit',
+      icon: '🔒',
+      requiredPermission: 'audit.read',
+    },
+    {
+      path: '/app/rbac',
+      label: 'RBAC Roles',
+      icon: '🛡',
+      requiredAnyPermissions: ['roles.read', 'permissions.read', 'roles.create', 'roles.update', 'roles.delete', 'roles.assign'],
+    },
+    {
+      path: '/app/diagnostics',
+      label: 'Diagnostics',
+      icon: '🩺',
+      requiredPermission: 'system.read',
+    },
+  ];
+
   const filterVisible = (item: NavItemConfig) => {
     if (item.requiredPermission && !hasPermission(item.requiredPermission)) {
       return false;
@@ -91,8 +112,9 @@ export const AppSidebar: React.FC = () => {
         display: 'flex',
         flexDirection: 'column',
         padding: 'var(--space-md) var(--space-xs)',
-        gap: 'var(--space-lg)',
+        gap: 'var(--space-md)',
         userSelect: 'none',
+        overflowY: 'auto',
       }}
     >
       {/* Primary Operations */}
@@ -170,6 +192,46 @@ export const AppSidebar: React.FC = () => {
           ))}
         </nav>
       </div>
+
+      {/* Governance & Administration */}
+      {governanceNavItems.some(filterVisible) && (
+        <div>
+          <div
+            className="uppercase-tracking text-muted"
+            style={{ padding: '0 var(--space-sm) var(--space-xs)', fontSize: '10px' }}
+          >
+            Governance & Admin
+          </div>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {governanceNavItems.filter(filterVisible).map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `tactical-nav-link ${isActive ? 'active' : ''}`
+                }
+                style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px var(--space-sm)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: isActive ? 'var(--color-accent)' : 'var(--text-secondary)',
+                  backgroundColor: isActive ? 'var(--bg-surface-active)' : 'transparent',
+                  textDecoration: 'none',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: isActive ? 600 : 400,
+                  borderLeft: isActive ? '3px solid var(--color-accent)' : '3px solid transparent',
+                  transition: 'all var(--transition-fast)',
+                })}
+              >
+                <span style={{ fontSize: '14px', width: '16px', textAlign: 'center' }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+        </div>
+      )}
     </aside>
   );
 };
