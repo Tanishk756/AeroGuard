@@ -1,23 +1,27 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useOperationalData } from '../../hooks/useOperationalData';
 import { useTrackHistory } from '../../hooks/useTrackHistory';
 import { useWorkspaceSelection } from '../../hooks/useWorkspaceSelection';
-import { TimelineItem, Track, WorkspaceFilterState } from '../../types';
+import { EntityType, TimelineItem, Track, WorkspaceFilterState } from '../../types';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { WorkspaceInspector } from '../inspector/WorkspaceInspector';
 import { TacticalMap } from '../map/TacticalMap';
 import { AlertPanel } from './AlertPanel';
 import { GeofencePanel } from './GeofencePanel';
+import { ScenarioPanel } from './ScenarioPanel';
 import { SensorPanel } from './SensorPanel';
 import { ThreatPanel } from './ThreatPanel';
 import { TimelinePanel } from './TimelinePanel';
 import { TrackPanel } from './TrackPanel';
 import { WorkspaceFilterBar } from './WorkspaceFilterBar';
 
-type RegistryTab = 'tracks' | 'alerts' | 'threats' | 'sensors' | 'geofences' | 'timeline';
+type RegistryTab = 'tracks' | 'alerts' | 'threats' | 'sensors' | 'geofences' | 'timeline' | 'scenarios';
 
 export const OperationalWorkspace: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const {
     tracks,
     sensors,
@@ -45,6 +49,7 @@ export const OperationalWorkspace: React.FC = () => {
     selectGeofence,
     selectAlert,
     selectThreat,
+    selectEntity,
     clearSelection,
   } = useWorkspaceSelection();
 
@@ -52,8 +57,75 @@ export const OperationalWorkspace: React.FC = () => {
   const { historyPoints: selectedTrackHistory, isLoading: isHistoryLoading } =
     useTrackHistory(selectedTrackId);
 
-  const [activeTab, setActiveTab] = useState<RegistryTab>('tracks');
+  // Initialize active tab from URL query param if present
+  const initialTab = (searchParams.get('tab') as RegistryTab) || 'tracks';
+  const [activeTab, setActiveTab] = useState<RegistryTab>(initialTab);
   const [isInspectorOpen, setIsInspectorOpen] = useState<boolean>(true);
+
+  // Synchronize initial URL query parameters for entity selection
+  useEffect(() => {
+    const entityType = searchParams.get('entity') as EntityType | null;
+    const entityId = searchParams.get('id');
+    if (entityType && entityId && !selectedEntity) {
+      selectEntity(entityType, entityId);
+    }
+  }, [searchParams, selectedEntity, selectEntity]);
+
+  // Update URL search parameters when tab or selection changes
+  const handleTabChange = (tab: RegistryTab) => {
+    setActiveTab(tab);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tab);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleSelectTrack = (trackId: string) => {
+    selectTrack(trackId);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('entity', 'track');
+    newParams.set('id', trackId);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleSelectSensor = (sensorId: string) => {
+    selectSensor(sensorId);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('entity', 'sensor');
+    newParams.set('id', sensorId);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleSelectGeofence = (geofenceId: string) => {
+    selectGeofence(geofenceId);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('entity', 'geofence');
+    newParams.set('id', geofenceId);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleSelectAlert = (alertId: string, trackId?: string | null) => {
+    selectAlert(alertId, trackId);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('entity', trackId ? 'track' : 'alert');
+    newParams.set('id', trackId || alertId);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleSelectThreat = (threatId: string, trackId?: string | null) => {
+    selectThreat(threatId, trackId);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('entity', trackId ? 'track' : 'threat');
+    newParams.set('id', trackId || threatId);
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleClearSelection = () => {
+    clearSelection();
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('entity');
+    newParams.delete('id');
+    setSearchParams(newParams, { replace: true });
+  };
 
   // Workspace filtering state
   const [filters, setFilters] = useState<WorkspaceFilterState>({
@@ -146,14 +218,14 @@ export const OperationalWorkspace: React.FC = () => {
 
   const handleTimelineSelect = (item: TimelineItem) => {
     if (item.track_id) {
-      selectTrack(item.track_id);
+      handleSelectTrack(item.track_id);
     } else if (item.entity_id) {
       const isTrack = tracks.some((t) => t.id === item.entity_id);
       const isSensor = sensors.some((s) => s.id === item.entity_id);
       const isGeofence = geofences.some((g) => g.id === item.entity_id);
-      if (isTrack) selectTrack(item.entity_id);
-      else if (isSensor) selectSensor(item.entity_id);
-      else if (isGeofence) selectGeofence(item.entity_id);
+      if (isTrack) handleSelectTrack(item.entity_id);
+      else if (isSensor) handleSelectSensor(item.entity_id);
+      else if (isGeofence) handleSelectGeofence(item.entity_id);
     }
   };
 
@@ -321,10 +393,10 @@ export const OperationalWorkspace: React.FC = () => {
             selectedTrackId={selectedTrackId}
             selectedSensorId={selectedSensorId}
             selectedGeofenceId={selectedGeofenceId}
-            onSelectTrack={selectTrack}
-            onSelectSensor={selectSensor}
-            onSelectGeofence={selectGeofence}
-            onClearSelection={clearSelection}
+            onSelectTrack={handleSelectTrack}
+            onSelectSensor={handleSelectSensor}
+            onSelectGeofence={handleSelectGeofence}
+            onClearSelection={handleClearSelection}
           />
         </div>
 
@@ -340,9 +412,10 @@ export const OperationalWorkspace: React.FC = () => {
               threats={threats}
               selectedTrackHistory={selectedTrackHistory}
               isHistoryLoading={isHistoryLoading}
-              onClearSelection={clearSelection}
-              onSelectTrack={selectTrack}
-              onSelectAlert={selectAlert}
+              onClearSelection={handleClearSelection}
+              onSelectTrack={handleSelectTrack}
+              onSelectAlert={handleSelectAlert}
+              onSelectSensor={handleSelectSensor}
             />
           </div>
         )}
@@ -351,10 +424,10 @@ export const OperationalWorkspace: React.FC = () => {
       {/* Bottom Tabbed Operational Registry */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
         {/* Registry Tab Navigation */}
-        <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--border-medium)', paddingBottom: '2px' }}>
+        <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--border-medium)', paddingBottom: '2px', flexWrap: 'wrap' }}>
           <button
             className="tactical-btn"
-            onClick={() => setActiveTab('tracks')}
+            onClick={() => handleTabChange('tracks')}
             style={{
               backgroundColor: activeTab === 'tracks' ? 'var(--bg-surface-active)' : 'transparent',
               color: activeTab === 'tracks' ? 'var(--color-accent)' : 'var(--text-secondary)',
@@ -367,7 +440,7 @@ export const OperationalWorkspace: React.FC = () => {
           </button>
           <button
             className="tactical-btn"
-            onClick={() => setActiveTab('alerts')}
+            onClick={() => handleTabChange('alerts')}
             style={{
               backgroundColor: activeTab === 'alerts' ? 'var(--bg-surface-active)' : 'transparent',
               color: activeTab === 'alerts' ? 'var(--color-accent)' : 'var(--text-secondary)',
@@ -380,7 +453,7 @@ export const OperationalWorkspace: React.FC = () => {
           </button>
           <button
             className="tactical-btn"
-            onClick={() => setActiveTab('threats')}
+            onClick={() => handleTabChange('threats')}
             style={{
               backgroundColor: activeTab === 'threats' ? 'var(--bg-surface-active)' : 'transparent',
               color: activeTab === 'threats' ? 'var(--color-accent)' : 'var(--text-secondary)',
@@ -393,7 +466,7 @@ export const OperationalWorkspace: React.FC = () => {
           </button>
           <button
             className="tactical-btn"
-            onClick={() => setActiveTab('sensors')}
+            onClick={() => handleTabChange('sensors')}
             style={{
               backgroundColor: activeTab === 'sensors' ? 'var(--bg-surface-active)' : 'transparent',
               color: activeTab === 'sensors' ? 'var(--color-accent)' : 'var(--text-secondary)',
@@ -406,7 +479,7 @@ export const OperationalWorkspace: React.FC = () => {
           </button>
           <button
             className="tactical-btn"
-            onClick={() => setActiveTab('geofences')}
+            onClick={() => handleTabChange('geofences')}
             style={{
               backgroundColor: activeTab === 'geofences' ? 'var(--bg-surface-active)' : 'transparent',
               color: activeTab === 'geofences' ? 'var(--color-accent)' : 'var(--text-secondary)',
@@ -419,7 +492,7 @@ export const OperationalWorkspace: React.FC = () => {
           </button>
           <button
             className="tactical-btn"
-            onClick={() => setActiveTab('timeline')}
+            onClick={() => handleTabChange('timeline')}
             style={{
               backgroundColor: activeTab === 'timeline' ? 'var(--bg-surface-active)' : 'transparent',
               color: activeTab === 'timeline' ? 'var(--color-accent)' : 'var(--text-secondary)',
@@ -430,6 +503,19 @@ export const OperationalWorkspace: React.FC = () => {
           >
             Timeline ({timeline.length})
           </button>
+          <button
+            className="tactical-btn"
+            onClick={() => handleTabChange('scenarios')}
+            style={{
+              backgroundColor: activeTab === 'scenarios' ? 'var(--bg-surface-active)' : 'transparent',
+              color: activeTab === 'scenarios' ? 'var(--color-accent)' : 'var(--text-secondary)',
+              borderColor: activeTab === 'scenarios' ? 'var(--color-accent)' : 'transparent',
+              padding: '5px 10px',
+              fontSize: '11px',
+            }}
+          >
+            ⚙ Scenarios (F5)
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -437,7 +523,7 @@ export const OperationalWorkspace: React.FC = () => {
           <TrackPanel
             tracks={filteredTracks}
             selectedTrackId={selectedTrackId}
-            onSelectTrack={selectTrack}
+            onSelectTrack={handleSelectTrack}
             isLoading={isLoading}
             error={error}
             onRefresh={refresh}
@@ -448,7 +534,7 @@ export const OperationalWorkspace: React.FC = () => {
           <AlertPanel
             alerts={filteredAlerts}
             selectedAlertId={selectedAlertId}
-            onSelectAlert={selectAlert}
+            onSelectAlert={handleSelectAlert}
             isLoading={isLoading}
             error={error}
             onRefresh={refresh}
@@ -459,7 +545,7 @@ export const OperationalWorkspace: React.FC = () => {
           <ThreatPanel
             threats={filteredThreats}
             selectedThreatId={selectedThreatId}
-            onSelectThreat={selectThreat}
+            onSelectThreat={handleSelectThreat}
             isLoading={isLoading}
             error={error}
             onRefresh={refresh}
@@ -470,7 +556,7 @@ export const OperationalWorkspace: React.FC = () => {
           <SensorPanel
             sensors={filteredSensors}
             selectedSensorId={selectedSensorId}
-            onSelectSensor={selectSensor}
+            onSelectSensor={handleSelectSensor}
             isLoading={isLoading}
             error={error}
             onRefresh={refresh}
@@ -481,7 +567,7 @@ export const OperationalWorkspace: React.FC = () => {
           <GeofencePanel
             geofences={filteredGeofences}
             selectedGeofenceId={selectedGeofenceId}
-            onSelectGeofence={selectGeofence}
+            onSelectGeofence={handleSelectGeofence}
             isLoading={isLoading}
             error={error}
             onRefresh={refresh}
@@ -496,6 +582,10 @@ export const OperationalWorkspace: React.FC = () => {
             error={error}
             onRefresh={refresh}
           />
+        )}
+
+        {activeTab === 'scenarios' && (
+          <ScenarioPanel />
         )}
       </div>
     </div>

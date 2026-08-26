@@ -9,3 +9,4 @@ export * from './history';
 export * from './analytics';
 export * from './replay';
 export * from './geofences';
+export * from './scenarios';

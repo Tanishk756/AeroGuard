@@ -239,3 +239,10 @@ zoom, fit-all bounds, and coordinate readout; multi-entity selection synchroniza
 registry tabs, detail inspectors, and timeline feeds; historical trajectory path and breadcrumb
 visualization; valid sensor range coverage circles; geofence volume boundaries; and restrained
 REST-backed stale-while-refresh data staging.
+
+Stage UI3 implements Mission Operations & Interaction. It delivers a contextual multi-entity
+inspector hub supporting tracks, alerts, threats, sensors, and geofences; F5 scenario simulation
+lifecycle execution controls (prepare, start, pause, resume, step, stop, reset) and real-time virtual
+clock monitoring; F6 historical replay spatial map visualization and comparison analysis; global
+command palette modal (Ctrl+K / /) with keyboard acceleration; URL deep-linking synchronization;
+enhanced timeline filtering and time window presets; and robust operational UX hardening.

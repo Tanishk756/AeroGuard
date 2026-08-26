@@ -7,6 +7,7 @@ import { HistoryPage } from '../pages/HistoryPage';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { ReplayPage } from '../pages/ReplayPage';
+import { ScenariosPage } from '../pages/ScenariosPage';
 import { SensorsPage } from '../pages/SensorsPage';
 import { ThreatsPage } from '../pages/ThreatsPage';
 import { TracksPage } from '../pages/TracksPage';
@@ -66,6 +67,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute requiredAnyPermissions={['sensors.read', 'tracks.read', 'alerts.read', 'threats.read']}>
               <HistoryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="scenarios"
+          element={
+            <ProtectedRoute requiredAnyPermissions={['scenarios.read', 'scenarios.run', 'scenarios.create']}>
+              <ScenariosPage />
             </ProtectedRoute>
           }
         />

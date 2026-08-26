@@ -27,3 +27,5 @@ export async function compareReplay(req: ReplayComparisonRequest): Promise<Repla
     body: JSON.stringify(req),
   });
 }
+
+export const compareReplayHistories = compareReplay;

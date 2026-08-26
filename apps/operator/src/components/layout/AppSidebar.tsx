@@ -43,6 +43,12 @@ export const AppSidebar: React.FC = () => {
       icon: '⚡',
       requiredPermission: 'threats.read',
     },
+    {
+      path: '/app/scenarios',
+      label: 'Scenarios',
+      icon: '⚙',
+      requiredAnyPermissions: ['scenarios.read', 'scenarios.run', 'scenarios.create'],
+    },
   ];
 
   const analysisNavItems: NavItemConfig[] = [

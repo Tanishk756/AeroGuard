@@ -2,8 +2,10 @@ import React from 'react';
 import { Alert, Geofence, SelectedEntity, Sensor, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
 import { Card } from '../common/Card';
 import { EmptyState } from '../common/EmptyState';
+import { AlertInspector } from './AlertInspector';
 import { GeofenceInspector } from './GeofenceInspector';
 import { SensorInspector } from './SensorInspector';
+import { ThreatInspector } from './ThreatInspector';
 import { TrackInspector } from './TrackInspector';
 
 interface WorkspaceInspectorProps {
@@ -18,6 +20,7 @@ interface WorkspaceInspectorProps {
   onClearSelection: () => void;
   onSelectTrack: (trackId: string) => void;
   onSelectAlert: (alertId: string) => void;
+  onSelectSensor?: (sensorId: string) => void;
 }
 
 export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
@@ -32,6 +35,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
   onClearSelection,
   onSelectTrack,
   onSelectAlert,
+  onSelectSensor,
 }) => {
   if (!selectedEntity) {
     return (
@@ -42,7 +46,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
       >
         <EmptyState
           title="No Object Selected"
-          description="Select any track marker, sensor asset, geofence, or registry row to inspect telemetry, kinematics, and threat breakdown."
+          description="Select any track marker, sensor asset, geofence boundary, alert, or threat triage row to inspect telemetry, kinematics, and threat breakdown."
           icon="🔍"
         />
       </Card>
@@ -71,6 +75,53 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
         historyPoints={selectedTrackHistory}
         isHistoryLoading={isHistoryLoading}
         onClose={onClearSelection}
+        onSelectAlert={onSelectAlert}
+      />
+    );
+  }
+
+  if (selectedEntity.type === 'alert') {
+    const alert = alerts.find((a) => a.id === selectedEntity.id);
+    if (!alert) {
+      return (
+        <Card title="Alert Inspection">
+          <EmptyState title="Alert Not Found" description={`Alert ${selectedEntity.id} was not found in operational feed.`} />
+        </Card>
+      );
+    }
+
+    return (
+      <AlertInspector
+        alert={alert}
+        onClose={onClearSelection}
+        onSelectTrack={onSelectTrack}
+        onSelectSensor={onSelectSensor}
+      />
+    );
+  }
+
+  if (selectedEntity.type === 'threat') {
+    // threat id might be the threat.id or threat.track_id
+    const threat = threats.find((th) => th.id === selectedEntity.id || th.track_id === selectedEntity.id);
+    if (!threat) {
+      return (
+        <Card title="Threat Inspection">
+          <EmptyState title="Threat Assessment Not Found" description={`Threat assessment for ${selectedEntity.id} is not available.`} />
+        </Card>
+      );
+    }
+
+    const track = tracks.find((t) => t.id === threat.track_id) || null;
+    const relatedAlerts = alerts.filter((a) => a.track_id === threat.track_id);
+
+    return (
+      <ThreatInspector
+        threat={threat}
+        track={track}
+        relatedAlerts={relatedAlerts}
+        geofences={geofences}
+        onClose={onClearSelection}
+        onSelectTrack={onSelectTrack}
         onSelectAlert={onSelectAlert}
       />
     );

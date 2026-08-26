@@ -1,22 +1,42 @@
-import React, { useState } from 'react';
-import { queryReplaySnapshot, stepReplay } from '../api/replay';
+import React, { useEffect, useMemo, useState } from 'react';
+import { getGeofences } from '../api/geofences';
+import { compareReplayHistories, queryReplaySnapshot, stepReplay } from '../api/replay';
+import { getSensors } from '../api/sensors';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { LoadingState } from '../components/common/LoadingState';
 import { StatusBadge } from '../components/common/StatusBadge';
-import { ReplayRequest, ReplaySnapshot } from '../types';
+import { TacticalMap } from '../components/map/TacticalMap';
+import { Geofence, ReplayComparisonReport, ReplayRequest, ReplaySnapshot, Sensor, Track } from '../types';
 
 export const ReplayPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'replay' | 'compare'>('replay');
   const [startTime, setStartTime] = useState<string>('2026-08-26T00:00:00Z');
   const [endTime, setEndTime] = useState<string>('2026-08-26T23:59:59Z');
   const [stepInterval, setStepInterval] = useState<number>(5.0);
 
   const [snapshot, setSnapshot] = useState<ReplaySnapshot | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [sensors, setSensors] = useState<Sensor[]>([]);
+  const [geofences, setGeofences] = useState<Geofence[]>([]);
+
+  // Comparison mode state
+  const [compareStartTime2, setCompareStartTime2] = useState<string>('2026-08-26T00:00:00Z');
+  const [compareEndTime2, setCompareEndTime2] = useState<string>('2026-08-26T23:59:59Z');
+  const [compareReport, setCompareReport] = useState<ReplayComparisonReport | null>(null);
+  const [isComparing, setIsComparing] = useState<boolean>(false);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load sensors and geofences for spatial context
+  useEffect(() => {
+    getSensors().then((res) => setSensors(res.items || [])).catch(() => setSensors([]));
+    getGeofences().then((res) => setGeofences(res.items || [])).catch(() => setGeofences([]));
+  }, []);
 
   const getActiveRequest = (): ReplayRequest => ({
     start_time: startTime,
@@ -32,6 +52,7 @@ export const ReplayPage: React.FC = () => {
       const snap = await queryReplaySnapshot(getActiveRequest());
       setSnapshot(snap);
       setCurrentStep(0);
+      setSelectedTrackId(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Replay query failed');
     } finally {
@@ -39,7 +60,7 @@ export const ReplayPage: React.FC = () => {
     }
   };
 
-  const handleStepForward = async () => {
+  const handleStep = async (steps: number) => {
     if (!snapshot) return;
     setIsLoading(true);
     setError(null);
@@ -47,7 +68,7 @@ export const ReplayPage: React.FC = () => {
       const snap = await stepReplay({
         request: getActiveRequest(),
         current_step: currentStep,
-        steps_to_advance: 1,
+        steps_to_advance: steps,
       });
       setSnapshot(snap);
       setCurrentStep(snap.step_index);
@@ -58,188 +79,393 @@ export const ReplayPage: React.FC = () => {
     }
   };
 
+  const handleCompare = async () => {
+    setIsComparing(true);
+    setError(null);
+    try {
+      const report = await compareReplayHistories({
+        request_1: {
+          start_time: startTime,
+          end_time: endTime,
+          step_interval_seconds: stepInterval,
+        },
+        request_2: {
+          start_time: compareStartTime2,
+          end_time: compareEndTime2,
+          step_interval_seconds: stepInterval,
+        },
+      });
+      setCompareReport(report);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Historical comparison failed');
+    } finally {
+      setIsComparing(false);
+    }
+  };
+
+  // Map ReplayTrackState[] into Track[] for TacticalMap presentation
+  const replayTracks = useMemo<Track[]>(() => {
+    if (!snapshot) return [];
+    return snapshot.active_tracks.map((t) => ({
+      id: t.track_id,
+      state: t.state,
+      latitude: t.latitude,
+      longitude: t.longitude,
+      altitude: t.altitude ?? undefined,
+      velocity: t.velocity ?? undefined,
+      heading: t.heading ?? undefined,
+      confidence: t.confidence,
+      classification: t.classification,
+      source_count: t.source_count,
+      last_seen_at: snapshot.replay_timestamp,
+      first_seen_at: snapshot.replay_timestamp,
+      created_at: snapshot.replay_timestamp,
+      updated_at: snapshot.replay_timestamp,
+    }));
+  }, [snapshot]);
+
+  const selectedTrack = replayTracks.find((t) => t.id === selectedTrackId);
+
   return (
     <div style={{ padding: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', flex: 1 }}>
       {/* Header */}
-      <div>
-        <h1 style={{ fontSize: 'var(--text-lg)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-          Deterministic Historical Replay (F6 API Backend)
-        </h1>
-        <p className="text-muted text-xs" style={{ margin: '2px 0 0' }}>
-          Stateless virtual clock state reconstruction at discrete timestamp T. Zero simulation writes or DB mutation.
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '8px', height: '8px', backgroundColor: 'var(--status-info)', borderRadius: '1px' }} />
+            <h1 style={{ fontSize: 'var(--text-lg)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+              Deterministic Historical Replay (F6 Engine)
+            </h1>
+          </div>
+          <p className="text-muted text-xs" style={{ margin: '2px 0 0' }}>
+            Stateless virtual clock state reconstruction and scenario comparison. Replay mode is strictly read-only and does not mutate live operational memory.
+          </p>
+        </div>
+
+        {/* View Mode Tabs */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <Button
+            variant={activeTab === 'replay' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('replay')}
+            style={{ padding: '4px 10px', fontSize: '11px' }}
+          >
+            Replay Map View
+          </Button>
+          <Button
+            variant={activeTab === 'compare' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('compare')}
+            style={{ padding: '4px 10px', fontSize: '11px' }}
+          >
+            Historical Run Comparison
+          </Button>
+        </div>
       </div>
 
       {error && <ErrorState message={error} />}
 
-      {/* Control Panel */}
-      <Card title="Replay Configuration & Controls">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-md)', alignItems: 'flex-end' }}>
-          <div>
-            <label className="uppercase-tracking" style={{ display: 'block', marginBottom: '4px' }}>Start Time (UTC)</label>
-            <input
-              type="text"
-              className="tactical-input font-mono"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              placeholder="YYYY-MM-DDTHH:MM:SSZ"
-            />
-          </div>
+      {activeTab === 'replay' ? (
+        <>
+          {/* Replay Controls Card */}
+          <Card title="Virtual Clock & Stepping Controls">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-md)', alignItems: 'flex-end' }}>
+              <div>
+                <label className="uppercase-tracking" style={{ display: 'block', marginBottom: '4px' }}>Start Time (UTC)</label>
+                <input
+                  type="text"
+                  className="tactical-input font-mono"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  placeholder="YYYY-MM-DDTHH:MM:SSZ"
+                />
+              </div>
 
-          <div>
-            <label className="uppercase-tracking" style={{ display: 'block', marginBottom: '4px' }}>End Time (UTC)</label>
-            <input
-              type="text"
-              className="tactical-input font-mono"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              placeholder="YYYY-MM-DDTHH:MM:SSZ"
-            />
-          </div>
+              <div>
+                <label className="uppercase-tracking" style={{ display: 'block', marginBottom: '4px' }}>End Time (UTC)</label>
+                <input
+                  type="text"
+                  className="tactical-input font-mono"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  placeholder="YYYY-MM-DDTHH:MM:SSZ"
+                />
+              </div>
 
-          <div>
-            <label className="uppercase-tracking" style={{ display: 'block', marginBottom: '4px' }}>Step Interval (s)</label>
-            <input
-              type="number"
-              className="tactical-input font-mono"
-              value={stepInterval}
-              onChange={(e) => setStepInterval(Number(e.target.value))}
-              min={0.1}
-              step={1}
-            />
-          </div>
+              <div>
+                <label className="uppercase-tracking" style={{ display: 'block', marginBottom: '4px' }}>Step Δt (seconds)</label>
+                <input
+                  type="number"
+                  className="tactical-input font-mono"
+                  value={stepInterval}
+                  onChange={(e) => setStepInterval(Number(e.target.value))}
+                  min={0.1}
+                  step={1}
+                />
+              </div>
 
-          <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-            <Button variant="primary" size="sm" onClick={handleQueryInitialSnapshot} isLoading={isLoading}>
-              Initialize Replay
-            </Button>
-            <Button variant="secondary" size="sm" onClick={handleStepForward} disabled={!snapshot || snapshot.is_complete} isLoading={isLoading}>
-              Step +1 Δt
-            </Button>
-          </div>
-        </div>
-      </Card>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)' }}>
+                <Button variant="primary" size="sm" onClick={handleQueryInitialSnapshot} isLoading={isLoading}>
+                  ▶ Initialize Replay
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleStep(1)}
+                  disabled={!snapshot || snapshot.is_complete || isLoading}
+                  isLoading={isLoading}
+                >
+                  Step +1 Δt
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleStep(5)}
+                  disabled={!snapshot || snapshot.is_complete || isLoading}
+                  isLoading={isLoading}
+                >
+                  Step +5 Δt
+                </Button>
+              </div>
+            </div>
+          </Card>
 
-      {/* Replay State View */}
-      {isLoading && !snapshot ? (
-        <LoadingState message="Reconstructing historical operational state..." />
-      ) : snapshot ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           {/* Virtual Clock Status Bar */}
-          <div
-            style={{
-              padding: 'var(--space-sm) var(--space-md)',
-              backgroundColor: 'var(--bg-surface-elevated)',
-              border: '1px solid var(--border-medium)',
-              borderRadius: 'var(--radius-sm)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: 'var(--space-md)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-              <span className="font-mono text-sm">
-                VIRTUAL TIMESTAMP: <strong style={{ color: 'var(--color-accent)' }}>{snapshot.replay_timestamp}</strong>
-              </span>
-              <span className="font-mono text-xs text-muted">
-                STEP: {snapshot.step_index}
-              </span>
-            </div>
-
-            <div>
-              <StatusBadge status={snapshot.is_complete ? 'RESOLVED' : 'ACTIVE'} label={snapshot.is_complete ? 'COMPLETED' : 'STEPPING'} />
-            </div>
-          </div>
-
-          {/* Reconstructed State Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-            <Card
-              title="Active Tracks at Timestamp T"
-              badge={<span className="font-mono text-xs text-muted">TRACKS: {snapshot.active_tracks.length}</span>}
-              bodyStyle={{ padding: 0 }}
+          {snapshot && (
+            <div
+              style={{
+                padding: 'var(--space-sm) var(--space-md)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-medium)',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 'var(--space-md)',
+              }}
             >
-              {snapshot.active_tracks.length === 0 ? (
-                <EmptyState title="No Active Tracks" description="No tracks were active at this virtual timestamp." />
-              ) : (
-                <div className="tactical-table-wrapper" style={{ maxHeight: '250px' }}>
-                  <table className="tactical-table">
-                    <thead>
-                      <tr>
-                        <th>Track ID</th>
-                        <th>State</th>
-                        <th>Classification</th>
-                        <th>Coordinates</th>
-                        <th>Conf</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {snapshot.active_tracks.map((t) => (
-                        <tr key={t.track_id}>
-                          <td className="font-mono" style={{ fontWeight: 600 }}>{t.track_id}</td>
-                          <td><StatusBadge status={t.state} /></td>
-                          <td className="uppercase-tracking text-xs">{t.classification}</td>
-                          <td className="font-mono text-xs">{t.latitude.toFixed(4)}°, {t.longitude.toFixed(4)}°</td>
-                          <td className="font-mono text-xs">{Math.round(t.confidence * 100)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
-
-            <Card
-              title="Active Alerts & Threats at Timestamp T"
-              badge={
-                <span className="font-mono text-xs text-muted">
-                  ALERTS: {snapshot.active_alerts.length} • THREATS: {snapshot.active_threats.length}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                <span className="font-mono text-sm">
+                  REPLAY VIRTUAL CLOCK: <strong style={{ color: 'var(--color-accent)' }}>{snapshot.replay_timestamp}</strong>
                 </span>
-              }
-              bodyStyle={{ padding: 0 }}
-            >
-              {snapshot.active_alerts.length === 0 && snapshot.active_threats.length === 0 ? (
-                <EmptyState title="No Active Alerts / Threats" description="Zero open alerts or threat assessments at this timestamp." />
-              ) : (
-                <div className="tactical-table-wrapper" style={{ maxHeight: '250px' }}>
-                  <table className="tactical-table">
-                    <thead>
-                      <tr>
-                        <th>Severity / Level</th>
-                        <th>Type / Track</th>
-                        <th>Reason / Score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <span className="font-mono text-xs text-muted">
+                  STEP INDEX: {snapshot.step_index}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                <span className="font-mono text-xs text-muted">ACTIVE TRACKS: {snapshot.active_tracks.length}</span>
+                <StatusBadge
+                  status={snapshot.is_complete ? 'RESOLVED' : 'ACTIVE'}
+                  label={snapshot.is_complete ? 'REPLAY COMPLETED' : 'REPLAY ACTIVE'}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Replay Spatial Map + Inspector Split */}
+          {isLoading && !snapshot ? (
+            <LoadingState message="Reconstructing historical operational state from backend..." />
+          ) : snapshot ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 2fr) minmax(320px, 1fr)', gap: 'var(--space-md)', minHeight: '440px' }}>
+              {/* Tactical Map Viewport for Replay */}
+              <div style={{ height: '100%', minHeight: '440px' }}>
+                <TacticalMap
+                  tracks={replayTracks}
+                  sensors={sensors}
+                  geofences={geofences}
+                  selectedTrackId={selectedTrackId}
+                  onSelectTrack={setSelectedTrackId}
+                  onClearSelection={() => setSelectedTrackId(null)}
+                />
+              </div>
+
+              {/* Reconstructed State Inspector */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', overflowY: 'auto', maxHeight: '540px' }}>
+                {selectedTrack ? (
+                  <Card title={`Replay Track: ${selectedTrack.id}`}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xs)' }}>
+                      <div className="kv-row">
+                        <span className="kv-key">State</span>
+                        <StatusBadge status={selectedTrack.state} />
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-key">Classification</span>
+                        <span className="kv-value uppercase-tracking">{selectedTrack.classification}</span>
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-key">Confidence</span>
+                        <span className="kv-value font-mono">{Math.round(selectedTrack.confidence * 100)}%</span>
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-key">Sensors</span>
+                        <span className="kv-value font-mono">{selectedTrack.source_count}</span>
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-key">Coordinates</span>
+                        <span className="kv-value font-mono text-xs">
+                          {selectedTrack.latitude.toFixed(4)}°, {selectedTrack.longitude.toFixed(4)}°
+                        </span>
+                      </div>
+                      <div className="kv-row">
+                        <span className="kv-key">Velocity</span>
+                        <span className="kv-value font-mono text-xs">
+                          {selectedTrack.velocity != null ? `${selectedTrack.velocity.toFixed(1)} m/s` : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                ) : (
+                  <Card title="Track Inspection">
+                    <EmptyState title="No Track Selected" description="Click any track marker on the replay map or table to inspect historical kinematics." />
+                  </Card>
+                )}
+
+                {/* Active Alerts at Timestamp T */}
+                <Card title="Active Alerts at Timestamp T" badge={<span className="font-mono text-xs text-muted">{snapshot.active_alerts.length}</span>}>
+                  {snapshot.active_alerts.length === 0 ? (
+                    <p className="font-mono text-xs text-muted">Zero alerts active at this virtual timestamp.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {snapshot.active_alerts.map((a) => (
-                        <tr key={a.id}>
-                          <td><StatusBadge status={a.severity} /></td>
-                          <td className="font-mono text-xs">{a.type}</td>
-                          <td>{a.reason}</td>
-                        </tr>
+                        <div
+                          key={a.id}
+                          style={{
+                            padding: '4px 6px',
+                            backgroundColor: 'var(--bg-canvas)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-sm)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '11px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <StatusBadge status={a.severity} />
+                            <span className="font-mono">{a.type}</span>
+                          </div>
+                          <span className="text-muted font-mono text-xs">{a.track_id || '-'}</span>
+                        </div>
                       ))}
+                    </div>
+                  )}
+                </Card>
+
+                {/* Active Threats at Timestamp T */}
+                <Card title="Threat Triage at Timestamp T" badge={<span className="font-mono text-xs text-muted">{snapshot.active_threats.length}</span>}>
+                  {snapshot.active_threats.length === 0 ? (
+                    <p className="font-mono text-xs text-muted">Zero elevated threats active at this virtual timestamp.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {snapshot.active_threats.map((th) => (
-                        <tr key={th.id}>
-                          <td><StatusBadge status={th.level} /></td>
-                          <td className="font-mono text-xs">{th.track_id}</td>
-                          <td className="font-mono text-xs">Score: {th.score.toFixed(1)}</td>
-                        </tr>
+                        <div
+                          key={th.id}
+                          style={{
+                            padding: '4px 6px',
+                            backgroundColor: 'var(--bg-canvas)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-sm)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '11px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <StatusBadge status={th.level} />
+                            <span className="font-mono text-xs">TRK: {th.track_id}</span>
+                          </div>
+                          <span className="font-mono text-xs" style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
+                            {th.score.toFixed(1)}
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </div>
+          ) : (
+            <Card>
+              <EmptyState
+                title="Replay Session Uninitialized"
+                description="Configure a historical start/end time window above and click 'Initialize Replay' to reconstruct past situational awareness on the tactical map."
+              />
             </Card>
-          </div>
-        </div>
+          )}
+        </>
       ) : (
-        <Card>
-          <EmptyState
-            title="Replay Session Uninitialized"
-            description="Configure a valid historical time window and initialize the replay engine to reconstruct past operational awareness."
-          />
-        </Card>
+        /* Comparison Mode */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <Card title="Compare Two Historical Scenario / Replay Runs">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              {/* Run 1 Config */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', padding: 'var(--space-sm)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                <div className="font-mono text-xs uppercase-tracking" style={{ fontWeight: 700, color: 'var(--color-accent)' }}>
+                  RUN 1 SPECIFICATION
+                </div>
+                <div>
+                  <label className="text-muted text-xs">Start Time (UTC)</label>
+                  <input type="text" className="tactical-input font-mono" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-muted text-xs">End Time (UTC)</label>
+                  <input type="text" className="tactical-input font-mono" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                </div>
+              </div>
+
+              {/* Run 2 Config */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', padding: 'var(--space-sm)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                <div className="font-mono text-xs uppercase-tracking" style={{ fontWeight: 700, color: 'var(--color-accent)' }}>
+                  RUN 2 SPECIFICATION
+                </div>
+                <div>
+                  <label className="text-muted text-xs">Start Time (UTC)</label>
+                  <input type="text" className="tactical-input font-mono" value={compareStartTime2} onChange={(e) => setCompareStartTime2(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-muted text-xs">End Time (UTC)</label>
+                  <input type="text" className="tactical-input font-mono" value={compareEndTime2} onChange={(e) => setCompareEndTime2(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'var(--space-md)', display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="primary" size="sm" onClick={handleCompare} isLoading={isComparing}>
+                Execute Deterministic Comparison
+              </Button>
+            </div>
+          </Card>
+
+          {/* Comparison Report Display */}
+          {compareReport && (
+            <Card
+              title="Deterministic Comparison Report"
+              badge={<StatusBadge status={compareReport.identical ? 'ACTIVE' : 'WARNING'} label={compareReport.identical ? 'IDENTICAL RUNS' : 'VARIANCE DETECTED'} />}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-sm)' }}>
+                <div className="kv-row">
+                  <span className="kv-key">Tracks Match</span>
+                  <StatusBadge status={compareReport.total_tracks_match ? 'ACTIVE' : 'WARNING'} label={compareReport.total_tracks_match ? 'MATCH' : 'DIVERGED'} />
+                </div>
+                <div className="kv-row">
+                  <span className="kv-key">Alerts Match</span>
+                  <StatusBadge status={compareReport.total_alerts_match ? 'ACTIVE' : 'WARNING'} label={compareReport.total_alerts_match ? 'MATCH' : 'DIVERGED'} />
+                </div>
+                <div className="kv-row">
+                  <span className="kv-key">Threats Match</span>
+                  <StatusBadge status={compareReport.total_threats_match ? 'ACTIVE' : 'WARNING'} label={compareReport.total_threats_match ? 'MATCH' : 'DIVERGED'} />
+                </div>
+                <div className="kv-row">
+                  <span className="kv-key">Detections (R1 / R2)</span>
+                  <span className="kv-value font-mono">{compareReport.detections_count_1} / {compareReport.detections_count_2}</span>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
