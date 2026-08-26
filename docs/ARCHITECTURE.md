@@ -232,3 +232,10 @@ It delivers the tactical dark design system, application shell, HttpOnly cookie 
 authentication, RBAC-aware navigation, primary operator overview workspace, tactical map
 placeholder, track/sensor/alert/threat/timeline panels, bounded historical querying, replay
 stepping interface, and descriptive analytics views consuming backend F1-F6 REST APIs.
+
+Stage UI2 implements the Operational Map & Mission Workspace on top of the UI1 foundation.
+It provides an interactive SVG tactical map with custom Equirectangular/cosine projection, pan,
+zoom, fit-all bounds, and coordinate readout; multi-entity selection synchronization across map,
+registry tabs, detail inspectors, and timeline feeds; historical trajectory path and breadcrumb
+visualization; valid sensor range coverage circles; geofence volume boundaries; and restrained
+REST-backed stale-while-refresh data staging.

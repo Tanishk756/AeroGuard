@@ -8,6 +8,7 @@ import { LoadingState } from '../common/LoadingState';
 
 interface TimelinePanelProps {
   timeline: TimelineItem[];
+  onSelectEvent?: (item: TimelineItem) => void;
   isLoading?: boolean;
   error?: string | null;
   onRefresh?: () => void;
@@ -15,13 +16,14 @@ interface TimelinePanelProps {
 
 export const TimelinePanel: React.FC<TimelinePanelProps> = ({
   timeline,
+  onSelectEvent,
   isLoading = false,
   error,
   onRefresh,
 }) => {
   return (
     <Card
-      title="Operational Timeline"
+      title="Operational Timeline Feed"
       badge={
         <span className="font-mono text-xs text-muted">
           EVENTS: {timeline.length}
@@ -46,7 +48,7 @@ export const TimelinePanel: React.FC<TimelinePanelProps> = ({
       ) : timeline.length === 0 ? (
         <EmptyState title="No Events Recorded" description="No timeline events currently recorded in the active operational window." />
       ) : (
-        <div className="tactical-table-wrapper" style={{ maxHeight: '280px' }}>
+        <div className="tactical-table-wrapper" style={{ maxHeight: '360px' }}>
           <table className="tactical-table">
             <thead>
               <tr>
@@ -58,7 +60,11 @@ export const TimelinePanel: React.FC<TimelinePanelProps> = ({
             </thead>
             <tbody>
               {timeline.map((item, idx) => (
-                <tr key={`${item.timestamp}-${item.entity_id}-${idx}`}>
+                <tr
+                  key={`${item.timestamp}-${item.entity_id}-${idx}`}
+                  onClick={() => onSelectEvent?.(item)}
+                  style={{ cursor: 'pointer' }}
+                >
                   <td className="font-mono text-xs" style={{ color: 'var(--color-accent)' }}>
                     {item.timestamp.substring(11, 19)}
                   </td>

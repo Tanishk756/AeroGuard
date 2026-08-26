@@ -8,3 +8,4 @@ export * from './threats';
 export * from './history';
 export * from './analytics';
 export * from './replay';
+export * from './geofences';

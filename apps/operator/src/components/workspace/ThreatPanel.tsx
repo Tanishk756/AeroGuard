@@ -9,6 +9,8 @@ import { StatusBadge } from '../common/StatusBadge';
 
 interface ThreatPanelProps {
   threats: ThreatAssessment[];
+  selectedThreatId?: string | null;
+  onSelectThreat?: (threatId: string, trackId?: string | null) => void;
   isLoading?: boolean;
   error?: string | null;
   onRefresh?: () => void;
@@ -16,6 +18,8 @@ interface ThreatPanelProps {
 
 export const ThreatPanel: React.FC<ThreatPanelProps> = ({
   threats,
+  selectedThreatId,
+  onSelectThreat,
   isLoading = false,
   error,
   onRefresh,
@@ -47,7 +51,7 @@ export const ThreatPanel: React.FC<ThreatPanelProps> = ({
       ) : threats.length === 0 ? (
         <EmptyState title="No Active Threats" description="Zero elevated threat postures assessed among active operational tracks." />
       ) : (
-        <div className="tactical-table-wrapper" style={{ maxHeight: '280px' }}>
+        <div className="tactical-table-wrapper" style={{ maxHeight: '360px' }}>
           <table className="tactical-table">
             <thead>
               <tr>
@@ -59,51 +63,61 @@ export const ThreatPanel: React.FC<ThreatPanelProps> = ({
               </tr>
             </thead>
             <tbody>
-              {threats.map((th) => (
-                <tr key={th.id}>
-                  <td>
-                    <StatusBadge status={th.level} />
-                  </td>
-                  <td className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {th.track_id}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div
-                        style={{
-                          width: '60px',
-                          height: '6px',
-                          backgroundColor: 'var(--bg-canvas)',
-                          borderRadius: '3px',
-                          overflow: 'hidden',
-                        }}
-                      >
+              {threats.map((th) => {
+                const isSelected = th.id === selectedThreatId;
+                return (
+                  <tr
+                    key={th.id}
+                    onClick={() => onSelectThreat?.(th.id, th.track_id)}
+                    style={{
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? 'var(--bg-surface-active)' : undefined,
+                    }}
+                  >
+                    <td>
+                      <StatusBadge status={th.level} />
+                    </td>
+                    <td className="font-mono" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {th.track_id}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div
                           style={{
-                            width: `${Math.min(100, Math.max(0, th.score))}%`,
-                            height: '100%',
-                            backgroundColor:
-                              th.score >= 75
-                                ? 'var(--status-critical)'
-                                : th.score >= 50
-                                ? 'var(--status-warning)'
-                                : 'var(--status-info)',
+                            width: '60px',
+                            height: '6px',
+                            backgroundColor: 'var(--bg-canvas)',
+                            borderRadius: '3px',
+                            overflow: 'hidden',
                           }}
-                        />
+                        >
+                          <div
+                            style={{
+                              width: `${Math.min(100, Math.max(0, th.score))}%`,
+                              height: '100%',
+                              backgroundColor:
+                                th.score >= 75
+                                  ? 'var(--status-critical)'
+                                  : th.score >= 50
+                                  ? 'var(--status-warning)'
+                                  : 'var(--status-info)',
+                            }}
+                          />
+                        </div>
+                        <span className="font-mono text-xs" style={{ fontWeight: 600 }}>
+                          {th.score.toFixed(1)}
+                        </span>
                       </div>
-                      <span className="font-mono text-xs" style={{ fontWeight: 600 }}>
-                        {th.score.toFixed(1)}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="font-mono text-xs text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {th.factors ? Object.entries(th.factors).map(([k, v]) => `${k}:${v}`).join(', ') : 'None'}
-                  </td>
-                  <td className="font-mono text-xs text-muted">
-                    {th.created_at.substring(11, 19)}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="font-mono text-xs text-muted" style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {th.factors ? Object.entries(th.factors).map(([k, v]) => `${k}:${v}`).join(', ') : 'None'}
+                    </td>
+                    <td className="font-mono text-xs text-muted">
+                      {th.created_at.substring(11, 19)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

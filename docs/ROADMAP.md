@@ -56,6 +56,12 @@ application shell, session authentication and RBAC-aware navigation, primary ope
 overview workspace, tactical map placeholder, track, sensor, alert, threat, timeline,
 historical query, replay, and descriptive analytics views consuming backend F1-F6 REST APIs.
 
+Stage UI2 delivers the Operational Map & Mission Workspace: interactive SVG tactical map
+with custom projection, pan, zoom, fit-all bounds, and coordinate readout; multi-entity selection
+synchronization across map, registry tabs, detail inspectors, and timeline feeds; historical
+trajectory path and breadcrumb visualization; valid sensor range coverage circles; geofence
+volume boundaries; and restrained REST-backed stale-while-refresh data staging.
+
 ## Phase 3: backend and data services
 
 Objectives:

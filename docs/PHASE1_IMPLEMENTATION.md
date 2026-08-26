@@ -37,8 +37,9 @@ and read-only intelligence query APIs, Stage F5 delivers the scenario
 management and deterministic simulation engine driving synthetic multi-sensor
 observations into the live operational pipeline, Stage F6 delivers
 the historical operations, unified timeline aggregation, descriptive SQL analytics,
-and deterministic virtual-clock replay and comparison subsystem, and Stage UI1
-delivers the Operator Console frontend foundation.
+and deterministic virtual-clock replay and comparison subsystem, Stage UI1
+delivers the Operator Console frontend foundation, and Stage UI2 delivers the
+Operational Map & Mission Workspace.
 
 ## Windows commands
 
