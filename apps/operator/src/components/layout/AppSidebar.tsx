@@ -44,6 +44,12 @@ export const AppSidebar: React.FC = () => {
       requiredPermission: 'threats.read',
     },
     {
+      path: '/app/geofences',
+      label: 'Defense Zones',
+      icon: '⛊',
+      requiredAnyPermissions: ['scenarios.read', 'scenarios.create', 'scenarios.update', 'scenarios.delete'],
+    },
+    {
       path: '/app/scenarios',
       label: 'Scenarios',
       icon: '⚙',

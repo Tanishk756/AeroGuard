@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { Geofence, Track } from '../../types';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
@@ -9,6 +10,8 @@ interface GeofenceInspectorProps {
   containedTracks?: Track[];
   onClose?: () => void;
   onSelectTrack?: (trackId: string) => void;
+  onEdit?: (geofence: Geofence) => void;
+  onDelete?: (geofence: Geofence) => void;
 }
 
 export const GeofenceInspector: React.FC<GeofenceInspectorProps> = ({
@@ -16,7 +19,13 @@ export const GeofenceInspector: React.FC<GeofenceInspectorProps> = ({
   containedTracks = [],
   onClose,
   onSelectTrack,
+  onEdit,
+  onDelete,
 }) => {
+  const { hasPermission } = useAuth();
+  const canUpdate = hasPermission('scenarios.update');
+  const canDelete = hasPermission('scenarios.delete');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
       {/* Header */}
@@ -36,7 +45,33 @@ export const GeofenceInspector: React.FC<GeofenceInspectorProps> = ({
       </div>
 
       {/* Boundary Specification */}
-      <Card title="Geofence Boundary Details">
+      <Card
+        title="Geofence Boundary Details"
+        actions={
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {canUpdate && onEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onEdit(geofence)}
+                style={{ padding: '2px 6px', fontSize: '10px' }}
+              >
+                Edit Zone
+              </Button>
+            )}
+            {canDelete && onDelete && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => onDelete(geofence)}
+                style={{ padding: '2px 6px', fontSize: '10px' }}
+              >
+                Delete
+              </Button>
+            )}
+          </div>
+        }
+      >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-xs)' }}>
           <div className="kv-row">
             <span className="kv-key">Status</span>

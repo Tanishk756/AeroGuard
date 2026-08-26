@@ -1,9 +1,10 @@
 import React from 'react';
-import { Geofence } from '../../types';
+import { Geofence, GeofenceGeometry } from '../../types';
 
 interface GeofenceLayerProps {
   geofences: Geofence[];
   selectedGeofenceId?: string | null;
+  draftGeometry?: GeofenceGeometry | null;
   onSelectGeofence?: (geofenceId: string) => void;
   latLonToScreen: (lat: number, lon: number) => { x: number; y: number };
 }
@@ -11,6 +12,7 @@ interface GeofenceLayerProps {
 export const GeofenceLayer: React.FC<GeofenceLayerProps> = ({
   geofences,
   selectedGeofenceId,
+  draftGeometry,
   onSelectGeofence,
   latLonToScreen,
 }) => {
@@ -123,6 +125,83 @@ export const GeofenceLayer: React.FC<GeofenceLayerProps> = ({
 
         return null;
       })}
+
+      {/* Render Live Draft Geometry Preview */}
+      {draftGeometry && draftGeometry.type === 'bbox' && (
+        <g className="draft-geofence-preview">
+          {(() => {
+            const { min_lat, min_lon, max_lat, max_lon } = draftGeometry;
+            const topLeft = latLonToScreen(max_lat, min_lon);
+            const bottomRight = latLonToScreen(min_lat, max_lon);
+            const x = Math.min(topLeft.x, bottomRight.x);
+            const y = Math.min(topLeft.y, bottomRight.y);
+            const width = Math.abs(bottomRight.x - topLeft.x);
+            const height = Math.abs(bottomRight.y - topLeft.y);
+
+            return (
+              <>
+                <rect
+                  x={x}
+                  y={y}
+                  width={width}
+                  height={height}
+                  fill="rgba(56, 189, 248, 0.18)"
+                  stroke="#38bdf8"
+                  strokeWidth="2"
+                  strokeDasharray="6 3"
+                />
+                <text
+                  x={x + 4}
+                  y={y + 14}
+                  fill="#38bdf8"
+                  fontSize="10px"
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                >
+                  ✎ DRAFT BBOX ZONE
+                </text>
+              </>
+            );
+          })()}
+        </g>
+      )}
+
+      {draftGeometry && draftGeometry.type === 'polygon' && draftGeometry.coordinates?.length >= 3 && (
+        <g className="draft-geofence-preview">
+          {(() => {
+            const pointsString = draftGeometry.coordinates
+              .map(([lat, lon]) => {
+                const pt = latLonToScreen(lat, lon);
+                return `${pt.x},${pt.y}`;
+              })
+              .join(' ');
+
+            const firstPt = latLonToScreen(draftGeometry.coordinates[0][0], draftGeometry.coordinates[0][1]);
+
+            return (
+              <>
+                <polygon
+                  points={pointsString}
+                  fill="rgba(56, 189, 248, 0.18)"
+                  stroke="#38bdf8"
+                  strokeWidth="2"
+                  strokeDasharray="6 3"
+                />
+                <text
+                  x={firstPt.x + 4}
+                  y={firstPt.y + 14}
+                  fill="#38bdf8"
+                  fontSize="10px"
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                >
+                  ✎ DRAFT POLYGON ({draftGeometry.coordinates.length} VERTICES)
+                </text>
+              </>
+            );
+          })()}
+        </g>
+      )}
     </g>
   );
 };

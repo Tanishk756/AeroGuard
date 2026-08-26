@@ -1,4 +1,4 @@
-import { Scenario, ScenarioExecutionStatus, ScenarioPage } from '../types';
+import { Scenario, ScenarioCreate, ScenarioExecutionStatus, ScenarioPage, ScenarioUpdate } from '../types';
 import { request } from './client';
 
 export interface GetScenariosParams {
@@ -19,6 +19,20 @@ export async function getScenarioDetail(scenarioId: string): Promise<Scenario> {
 
 export async function getScenarioStatus(scenarioId: string): Promise<ScenarioExecutionStatus> {
   return request<ScenarioExecutionStatus>(`/scenarios/${encodeURIComponent(scenarioId)}/status`);
+}
+
+export async function createScenario(data: ScenarioCreate): Promise<Scenario> {
+  return request<Scenario>('/scenarios', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateScenario(scenarioId: string, data: ScenarioUpdate): Promise<Scenario> {
+  return request<Scenario>(`/scenarios/${encodeURIComponent(scenarioId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }
 
 export async function prepareScenario(scenarioId: string): Promise<Scenario> {

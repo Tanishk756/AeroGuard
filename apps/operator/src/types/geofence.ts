@@ -23,6 +23,24 @@ export interface Geofence {
   updated_at: string;
 }
 
+export interface GeofenceCreate {
+  name: string;
+  enabled?: boolean;
+  geometry: GeofenceGeometry;
+  min_altitude?: number | null;
+  max_altitude?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GeofenceUpdate {
+  name?: string;
+  enabled?: boolean;
+  geometry?: GeofenceGeometry;
+  min_altitude?: number | null;
+  max_altitude?: number | null;
+  metadata?: Record<string, unknown>;
+}
+
 export interface GeofencePage {
   items: Geofence[];
   next_cursor?: string | null;

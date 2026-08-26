@@ -55,6 +55,19 @@ export interface Scenario {
   updated_at: string;
 }
 
+export interface ScenarioCreate {
+  name: string;
+  description?: string;
+  configuration: ScenarioConfiguration;
+}
+
+export interface ScenarioUpdate {
+  name?: string;
+  description?: string;
+  configuration?: ScenarioConfiguration;
+  status?: ScenarioStatus;
+}
+
 export interface ScenarioExecutionStatus {
   scenario_id: string;
   status: ScenarioStatus;

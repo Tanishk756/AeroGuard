@@ -21,6 +21,8 @@ interface WorkspaceInspectorProps {
   onSelectTrack: (trackId: string) => void;
   onSelectAlert: (alertId: string) => void;
   onSelectSensor?: (sensorId: string) => void;
+  onEditGeofence?: (geofence: Geofence) => void;
+  onDeleteGeofence?: (geofence: Geofence) => void;
 }
 
 export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
@@ -36,6 +38,8 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
   onSelectTrack,
   onSelectAlert,
   onSelectSensor,
+  onEditGeofence,
+  onDeleteGeofence,
 }) => {
   if (!selectedEntity) {
     return (
@@ -155,6 +159,8 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
         geofence={geofence}
         onClose={onClearSelection}
         onSelectTrack={onSelectTrack}
+        onEdit={onEditGeofence}
+        onDelete={onDeleteGeofence}
       />
     );
   }

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { ScenarioPanel } from '../components/workspace/ScenarioPanel';
-import { Scenario } from '../types';
+import { Scenario, ScenarioSensorDefinition, ScenarioTargetDefinition } from '../types';
 
 export const ScenariosPage: React.FC = () => {
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
 
-  const targets = (selectedScenario?.configuration_metadata?.targets as unknown[]) || [];
-  const sensors = (selectedScenario?.configuration_metadata?.sensors as unknown[]) || [];
+  const targets = (selectedScenario?.configuration_metadata?.targets as ScenarioTargetDefinition[]) || [];
+  const sensors = (selectedScenario?.configuration_metadata?.sensors as ScenarioSensorDefinition[]) || [];
   const geofenceIds = (selectedScenario?.configuration_metadata?.geofence_ids as string[]) || [];
 
   return (
@@ -43,7 +43,7 @@ export const ScenariosPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {targets.map((t: any, idx: number) => (
+                    {targets.map((t, idx) => (
                       <tr key={t.target_id || idx}>
                         <td className="font-mono" style={{ fontWeight: 600 }}>{t.target_id}</td>
                         <td className="uppercase-tracking text-xs">{t.classification || 'Synthetic'}</td>
@@ -70,7 +70,7 @@ export const ScenariosPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {sensors.map((s: any, idx: number) => (
+                    {sensors.map((s, idx) => (
                       <tr key={s.sensor_id || idx}>
                         <td className="font-mono" style={{ fontWeight: 600 }}>{s.sensor_id}</td>
                         <td className="uppercase-tracking text-xs" style={{ color: 'var(--color-accent)' }}>{s.modality}</td>
