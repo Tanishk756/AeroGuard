@@ -134,3 +134,7 @@ The event system must support:
 ## 8. Planned non-goal
 
 This document defines the intended event architecture, not a production event bus implementation.
+
+Stage F2 returns an in-process `DetectionIngested` operational result after
+successful persistence. This is distinct from the Stage E security/audit plane;
+detection telemetry is not written as an audit event.

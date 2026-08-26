@@ -196,3 +196,7 @@ persistence plus strict contracts. Ingestion, normalization pipelines,
 association, tracking, alert evaluation, threat scoring, scenario execution,
 realtime delivery, and UI remain future work. These operational records remain
 separate from Stage E security/audit events.
+
+Stage F2 adds the bounded sensor-adapter to canonical-detection ingestion path.
+Adapters, validation, normalization, and persistence remain separate from F3
+association/tracking and F4 alert/threat processing.

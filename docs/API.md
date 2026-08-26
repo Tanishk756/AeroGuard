@@ -178,6 +178,12 @@ Stage E implements the read-only `/api/v1/audit/events` collection and
 `/api/v1/audit/events/{id}` detail endpoint. Both require `audit.read`, use
 bounded filters, and use descending timestamp/id cursor pagination.
 
+Stage F2 implements only `GET /api/v1/sensors`, `GET /api/v1/sensors/{id}`,
+and `POST /api/v1/sensors/{id}/detections`. Sensor reads require `sensors.read`;
+single-detection ingestion uses `sensors.configure`. New detections return
+201 and idempotent duplicates return 200. Track, alert, threat, scenario, and
+realtime APIs remain deferred.
+
 ## 3. Planned endpoint categories
 
 The API will likely be grouped by business capability rather than a single monolithic surface. Category examples include:

@@ -23,7 +23,13 @@ def validate_metadata(value: Any) -> dict:
         if isinstance(item, Mapping):
             if len(item) > MAX_COLLECTION_ITEMS:
                 raise ValueError("metadata collection is too large")
-            return {str(key): validate(child, depth + 1) for key, child in item.items()}
+            result = {}
+            for key, child in item.items():
+                key_text = str(key)
+                if len(key_text) > MAX_STRING_LENGTH:
+                    raise ValueError("metadata key is too long")
+                result[key_text] = validate(child, depth + 1)
+            return result
         if isinstance(item, (list, tuple)):
             if len(item) > MAX_COLLECTION_ITEMS:
                 raise ValueError("metadata collection is too large")

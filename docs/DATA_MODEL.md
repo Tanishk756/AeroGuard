@@ -122,6 +122,9 @@ Relationships:
 Stage F1 persists `sensors` with controlled source class/status, configuration
 version, bounded JSON configuration metadata, and status/source/update indexes.
 
+Stage F2 resolves sensors server-side and persists validated adapter output as
+canonical detections. It does not create or update tracks.
+
 ### 2.6 SensorProfile
 
 Defines configuration and calibration characteristics for a sensor family or instance.

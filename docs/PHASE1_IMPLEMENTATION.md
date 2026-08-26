@@ -27,6 +27,8 @@ Stage D adds deterministic RBAC vocabulary and role-permission assignments in
 `0003_rbac.py`, live permission dependencies, protected system information, and
 the RBAC management API foundation. Stage E adds local append-only audit
 events, transaction-aware security event recording, and the read-only audit API.
+Stage F1 then adds operational persistence, and Stage F2 adds sensor
+abstraction and validated single-detection ingestion without tracking logic.
 
 ## Windows commands
 

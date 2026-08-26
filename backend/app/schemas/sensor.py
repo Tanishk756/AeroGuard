@@ -19,3 +19,14 @@ class SensorSchema(OperationalSchema):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+
+class SensorResponse(OperationalSchema):
+    id: str
+    name: str
+    source_type: str
+    source_class: SensorSourceClass
+    status: SensorStatus
+    configuration_version: int
+    created_at: datetime
+    updated_at: datetime
+

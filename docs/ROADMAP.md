@@ -101,6 +101,10 @@ Stage F1 delivers the persistence foundation for sensors, detections, tracks,
 track history, alerts, threat assessments, scenarios, and geofences. It does
 not deliver the processing workflows listed above.
 
+Stage F2 delivers the sensor adapter, validation, normalization, and single
+detection ingestion path. Association, tracking, alerts, and threat priority
+remain later stages.
+
 ## Phase 6: AI and analytics
 
 Objectives:
