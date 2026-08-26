@@ -51,6 +51,11 @@ Planned UI capabilities:
 - command palette and keyboard-driven workflows
 - dark tactical design language and accessibility baseline
 
+Stage UI1 delivers the Operator Console foundation: tactical dark design tokens,
+application shell, session authentication and RBAC-aware navigation, primary operator
+overview workspace, tactical map placeholder, track, sensor, alert, threat, timeline,
+historical query, replay, and descriptive analytics views consuming backend F1-F6 REST APIs.
+
 ## Phase 3: backend and data services
 
 Objectives:

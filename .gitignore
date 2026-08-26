@@ -25,6 +25,7 @@ build/
 .next/
 out/
 coverage/
+*.tsbuildinfo
 
 # Rust
 /target/

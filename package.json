@@ -11,6 +11,8 @@
     "dev:operator": "npm --prefix apps/operator run dev",
     "dev:admin": "npm --prefix apps/admin run dev",
     "dev:developer": "npm --prefix apps/developer run dev",
+    "test:operator": "npm --prefix apps/operator test",
+    "test": "npm run test:operator",
     "typecheck": "npm --prefix apps/operator run typecheck && npm --prefix apps/admin run typecheck && npm --prefix apps/developer run typecheck",
     "lint": "npm --prefix apps/operator run lint && npm --prefix apps/admin run lint && npm --prefix apps/developer run lint"
   },

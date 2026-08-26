@@ -226,3 +226,9 @@ layer over canonical operational truth (F1-F5), it provides bounded historical q
 unified operational timeline reconstruction with microsecond deterministic tie-breaking,
 aggregate descriptive SQL metrics, virtual clock replay stepping, and canonical structural
 run comparisons. It introduces zero new database migrations, zero external brokers, and zero audit log pollution.
+
+Stage UI1 establishes the Operator Console frontend foundation in React 18 and TypeScript.
+It delivers the tactical dark design system, application shell, HttpOnly cookie session
+authentication, RBAC-aware navigation, primary operator overview workspace, tactical map
+placeholder, track/sensor/alert/threat/timeline panels, bounded historical querying, replay
+stepping interface, and descriptive analytics views consuming backend F1-F6 REST APIs.
