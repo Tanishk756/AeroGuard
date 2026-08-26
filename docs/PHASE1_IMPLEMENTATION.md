@@ -30,10 +30,12 @@ events, transaction-aware security event recording, and the read-only audit API.
 Stage F1 then adds operational persistence, Stage F2 adds sensor
 abstraction and validated single-detection ingestion without tracking logic,
 Stage F3 delivers detection association, deterministic track lifecycle
-management, and read-only track query endpoints, and Stage F4 delivers
+management, and read-only track query endpoints, Stage F4 delivers
 multi-sensor kinematic fusion, track quality scoring, 2D/3D geofencing,
 deterministic operational threat prioritization, alert generation/deduplication,
-and read-only intelligence query APIs.
+and read-only intelligence query APIs, and Stage F5 delivers the scenario
+management and deterministic simulation engine driving synthetic multi-sensor
+observations into the live operational pipeline.
 
 ## Windows commands
 

@@ -246,4 +246,4 @@ Future implementations should plan for:
 
 ## 7. Documentation status
 
-This file defines the intended API boundaries and categories. Actual implementation, validation, and concrete route definitions will come in later project phases.
+This file defines the intended API boundaries and categories. Stages C, D, E, F1, F2, F3, F4, and F5 have implemented concrete routes: authentication, RBAC, audit, sensor registry, single-detection ingestion, track queries, threat assessments, operational alerts, geofence management CRUD, and scenario simulation execution controls. Future API domains remain planned.

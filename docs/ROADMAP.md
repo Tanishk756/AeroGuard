@@ -116,6 +116,13 @@ threat priority scoring, server-side alert generation with deduplication, and re
 query APIs for threats, alerts, and geofences. AI/ML, autonomous actions, weaponization,
 and external message brokers remain future work.
 
+Stage F5 delivers the scenario execution environment and deterministic simulation engine:
+virtual simulation clock, WGS84 great-circle trajectory models (constant-velocity and waypoints),
+synthetic multi-sensor models (Radar, Optical, RF) with range/FOV gating and Gaussian noise,
+scenario execution lifecycle control (prepare, start, pause, resume, step, stop, reset),
+direct observation feeding into the F2-F4 pipeline, scenario management REST APIs, and
+geofence management CRUD. WebSocket streaming and UI remain future work.
+
 ## Phase 6: AI and analytics
 
 Objectives:

@@ -212,3 +212,10 @@ coasting confidence decay, 2D/3D geofence volume evaluation, deterministic opera
 threat priority scoring, alert rule evaluation and deduplication, and read-only APIs
 for threats, alerts, and geofences. AI/ML, autonomous actions, weaponization, and
 external message brokers remain strictly out of scope.
+
+Stage F5 activates the scenario data model and implements a deterministic,
+in-process simulation engine featuring a virtual simulation clock, WGS84 great-circle
+trajectory generation with constant-velocity and waypoint navigation, synthetic multi-modality
+sensor models (Radar, Optical, RF) with range/FOV gating and Gaussian noise, scenario
+execution lifecycle management, and full integration into the F2-F4 operational pipeline
+along with scenario and geofence REST APIs. WebSocket streaming and UI remain future work.

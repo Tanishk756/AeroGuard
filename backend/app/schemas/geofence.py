@@ -43,6 +43,37 @@ class GeofenceSchema(OperationalSchema):
         return value
 
 
+class GeofenceCreateRequest(OperationalSchema):
+    id: str | None = None
+    name: str = Field(min_length=1, max_length=200)
+    enabled: bool = True
+    geometry: dict[str, Any]
+    min_altitude: FiniteFloat | None = Field(default=None, ge=0)
+    max_altitude: FiniteFloat | None = Field(default=None, ge=0)
+    metadata: dict = Field(default_factory=dict)
+
+    @field_validator("geometry")
+    @classmethod
+    def validate_geometry(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return GeofenceSchema.validate_geometry(value)
+
+
+class GeofenceUpdateRequest(OperationalSchema):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    enabled: bool | None = None
+    geometry: dict[str, Any] | None = None
+    min_altitude: FiniteFloat | None = Field(default=None, ge=0)
+    max_altitude: FiniteFloat | None = Field(default=None, ge=0)
+    metadata: dict | None = None
+
+    @field_validator("geometry")
+    @classmethod
+    def validate_geometry(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is not None:
+            return GeofenceSchema.validate_geometry(value)
+        return value
+
+
 class GeofenceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
