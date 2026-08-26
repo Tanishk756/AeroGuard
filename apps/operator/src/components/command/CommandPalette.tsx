@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 export interface CommandItem {
   id: string;
   label: string;
-  category: 'Navigation' | 'Tactical Map' | 'Operations' | 'Workspace';
+  category: 'Navigation' | 'Tactical Map' | 'Operations' | 'Workspace' | 'Analytics';
   shortcut?: string;
   icon?: string;
   action: () => void;
@@ -115,6 +115,47 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       shortcut: 'g y',
       icon: '📊',
       action: () => navigate('/app/analytics'),
+    },
+    // Analytics shortcuts (non-colliding)
+    {
+      id: 'analytics-dashboard',
+      label: 'Analytics Dashboard',
+      category: 'Analytics',
+      shortcut: 'a',
+      icon: '📈',
+      action: () => navigate('/app/analytics'),
+    },
+    {
+      id: 'analytics-tracks',
+      label: 'Tracks Analytics',
+      category: 'Analytics',
+      shortcut: 'a t',
+      icon: '⧭',
+      action: () => navigate('/app/analytics?view=tracks'),
+    },
+    {
+      id: 'analytics-alerts',
+      label: 'Alerts Analytics',
+      category: 'Analytics',
+      shortcut: 'a a',
+      icon: '⚠',
+      action: () => navigate('/app/analytics?view=alerts'),
+    },
+    {
+      id: 'analytics-threats',
+      label: 'Threats Analytics',
+      category: 'Analytics',
+      shortcut: 'a h',
+      icon: '⚡',
+      action: () => navigate('/app/analytics?view=threats'),
+    },
+    {
+      id: 'analytics-detections',
+      label: 'Detections Analytics',
+      category: 'Analytics',
+      shortcut: 'a d',
+      icon: '🔍',
+      action: () => navigate('/app/analytics?view=detections'),
     },
     {
       id: 'nav-audit',
