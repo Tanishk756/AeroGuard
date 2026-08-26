@@ -48,6 +48,7 @@ class Track(Base):
 
     detections = relationship("Detection", back_populates="track")
     history = relationship("TrackHistory", back_populates="track", cascade="all, delete-orphan")
+    associations = relationship("TrackAssociation", back_populates="track", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="track")
     threat_assessments = relationship("ThreatAssessment", back_populates="track", cascade="all, delete-orphan")
 

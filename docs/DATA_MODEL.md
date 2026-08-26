@@ -186,6 +186,11 @@ Relationships:
 - one-to-many with track events
 - may be associated with threat assessment and incident state
 
+Stage F3 adds `track_associations` in migration `0006_track_management` to record
+deterministic association decisions, geometric metrics, and scoring evidence without
+mutating immutable `Detection` records. `TrackHistory` records append-only state
+transitions. `TrackAssociation` and `TrackHistory` are immutable at the ORM layer.
+
 ### 2.9 ThreatAssessment
 
 Represents risk or threat evaluation for a track or scenario context.

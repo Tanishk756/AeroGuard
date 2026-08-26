@@ -184,6 +184,12 @@ single-detection ingestion uses `sensors.configure`. New detections return
 201 and idempotent duplicates return 200. Track, alert, threat, scenario, and
 realtime APIs remain deferred.
 
+Stage F3 implements read-only track query endpoints: `GET /api/v1/tracks`,
+`GET /api/v1/tracks/{track_id}`, and `GET /api/v1/tracks/{track_id}/history`.
+All three endpoints require `tracks.read`, use bounded pagination, and support
+bounded filters (`state`, `classification`, `last_seen_from`, `last_seen_to`).
+Detection processing is internal; no public track mutation endpoints are exposed.
+
 ## 3. Planned endpoint categories
 
 The API will likely be grouped by business capability rather than a single monolithic surface. Category examples include:

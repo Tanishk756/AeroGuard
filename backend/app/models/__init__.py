@@ -1,5 +1,6 @@
 """SQLAlchemy models."""
 
+from app.models.association import TrackAssociation, TrackAssociationDecision
 from app.models.audit import AuditEvent
 from app.models.alert import Alert, AlertSeverity, AlertStatus, AlertType
 from app.models.detection import Detection
@@ -16,5 +17,6 @@ from app.models.user import User, UserStatus
 __all__ = [
 	"Alert", "AlertSeverity", "AlertStatus", "AlertType", "AuditEvent", "Detection", "Geofence",
 	"Permission", "Role", "Scenario", "ScenarioStatus", "Sensor", "SensorSourceClass", "SensorStatus",
-	"Session", "ThreatAssessment", "ThreatLevel", "Track", "TrackHistory", "TrackState", "User", "UserStatus",
+	"Session", "ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
+	"TrackHistory", "TrackState", "User", "UserStatus",
 ]

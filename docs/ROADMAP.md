@@ -105,6 +105,10 @@ Stage F2 delivers the sensor adapter, validation, normalization, and single
 detection ingestion path. Association, tracking, alerts, and threat priority
 remain later stages.
 
+Stage F3 delivers deterministic detection association, track lifecycle management,
+and append-only history persistence. Alert generation, threat scoring, and realtime
+event distribution remain future work.
+
 ## Phase 6: AI and analytics
 
 Objectives:

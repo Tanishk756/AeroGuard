@@ -200,3 +200,8 @@ separate from Stage E security/audit events.
 Stage F2 adds the bounded sensor-adapter to canonical-detection ingestion path.
 Adapters, validation, normalization, and persistence remain separate from F3
 association/tracking and F4 alert/threat processing.
+
+Stage F3 adds deterministic detection association, track lifecycle management,
+and append-only history persistence. Gating, normalized scoring, deterministic
+tie-breaking, and read-only track query APIs are implemented without threat scoring,
+alerts, or external broker infrastructure.

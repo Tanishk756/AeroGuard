@@ -138,3 +138,7 @@ This document defines the intended event architecture, not a production event bu
 Stage F2 returns an in-process `DetectionIngested` operational result after
 successful persistence. This is distinct from the Stage E security/audit plane;
 detection telemetry is not written as an audit event.
+
+Stage F3 defines the in-process `DetectionAssociated` operational event contract
+emitted upon association or new track creation. Stage E audit infrastructure
+remains separate and is not invoked for routine telemetry association.

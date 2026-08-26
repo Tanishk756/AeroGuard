@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from pydantic import Field, FiniteFloat, field_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator
 
-from app.models.track import TrackState
+from app.models.association import TrackAssociationDecision
 from app.models.sensor import SensorSourceClass
+from app.models.track import TrackState
 from app.schemas._operational import OperationalSchema, validate_utc
 
 
@@ -51,3 +52,69 @@ class TrackHistorySchema(OperationalSchema):
     @classmethod
     def timestamp_is_utc(cls, value: datetime) -> datetime:
         return validate_utc(value)
+
+
+class TrackResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    state: TrackState
+    first_seen_at: datetime
+    last_seen_at: datetime
+    latitude: float
+    longitude: float
+    altitude: float | None = None
+    velocity: float | None = None
+    heading: float | None = None
+    confidence: float
+    classification: str | None = None
+    source_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class TrackPage(BaseModel):
+    items: list[TrackResponse]
+    next_cursor: str | None = None
+
+
+class TrackHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    track_id: str
+    sequence: int
+    timestamp: datetime
+    latitude: float
+    longitude: float
+    altitude: float | None = None
+    velocity: float | None = None
+    heading: float | None = None
+    confidence: float
+    state: TrackState
+    provenance: SensorSourceClass
+    source_detection_ids: list[str]
+    created_at: datetime
+
+
+class TrackHistoryPage(BaseModel):
+    items: list[TrackHistoryResponse]
+    next_cursor: str | None = None
+
+
+class TrackAssociationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    detection_id: str
+    track_id: str
+    sensor_id: str
+    timestamp: datetime
+    distance_meters: float | None = None
+    vertical_distance_meters: float | None = None
+    time_delta_seconds: float | None = None
+    score: float | None = None
+    decision: TrackAssociationDecision
+    reason: str
+    gate_result: str | None = None
+    created_at: datetime
