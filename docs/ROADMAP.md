@@ -97,6 +97,10 @@ Planned work:
 - trajectory estimation and confidence scoring
 - alignment with replay and audit requirements
 
+Stage F1 delivers the persistence foundation for sensors, detections, tracks,
+track history, alerts, threat assessments, scenarios, and geofences. It does
+not deliver the processing workflows listed above.
+
 ## Phase 6: AI and analytics
 
 Objectives:

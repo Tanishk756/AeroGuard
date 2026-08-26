@@ -1,7 +1,7 @@
 This document defines the conceptual data model and records the implemented Stage C identity/session schema. Other domain entities remain planned.
 # Data model
 
-This document defines the intended conceptual data model for AeroGuard. It describes the planned domain entities and relationships without creating database migrations or serialized schema implementations.
+This document defines the intended conceptual data model for AeroGuard. Stage F1 now implements the minimum operational persistence layer while later domain behavior remains planned.
 
 ## 1. Design principles
 
@@ -37,7 +37,7 @@ Relationships:
 Stage C persists `users` with `id`, normalized unique `username`,
 `display_name`, normalized unique `email`, Argon2id `password_hash`,
 `status` (`ACTIVE` or `DISABLED`), UTC-normalized timestamps, and nullable
-`last_login_at`. Roles and audit events are not implemented.
+`last_login_at`. Stage E persists audit events and Stage F1 persists operational entities described below.
 
 ### 2.2 Role
 
@@ -119,6 +119,9 @@ Relationships:
 - one-to-many with observations
 - one-to-many with sensor health records
 
+Stage F1 persists `sensors` with controlled source class/status, configuration
+version, bounded JSON configuration metadata, and status/source/update indexes.
+
 ### 2.6 SensorProfile
 
 Defines configuration and calibration characteristics for a sensor family or instance.
@@ -155,6 +158,10 @@ Relationships:
 - belongs to one sensor
 - may contribute to one or more tracks
 - may be associated with scenario or replay state
+
+Stage F1 names this persisted entity `Detection`; it uses WGS84-compatible
+coordinates, UTC timestamps, metric kinematics/uncertainty, controlled source
+provenance, and a per-sensor source ID uniqueness constraint.
 
 ### 2.8 Track
 

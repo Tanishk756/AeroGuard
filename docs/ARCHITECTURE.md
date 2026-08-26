@@ -189,3 +189,10 @@ AeroGuard is intentionally split into clear subsystem boundaries before implemen
 ## 12. Documentation status
 
 This architecture document reflects the planned end-state of the platform and the intended engineering boundaries. It is not a statement that all subsystems are implemented or complete.
+
+Stage F1 implements only the operational data foundation: Sensor, Detection,
+Track, TrackHistory, Alert, ThreatAssessment, Scenario, and Geofence
+persistence plus strict contracts. Ingestion, normalization pipelines,
+association, tracking, alert evaluation, threat scoring, scenario execution,
+realtime delivery, and UI remain future work. These operational records remain
+separate from Stage E security/audit events.
