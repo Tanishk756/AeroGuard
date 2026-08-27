@@ -1,10 +1,14 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { useDesktopEnvironment } from '../../hooks/useDesktopEnvironment';
+import { DesktopTitlebar } from '../desktop/DesktopTitlebar';
 import { AppFooter } from './AppFooter';
 import { AppHeader } from './AppHeader';
 import { AppSidebar } from './AppSidebar';
 
 export const AppShell: React.FC = () => {
+  const { isDesktop } = useDesktopEnvironment();
+
   return (
     <div
       style={{
@@ -16,6 +20,7 @@ export const AppShell: React.FC = () => {
         backgroundColor: 'var(--bg-canvas)',
       }}
     >
+      {isDesktop && <DesktopTitlebar />}
       <AppHeader />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <AppSidebar />
