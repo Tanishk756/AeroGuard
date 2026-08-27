@@ -176,7 +176,8 @@ class DefensiveIntelligenceService:
             # 9. Publish realtime events if requested
             if publish_events:
                 has_breach_risk = any(e.status in ("APPROACHING", "INSIDE") for e in ingress_estimates)
-                if anomaly.anomaly_score >= 30.0 or has_breach_risk or len(points) <= 2:
+                has_elevated_priority = priority is not None and priority.priority_score >= 30.0
+                if anomaly.anomaly_score >= 30.0 or has_breach_risk or len(points) <= 2 or has_elevated_priority:
                     get_event_bus().publish(
                         event_type=RealtimeEventType.AI_SUMMARY,
                         channel=RealtimeChannel.OPERATIONAL,
@@ -197,6 +198,7 @@ class DefensiveIntelligenceService:
         tracks: Sequence[Any],
         geofences: list[Any] | None = None,
         now: datetime | None = None,
+        publish_events: bool = False,
     ) -> MultiTrackIntelligenceSummary:
         """Evaluate multi-track correlation, behavioral state, coordination, and priorities across all active tracks."""
         eval_ts = now or datetime.now(UTC)
@@ -264,10 +266,21 @@ class DefensiveIntelligenceService:
             )
             priorities.append(p_assess)
 
-        return MultiTrackIntelligenceSummary(
+        summary = MultiTrackIntelligenceSummary(
             groups=groups,
             behaviors=behaviors,
             formations=formations,
             priorities=priorities,
             evaluated_at=eval_ts,
         )
+
+        if publish_events:
+            get_event_bus().publish(
+                event_type=RealtimeEventType.AI_SUMMARY,
+                channel=RealtimeChannel.OPERATIONAL,
+                payload=summary.model_dump(mode="json"),
+                resource_type="multi_track_intelligence",
+                resource_id="summary",
+            )
+
+        return summary

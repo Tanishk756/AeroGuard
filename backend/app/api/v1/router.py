@@ -10,6 +10,7 @@ from app.api.v1.routes.detections import router as detections_router
 from app.api.v1.routes.geofences import router as geofences_router
 from app.api.v1.routes.health import router as health_router
 from app.api.v1.routes.history import router as history_router
+from app.api.v1.routes.intelligence import router as intelligence_router
 from app.api.v1.routes.rbac import router as rbac_router
 from app.api.v1.routes.replay import router as replay_router
 from app.api.v1.routes.scenarios import router as scenarios_router
@@ -28,6 +29,7 @@ router.include_router(audit_router, tags=["audit"])
 router.include_router(sensors_router, tags=["sensors"])
 router.include_router(detections_router, tags=["detections"])
 router.include_router(tracks_router, tags=["tracks"])
+router.include_router(intelligence_router, tags=["intelligence"])
 router.include_router(alerts_router, tags=["alerts"])
 router.include_router(threats_router, tags=["threats"])
 router.include_router(geofences_router, tags=["geofences"])

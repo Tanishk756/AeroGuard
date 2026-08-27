@@ -33,6 +33,10 @@ class RealtimeEventType(StrEnum):
     TRAJECTORY_UPDATED = "trajectory.updated"
     INGRESS_UPDATED = "ingress.updated"
     AI_SUMMARY = "ai.summary"
+    AI_GROUP = "ai.group"
+    AI_BEHAVIOR = "ai.behavior"
+    AI_PRIORITY = "ai.priority"
+    AI_MULTI_SUMMARY = "ai.multi_summary"
 
     # Simulation lifecycle & clock events
     SIMULATION_STATE = "simulation.state"
