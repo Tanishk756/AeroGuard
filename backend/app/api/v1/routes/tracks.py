@@ -149,3 +149,24 @@ def get_track_history(
         items=[TrackHistoryResponse.model_validate(h) for h in history_entries[:limit]],
         next_cursor=next_cursor,
     )
+
+
+@router.get("/tracks/{track_id}/intelligence")
+def get_track_intelligence(
+    track_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("tracks.read")),
+):
+    track = db.get(Track, track_id)
+    if track is None:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    from ai.service import DefensiveIntelligenceService
+
+    summary = DefensiveIntelligenceService.evaluate_track(db, track, publish_events=False)
+    if summary is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to evaluate defensive intelligence for track",
+        )
+    return summary

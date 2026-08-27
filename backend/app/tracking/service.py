@@ -286,6 +286,10 @@ class TrackingService:
                     resource_type="track",
                     resource_id=track.id,
                 )
+
+                from ai.service import DefensiveIntelligenceService
+
+                DefensiveIntelligenceService.evaluate_track(self.db, track, publish_events=True)
             except Exception:
                 pass
         except Exception:
@@ -515,6 +519,10 @@ class TrackingService:
                     resource_type="track",
                     resource_id=track.id,
                 )
+
+                from ai.service import DefensiveIntelligenceService
+
+                DefensiveIntelligenceService.evaluate_track(self.db, track, publish_events=True)
             except Exception:
                 pass
         except Exception:

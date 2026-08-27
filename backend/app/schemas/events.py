@@ -28,6 +28,12 @@ class RealtimeEventType(StrEnum):
     THREAT_UPDATED = "threat.updated"
     GEOFENCE_BREACH = "geofence.breach"
 
+    # Defensive AI & intelligence events
+    ANOMALY_UPDATED = "anomaly.updated"
+    TRAJECTORY_UPDATED = "trajectory.updated"
+    INGRESS_UPDATED = "ingress.updated"
+    AI_SUMMARY = "ai.summary"
+
     # Simulation lifecycle & clock events
     SIMULATION_STATE = "simulation.state"
     SIMULATION_STEP = "simulation.step"

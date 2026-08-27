@@ -15,6 +15,9 @@ MODALITY_BASE_CONFIDENCE: dict[str, float] = {
     "CAMERA": 0.75,
     "ACOUSTIC": 0.65,
     "FUSION": 0.95,
+    "REAL": 0.90,
+    "SIMULATION": 0.85,
+    "REPLAY": 0.85,
     "MANUAL": 0.60,
     "UNKNOWN": 0.50,
 }
