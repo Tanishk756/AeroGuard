@@ -1,11 +1,13 @@
 /**
  * AeroGuard Hook for Multi-Track Defensive Intelligence State & Realtime Streaming
+ * Stage AI3-F: High-Density Telemetry Optimization, Animation-Frame Coalescing & Stale Event Protection
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getMultiTrackIntelligenceSummary } from '../api/intelligence';
 import { useAuth } from '../context/AuthContext';
 import {
+  BehaviorClassification,
   MultiTrackIntelligenceSummary,
   RealtimeEventEnvelope,
   TrackGroup,
@@ -62,6 +64,81 @@ export function useIntelligence(options: UseIntelligenceOptions = {}): Intellige
   const isMountedRef = useRef<boolean>(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastEventTimestampRef = useRef<number>(0);
+  const lastEventSequenceRef = useRef<number>(0);
+
+  // In-memory accumulation buffer for high-density animation-frame coalescing
+  const pendingSummaryRef = useRef<MultiTrackIntelligenceSummary | null>(null);
+  const pendingPrioritiesRef = useRef<Map<string, ThreatPriorityAssessment>>(new Map());
+  const pendingBehaviorsRef = useRef<Map<string, BehaviorClassification>>(new Map());
+  const pendingGroupsRef = useRef<Map<string, TrackGroup>>(new Map());
+  const rafIdRef = useRef<number | null>(null);
+
+  // Flush pending coalesced telemetry updates into React state at next animation frame
+  const flushPendingUpdates = useCallback(() => {
+    if (!isMountedRef.current) {
+      rafIdRef.current = null;
+      return;
+    }
+    rafIdRef.current = null;
+
+    setSummary((prev) => {
+      let nextSummary: MultiTrackIntelligenceSummary;
+
+      if (pendingSummaryRef.current) {
+        nextSummary = pendingSummaryRef.current;
+        pendingSummaryRef.current = null;
+      } else if (prev) {
+        nextSummary = { ...prev };
+      } else {
+        // No baseline summary yet
+        return null;
+      }
+
+      // Apply coalesced granular priority updates
+      if (pendingPrioritiesRef.current.size > 0) {
+        const prioMap = new Map(nextSummary.priorities.map((p) => [p.track_id, p]));
+        for (const [tid, prio] of pendingPrioritiesRef.current) {
+          prioMap.set(tid, prio);
+        }
+        nextSummary.priorities = Array.from(prioMap.values());
+        pendingPrioritiesRef.current.clear();
+      }
+
+      // Apply coalesced granular behavior updates
+      if (pendingBehaviorsRef.current.size > 0) {
+        const behMap = new Map(nextSummary.behaviors.map((b) => [b.track_id, b]));
+        for (const [tid, beh] of pendingBehaviorsRef.current) {
+          behMap.set(tid, beh);
+        }
+        nextSummary.behaviors = Array.from(behMap.values());
+        pendingBehaviorsRef.current.clear();
+      }
+
+      // Apply coalesced granular group updates
+      if (pendingGroupsRef.current.size > 0) {
+        const grpMap = new Map(nextSummary.groups.map((g) => [g.group_id, g]));
+        for (const [gid, grp] of pendingGroupsRef.current) {
+          grpMap.set(gid, grp);
+        }
+        nextSummary.groups = Array.from(grpMap.values());
+        pendingGroupsRef.current.clear();
+      }
+
+      return nextSummary;
+    });
+
+    setLastUpdated(new Date());
+  }, []);
+
+  const scheduleFlush = useCallback(() => {
+    if (rafIdRef.current === null) {
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        rafIdRef.current = window.requestAnimationFrame(flushPendingUpdates);
+      } else {
+        rafIdRef.current = (setTimeout(flushPendingUpdates, 16) as unknown) as number;
+      }
+    }
+  }, [flushPendingUpdates]);
 
   const fetchIntelligence = useCallback(async () => {
     if (!enabled || !hasPermission('tracks.read')) {
@@ -118,6 +195,14 @@ export function useIntelligence(options: UseIntelligenceOptions = {}): Intellige
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (rafIdRef.current !== null) {
+        if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+          window.cancelAnimationFrame(rafIdRef.current);
+        } else {
+          clearTimeout(rafIdRef.current);
+        }
+        rafIdRef.current = null;
+      }
     };
   }, [fetchIntelligence]);
 
@@ -132,28 +217,61 @@ export function useIntelligence(options: UseIntelligenceOptions = {}): Intellige
     return () => clearInterval(intervalId);
   }, [enabled, autoRefreshIntervalMs, fetchIntelligence]);
 
-  // Realtime WebSocket event handling
+  // Realtime WebSocket event handling with coalescing, monotonic sequence checks & stale protection
   const handleWebSocketMessage = useCallback((envelope: RealtimeEventEnvelope) => {
     if (!isMountedRef.current) return;
 
-    if (envelope.event_type === 'ai.summary') {
-      const payload = envelope.payload as unknown as Partial<MultiTrackIntelligenceSummary>;
-      if (!payload || !payload.evaluated_at) return;
-
-      const eventTime = new Date(payload.evaluated_at).getTime();
-      // Stale event protection: reject events older than our newest state
-      if (eventTime < lastEventTimestampRef.current) {
-        return;
+    // Monotonic sequence verification: reject stale / out-of-order events
+    if (typeof envelope.sequence === 'number' && envelope.sequence > 0) {
+      if (envelope.sequence <= lastEventSequenceRef.current) {
+        return; // Stale or duplicate sequence
       }
+      lastEventSequenceRef.current = envelope.sequence;
+    }
 
-      // Check if multi-track summary payload
-      if (Array.isArray(payload.groups) && Array.isArray(payload.priorities)) {
-        lastEventTimestampRef.current = eventTime;
-        setSummary(payload as MultiTrackIntelligenceSummary);
-        setLastUpdated(new Date(eventTime));
+    const payload = envelope.payload as Record<string, unknown>;
+    if (!payload) return;
+
+    // Timestamp check if available
+    const timeStr = (payload.evaluated_at || payload.updated_at || envelope.timestamp) as string | undefined;
+    if (timeStr) {
+      const eventTime = new Date(timeStr).getTime();
+      if (!isNaN(eventTime) && eventTime > 0) {
+        if (eventTime < lastEventTimestampRef.current && !envelope.sequence) {
+          return; // Stale timestamp when sequence is absent
+        }
+        if (eventTime > lastEventTimestampRef.current) {
+          lastEventTimestampRef.current = eventTime;
+        }
       }
     }
-  }, []);
+
+    if (envelope.event_type === 'ai.summary') {
+      const summaryPayload = payload as unknown as Partial<MultiTrackIntelligenceSummary>;
+      if (Array.isArray(summaryPayload.groups) && Array.isArray(summaryPayload.priorities)) {
+        pendingSummaryRef.current = summaryPayload as MultiTrackIntelligenceSummary;
+        scheduleFlush();
+      }
+    } else if (envelope.event_type === 'ai.priority' || envelope.event_type === 'ai.priority.updated') {
+      const prioPayload = payload as unknown as ThreatPriorityAssessment;
+      if (prioPayload && prioPayload.track_id) {
+        pendingPrioritiesRef.current.set(prioPayload.track_id, prioPayload);
+        scheduleFlush();
+      }
+    } else if (envelope.event_type === 'ai.behavior' || envelope.event_type === 'ai.behavior.updated') {
+      const behPayload = payload as unknown as BehaviorClassification;
+      if (behPayload && behPayload.track_id) {
+        pendingBehaviorsRef.current.set(behPayload.track_id, behPayload);
+        scheduleFlush();
+      }
+    } else if (envelope.event_type === 'ai.group' || envelope.event_type === 'ai.group.updated') {
+      const grpPayload = payload as unknown as TrackGroup;
+      if (grpPayload && grpPayload.group_id) {
+        pendingGroupsRef.current.set(grpPayload.group_id, grpPayload);
+        scheduleFlush();
+      }
+    }
+  }, [scheduleFlush]);
 
   useWebSocketStream({
     channel: 'operational',
