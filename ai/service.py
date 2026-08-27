@@ -173,7 +173,20 @@ class DefensiveIntelligenceService:
                 evaluated_at=datetime.now(UTC),
             )
 
-            # 9. Publish realtime events if requested
+            # 9. Feed updated track into Incremental Intelligence Pipeline
+            try:
+                from ai.incremental.pipeline import get_intelligence_pipeline
+
+                get_intelligence_pipeline().process_track_update(
+                    track_or_dict=track,
+                    instantaneous_anomaly_score=anomaly.anomaly_score,
+                    publish_events=False,
+                    now=current_time,
+                )
+            except Exception as pipeline_err:
+                logger.debug(f"[DefensiveAI] Pipeline incremental update skipped: {pipeline_err}")
+
+            # 10. Publish realtime single-track event if requested
             if publish_events:
                 has_breach_risk = any(e.status in ("APPROACHING", "INSIDE") for e in ingress_estimates)
                 has_elevated_priority = priority is not None and priority.priority_score >= 30.0
