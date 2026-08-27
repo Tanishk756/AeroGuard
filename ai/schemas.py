@@ -1,5 +1,7 @@
 """Data contracts and schemas for AeroGuard AI & Defensive Intelligence Subsystem."""
 
+from __future__ import annotations
+
 from datetime import UTC, datetime
 from enum import StrEnum
 from pydantic import BaseModel, Field, field_validator
@@ -113,6 +115,7 @@ class DefensiveIntelligenceSummary(BaseModel):
     anomaly: AnomalyAssessment
     trajectory: TrajectoryPrediction
     ingress_estimates: list[GeofenceIngressEstimate] = Field(default_factory=list)
+    priority: ThreatPriorityAssessment | None = None
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

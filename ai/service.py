@@ -2,15 +2,28 @@
 
 from datetime import UTC, datetime
 import logging
-from typing import Any
+from typing import Any, Sequence
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from ai.anomaly.scoring import evaluate_anomaly
+from ai.behavior.classifier import (
+    ClassifierInput,
+    classify_track_behavior,
+    classifier_input_from_ai1,
+)
 from ai.confidence.sensor import compute_sensor_confidence
+from ai.correlation.coordination import compute_coordination_index
+from ai.correlation.grouping import correlate_tracks, to_track_observation
 from ai.features.kinematics import extract_kinematic_features
+from ai.priority.scoring import evaluate_threat_priority
 from ai.schemas import (
+    BehaviorClassification,
+    CoordinatedFormation,
     DefensiveIntelligenceSummary,
+    MultiTrackIntelligenceSummary,
+    ThreatPriorityAssessment,
+    TrackGroup,
     TrackPoint,
 )
 from ai.trajectory.predictor import estimate_geofence_ingress, predict_trajectory
@@ -24,8 +37,7 @@ logger = logging.getLogger(__name__)
 
 class DefensiveIntelligenceService:
     """Orchestrates kinematic feature extraction, anomaly evaluation, trajectory prediction,
-
-    and perimeter ingress estimation for operational tracks.
+    behavioral classification, and threat prioritization for operational tracks.
     """
 
     @staticmethod
@@ -128,16 +140,40 @@ class DefensiveIntelligenceService:
                 current_alt=track.altitude,
             )
 
+            # 7. Evaluate Behavioral State
+            classifier_inp = classifier_input_from_ai1(
+                track_id=track.id,
+                features=features,
+                anomaly_assessment=anomaly,
+                ingress_estimates=ingress_estimates,
+                timestamp=current_time,
+            )
+            behavior_classification, _ = classify_track_behavior(classifier_inp)
+
+            # 8. Evaluate Defensive Threat Priority (AI2-E)
+            priority = evaluate_threat_priority(
+                track_id=track.id,
+                group_id=getattr(track, "group_id", None),
+                ingress_estimates=ingress_estimates,
+                behavior=behavior_classification,
+                persistent_anomaly=anomaly.anomaly_score,
+                coordination=None,
+                kinematics=features,
+                sensor_confidence=sensor_conf,
+                evaluated_at=datetime.now(UTC),
+            )
+
             summary = DefensiveIntelligenceSummary(
                 track_id=track.id,
                 features=features,
                 anomaly=anomaly,
                 trajectory=trajectory,
                 ingress_estimates=ingress_estimates,
+                priority=priority,
                 evaluated_at=datetime.now(UTC),
             )
 
-            # 7. Publish realtime events if requested
+            # 9. Publish realtime events if requested
             if publish_events:
                 has_breach_risk = any(e.status in ("APPROACHING", "INSIDE") for e in ingress_estimates)
                 if anomaly.anomaly_score >= 30.0 or has_breach_risk or len(points) <= 2:
@@ -155,3 +191,83 @@ class DefensiveIntelligenceService:
                 f"[DefensiveAI] Failed to evaluate intelligence for track {getattr(track, 'id', 'unknown')}: {err}"
             )
             return None
+
+    @staticmethod
+    def evaluate_multi_track_intelligence(
+        tracks: Sequence[Any],
+        geofences: list[Any] | None = None,
+        now: datetime | None = None,
+    ) -> MultiTrackIntelligenceSummary:
+        """Evaluate multi-track correlation, behavioral state, coordination, and priorities across all active tracks."""
+        eval_ts = now or datetime.now(UTC)
+
+        # Normalize all track inputs (handles dicts, ORM models, domain objects)
+        normalized_tracks = [to_track_observation(t) for t in tracks]
+
+        # 1. AI2-B Grouping
+        groups = correlate_tracks(normalized_tracks, now=eval_ts)
+
+        # Map track_id to its group if any
+        track_to_group: dict[str, TrackGroup] = {}
+        for g in groups:
+            for mid in g.member_track_ids:
+                track_to_group[mid] = g
+
+        # 2. AI2-D Formations & Coordination
+        formations: list[CoordinatedFormation] = []
+        track_to_formation: dict[str, CoordinatedFormation] = {}
+        for g in groups:
+            member_objs = [
+                t for t in normalized_tracks
+                if t.id in g.member_track_ids
+            ]
+            formation = compute_coordination_index(g, member_objs, evaluated_at=eval_ts)
+            if formation is not None:
+                formations.append(formation)
+                for mid in formation.member_track_ids:
+                    track_to_formation[mid] = formation
+
+        # 3. AI2-C Behaviors and AI2-E Priorities per track
+        behaviors: list[BehaviorClassification] = []
+        priorities: list[ThreatPriorityAssessment] = []
+
+        for t in normalized_tracks:
+            tid = t.id
+            grp = track_to_group.get(tid)
+            fmt = track_to_formation.get(tid)
+
+            spd = float(t.velocity or 0.0)
+            hdg = float(t.heading) if t.heading is not None else None
+
+            clf_inp = ClassifierInput(
+                track_id=tid,
+                speed_mps=spd,
+                heading_deg=hdg,
+                group_id=grp.group_id if grp else None,
+                group_member_count=grp.member_count if grp else None,
+                timestamp=eval_ts,
+            )
+            b_class, _ = classify_track_behavior(clf_inp)
+            behaviors.append(b_class)
+
+            conf = float(t.confidence)
+
+            # Priority evaluation combining all signals
+            p_assess = evaluate_threat_priority(
+                track_id=tid,
+                group_id=grp.group_id if grp else None,
+                behavior=b_class,
+                coordination=fmt,
+                kinematics=spd,
+                sensor_confidence=conf,
+                evaluated_at=eval_ts,
+            )
+            priorities.append(p_assess)
+
+        return MultiTrackIntelligenceSummary(
+            groups=groups,
+            behaviors=behaviors,
+            formations=formations,
+            priorities=priorities,
+            evaluated_at=eval_ts,
+        )

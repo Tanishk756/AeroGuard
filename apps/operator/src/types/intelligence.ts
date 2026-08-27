@@ -84,6 +84,7 @@ export interface DefensiveIntelligenceSummary {
   anomaly: AnomalyAssessment;
   trajectory: TrajectoryPrediction;
   ingress_estimates: GeofenceIngressEstimate[];
+  priority?: ThreatPriorityAssessment | null;
   evaluated_at: string;
 }
 
