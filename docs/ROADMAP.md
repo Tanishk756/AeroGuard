@@ -87,6 +87,13 @@ Stage UI7 delivers the Developer and API Console: versioned REST API catalog acr
 interactive request dispatcher with live round-trip latency and telemetry inspection, synthetic sensor
 detection ingestion workbench, Pydantic schema contract viewer, and multi-format cURL/fetch code snippet generation.
 
+Stage UI8 delivers Desktop and Native Packaging (Tauri 2 Integration): established
+a minimal and secure Tauri 2 desktop foundation for Windows; typed desktop environment bridge
+with graceful browser fallbacks; custom dark tactical window titlebar with drag region and
+window controls; native OS desktop alert notifications for CRITICAL/HIGH alerts with bounded
+in-memory deduplication; system tray integration with window toggle and clean exit; and dual
+distributable Windows packaging (.msi and .exe installers).
+
 ## Phase 3: backend and data services
 
 Objectives:

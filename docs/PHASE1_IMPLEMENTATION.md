@@ -62,9 +62,7 @@ The development API is then available at:
 
 ## Deferred scope
 
-Authentication, RBAC, audit logging, sensors, simulation, AI, frontend
-integration, and later application tables are outside Stage B. Tauri and native
-integration, and later application tables are outside Stage B. Tauri and native
-packaging are also temporarily deferred because Windows Application Control is
-blocking `cargo.exe`. No Windows security policy or Rust installation changes
-are part of this stage.
+Authentication, RBAC, audit logging, sensors, simulation, AI, and frontend
+integration were implemented in subsequent stages (F1-F6, UI1-UI7).
+Stage UI8 subsequently delivered Tauri 2 desktop packaging, native Windows
+notifications, system tray support, and dual-mode runtime execution.

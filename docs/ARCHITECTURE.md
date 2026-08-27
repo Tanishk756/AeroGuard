@@ -97,6 +97,15 @@ Planned boundary model:
 - High-performance or compute-heavy tasks: Rust-first components
 - C++ only when profiling shows a genuine requirement
 
+### 5.1 Desktop and Native Packaging (Tauri 2)
+
+AeroGuard Operator Console is packaged for Windows desktop environments via Tauri 2.x:
+- **Dual Runtime Target**: Unified React code operates in standard web browsers and Tauri 2 desktop webviews with zero code duplication.
+- **Desktop Environment Bridge**: Strongly typed abstraction (`apps/operator/src/api/desktop.ts`) providing window state management, browser fallbacks, and backend health status.
+- **Tactical Window Titlebar**: Compact dark tactical titlebar with drag region, connectivity indicator, and window controls.
+- **Native Notifications & System Tray**: Gated `notification:default` and `tray-icon` capabilities with in-memory bounded alert deduplication.
+- **Enterprise Distributables**: Produces standalone `.exe` binaries, Windows Installer `.msi` packages (via WiX 3.14), and setup `.exe` installers (via NSIS 3.11).
+
 This approach avoids unnecessary native complexity while enabling targeted optimization in throughput-sensitive areas, such as streaming ingestion, filtering, or compute-heavy processing.
 
 ## 6. AI boundaries
