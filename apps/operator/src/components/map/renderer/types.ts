@@ -93,6 +93,14 @@ export interface RenderPredictionItem {
     timeOffsetSeconds: number;
     uncertaintyRadiusPixels: number;
   }>;
+  ingressIntersections?: Array<{
+    geofenceId: string;
+    geofenceName: string;
+    screenX: number;
+    screenY: number;
+    timeToBreachSeconds?: number | null;
+    status: 'INSIDE' | 'APPROACHING';
+  }>;
 }
 
 export interface RenderLayerVisibility {

@@ -222,16 +222,58 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
       };
     });
 
+    // Extract ingress estimates for selected track
+    const intel = intelligence[selectedTrackId];
+    const ingressIntersections: RenderPredictionItem['ingressIntersections'] = [];
+
+    if (intel?.ingress_estimates) {
+      for (const ing of intel.ingress_estimates) {
+        if ((ing.status === 'APPROACHING' || ing.status === 'INSIDE') && typeof ing.intersection_latitude === 'number' && typeof ing.intersection_longitude === 'number') {
+          const ip = projectLatLon(
+            ing.intersection_latitude,
+            ing.intersection_longitude,
+            centerLat,
+            centerLon,
+            zoom,
+            panOffsetX,
+            panOffsetY,
+            width,
+            height
+          );
+          ingressIntersections.push({
+            geofenceId: ing.geofence_id,
+            geofenceName: ing.geofence_name,
+            screenX: ip.x,
+            screenY: ip.y,
+            timeToBreachSeconds: ing.estimated_time_to_breach_seconds,
+            status: ing.status,
+          });
+        }
+      }
+    }
+
     renderPrediction = {
       trackId: selectedTrackId,
       waypoints,
+      ingressIntersections,
     };
   }
 
   // 5. Build normalized Geofence items
   const renderGeofences: RenderGeofenceItem[] = [];
+  const warningGeofenceIds = new Set<string>();
+
+  if (selectedTrackId && intelligence[selectedTrackId]?.ingress_estimates) {
+    for (const ing of intelligence[selectedTrackId].ingress_estimates) {
+      if (ing.status === 'APPROACHING' || ing.status === 'INSIDE') {
+        warningGeofenceIds.add(ing.geofence_id);
+      }
+    }
+  }
+
   for (const g of geofences) {
     const isSelected = g.id === selectedGeofenceId;
+    const isWarning = warningGeofenceIds.has(g.id);
     let geomType: 'BBOX' | 'POLYGON' | 'CIRCLE' = 'BBOX';
     const screenCoordinates: Array<{ x: number; y: number }> = [];
     const radiusPixels: number | undefined = undefined;
@@ -263,6 +305,8 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
 
     const status = isSelected
       ? 'SELECTED'
+      : isWarning
+      ? 'WARNING'
       : !g.enabled
       ? 'DISABLED'
       : 'ENABLED';

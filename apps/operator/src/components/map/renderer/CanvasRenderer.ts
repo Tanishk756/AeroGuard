@@ -313,6 +313,38 @@ export class CanvasRenderer extends BaseMapRenderer {
       }
     }
 
+    // 3. Render Ingress Forecast Hazard Markers
+    if (prediction.ingressIntersections && prediction.ingressIntersections.length > 0) {
+      for (const ing of prediction.ingressIntersections) {
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#ef4444';
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+        ctx.lineWidth = 1.5;
+
+        // Hazard Reticle
+        ctx.beginPath();
+        ctx.arc(ing.screenX, ing.screenY, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(ing.screenX - 10, ing.screenY);
+        ctx.lineTo(ing.screenX + 10, ing.screenY);
+        ctx.moveTo(ing.screenX, ing.screenY - 10);
+        ctx.lineTo(ing.screenX, ing.screenY + 10);
+        ctx.stroke();
+
+        // Ingress Callout Label
+        ctx.font = 'bold 9.5px monospace';
+        ctx.fillStyle = '#ef4444';
+        const breachTime =
+          ing.timeToBreachSeconds != null ? `~${ing.timeToBreachSeconds.toFixed(0)}s` : 'IMM';
+        ctx.fillText(`⚠ INGRESS ${ing.geofenceName} (${breachTime})`, ing.screenX + 12, ing.screenY + 3);
+        ctx.restore();
+      }
+    }
+
     ctx.restore();
   }
 

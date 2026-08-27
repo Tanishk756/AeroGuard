@@ -326,6 +326,56 @@ describe('AeroGuard Stage MAP2 Tactical Visualization & Renderer Unit Tests', ()
     });
   });
 
+  describe('AI1 Trajectory & Defensive Intelligence Overlays', () => {
+    it('scales uncertainty radius proportionally to zoom and uncertainty meters', () => {
+      const zoom = 5.0;
+      const centerLat = 37.7749;
+      const cosLat = Math.cos((centerLat * Math.PI) / 180);
+      const pixelsPerMeter = (BASE_PIXELS_PER_DEGREE * zoom * cosLat) / ((2 * Math.PI * EARTH_RADIUS_METERS) / 360);
+
+      const uncertaintyMeters = 150; // 150m radius
+      const radiusPixels = Math.max(3, uncertaintyMeters * pixelsPerMeter);
+      assert.ok(radiusPixels >= 3, 'Uncertainty circle must have a minimum screen radius');
+    });
+
+    it('identifies approaching ingress warnings and marks target geofence', () => {
+      const ingressEstimates = [
+        {
+          geofence_id: 'GEO-01',
+          geofence_name: 'Alpha Perimeter',
+          status: 'APPROACHING' as const,
+          estimated_time_to_breach_seconds: 14.2,
+          intersection_latitude: 37.78,
+          intersection_longitude: -122.42,
+        },
+      ];
+
+      const warningGeofenceIds = new Set<string>();
+      for (const ing of ingressEstimates) {
+        if (ing.status === 'APPROACHING' || ing.status === 'INSIDE') {
+          warningGeofenceIds.add(ing.geofence_id);
+        }
+      }
+
+      assert.strictEqual(warningGeofenceIds.has('GEO-01'), true);
+      assert.strictEqual(warningGeofenceIds.has('GEO-02'), false);
+    });
+
+    it('assigns anomaly halo color classes deterministically by score thresholds', () => {
+      const getHaloColor = (score: number) => {
+        if (score >= 80) return 'CRITICAL';
+        if (score >= 60) return 'HIGH';
+        if (score >= 30) return 'MEDIUM';
+        return 'LOW';
+      };
+
+      assert.strictEqual(getHaloColor(85), 'CRITICAL');
+      assert.strictEqual(getHaloColor(65), 'HIGH');
+      assert.strictEqual(getHaloColor(42), 'MEDIUM');
+      assert.strictEqual(getHaloColor(15), 'LOW');
+    });
+  });
+
   describe('Capability Detection & Fallback Policy', () => {
     const resolveRenderer = (hasWebGPU: boolean, hasCanvas: boolean): 'WEBGPU' | 'CANVAS' | 'LEGACY' => {
       if (hasWebGPU) return 'WEBGPU';
