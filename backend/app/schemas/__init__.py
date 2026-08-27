@@ -9,6 +9,7 @@ from app.schemas.analytics import (
     TrackMetrics,
 )
 from app.schemas.detection import DetectionSchema
+from app.schemas.events import RealtimeChannel, RealtimeEventEnvelope, RealtimeEventType
 from app.schemas.geofence import (
     GeofenceCreateRequest,
     GeofencePage,
@@ -80,6 +81,9 @@ __all__ = [
     "HistoricalTrackPoint",
     "HistoricalTrackStateResponse",
     "RawDetection",
+    "RealtimeChannel",
+    "RealtimeEventEnvelope",
+    "RealtimeEventType",
     "ReplayComparisonReport",
     "ReplayComparisonRequest",
     "ReplayFilter",
