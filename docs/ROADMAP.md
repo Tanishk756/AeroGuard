@@ -237,6 +237,16 @@ frontend `useWebSocketStream` hook with exponential backoff and jitter, `useOper
 adaptive REST reconciliation and requestAnimationFrame track batching, and native Tauri 2
 desktop toast notification dispatch.
 
+Stage AI1 delivers Defensive Intelligence & Kinematic Anomaly Detection: deterministic
+kinematic feature extraction engine (Haversine geodesic distance, spherical bearing,
+turn rates, vertical rates, loitering radius of gyration, directional consistency ratio);
+multi-sensor confidence calibration model (modality baseline, multi-source consensus,
+history depth scaling, age decay); explainable 5-factor anomaly scoring engine with
+blended peak/weighted aggregation; 60s forward trajectory prediction with expanding
+spatial uncertainty envelopes; defensive geofence ingress forecasting; realtime `ai.summary`
+EventBus broadcasting; `GET /api/v1/tracks/{track_id}/intelligence` REST endpoint; and
+Operator Console forward trajectory vector and Track Inspector intelligence surfaces.
+
 ## Phase 10: testing, validation, and hardening
 
 Objectives:

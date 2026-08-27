@@ -217,6 +217,10 @@ Stage F6 implements historical querying, descriptive analytics, and deterministi
   - `POST /api/v1/replay/step` (requires `scenarios.read` | `tracks.read` | `scenarios.run`)
   - `POST /api/v1/replay/compare` (requires `scenarios.read` | `tracks.read` | `scenarios.run`)
 
+Stage AI1 implements Defensive Intelligence & Kinematic Anomaly Detection endpoints:
+- Defensive Intelligence:
+  - `GET /api/v1/tracks/{track_id}/intelligence` (requires `tracks.read`, returns `DefensiveIntelligenceSummary` containing extracted kinematic features, explainable anomaly assessment, 60s trajectory waypoints, and geofence ingress breach forecasts)
+
 ## 3. Planned endpoint categories
 
 The API will likely be grouped by business capability rather than a single monolithic surface. Category examples include:

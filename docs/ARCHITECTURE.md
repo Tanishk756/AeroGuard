@@ -282,3 +282,18 @@ Stage UI7 delivers the Developer and API Console. It introduces an interactive R
 spanning all versioned backend routes across 8 operational domains, a live request dispatcher with round-trip
 latency timing and correlation ID tracing, a dedicated synthetic sensor detection injection workbench supporting Radar, RF,
 and Optical presets, Pydantic data contract inspection, and multi-format cURL and fetch() code snippet generation.
+
+Stage UI8 establishes Desktop and Native Packaging via Tauri 2. It wraps the Operator Console in a
+lightweight, secure Windows webview shell with typed desktop bridges, native window titlebar controls,
+deduplicated OS alert toast notifications, system tray controls, and production-grade Windows MSI/NSIS packaging.
+
+Stage RT1 delivers the Realtime Streaming & WebSocket Event Bus architecture. It replaces client-side REST
+polling with high-throughput in-process async event dispatching, atomic monotonic sequencing, per-subscriber
+backpressure queue management, authenticated `/api/v1/ws/operational` and `/api/v1/ws/simulation` channels,
+and frontend `useWebSocketStream` with transparent REST fallback.
+
+Stage AI1 delivers the Defensive Intelligence & Kinematic Anomaly Detection subsystem. Operating under strict
+defensive situational-awareness constraints with zero offensive/destructive logic, it introduces a sub-millisecond
+kinematic feature extraction engine, multi-sensor confidence calibration, deterministic 5-factor explainable
+anomaly scoring with blended peak/weighted aggregation, 60s forward trajectory prediction with expanding spatial
+uncertainty envelopes, and defensive geofence ingress forecasting.
