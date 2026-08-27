@@ -46,6 +46,11 @@ export interface RenderTrackItem {
   confidence: number;
   anomalyScore?: number | null;
   anomalyLevel?: AnomalySeverity | null;
+  groupId?: string | null;
+  behaviorState?: string | null;
+  priorityScore?: number | null;
+  priorityLevel?: string | null;
+  isCoordinated?: boolean;
   isSelected: boolean;
   isThreatElevated: boolean;
 }
@@ -59,6 +64,20 @@ export interface RenderTrailPoint {
 export interface RenderTrackTrail {
   trackId: string;
   points: RenderTrailPoint[];
+  isSelected: boolean;
+}
+
+export interface RenderGroupItem {
+  groupId: string;
+  centroidScreenX: number;
+  centroidScreenY: number;
+  radiusPixels: number;
+  memberTrackIds: string[];
+  memberScreenCoords: Array<{ x: number; y: number; trackId: string }>;
+  confidence: number;
+  behaviorState?: string;
+  isCoordinated: boolean;
+  synchronizationIndex?: number;
   isSelected: boolean;
 }
 
@@ -111,6 +130,7 @@ export interface RenderLayerVisibility {
   trajectories: boolean;
   tracks: boolean;
   labels: boolean;
+  groups?: boolean;
 }
 
 export interface RenderScene {
@@ -121,14 +141,16 @@ export interface RenderScene {
   prediction: RenderPredictionItem | null;
   geofences: RenderGeofenceItem[];
   sensors: RenderSensorItem[];
+  groups?: RenderGroupItem[];
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
+  selectedGroupId?: string | null;
   timestamp: number;
 }
 
 export interface HitTestResult {
-  type: 'track' | 'sensor' | 'geofence';
+  type: 'track' | 'sensor' | 'geofence' | 'group';
   id: string;
   screenX: number;
   screenY: number;

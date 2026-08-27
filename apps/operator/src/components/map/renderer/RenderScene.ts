@@ -6,6 +6,7 @@ import {
   DefensiveIntelligenceSummary,
   Geofence,
   MapLayerVisibility,
+  MultiTrackIntelligenceSummary,
   Sensor,
   ThreatAssessment,
   Track,
@@ -14,6 +15,7 @@ import {
 } from '../../../types';
 import {
   RenderGeofenceItem,
+  RenderGroupItem,
   RenderLayerVisibility,
   RenderPredictionItem,
   RenderScene,
@@ -39,9 +41,11 @@ export interface BuildSceneOptions {
   tracks: Track[];
   threats?: ThreatAssessment[];
   intelligence?: Record<string, DefensiveIntelligenceSummary>;
+  multiTrackIntelligence?: MultiTrackIntelligenceSummary | null;
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
+  selectedGroupId?: string | null;
   selectedTrackHistory?: TrackHistoryPoint[];
   selectedTrackPrediction?: TrajectoryPrediction | null;
   geofences?: Geofence[];
@@ -81,9 +85,11 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     tracks,
     threats = [],
     intelligence = {},
+    multiTrackIntelligence = null,
     selectedTrackId = null,
     selectedSensorId = null,
     selectedGeofenceId = null,
+    selectedGroupId = null,
     selectedTrackHistory = [],
     selectedTrackPrediction = null,
     geofences = [],
@@ -110,6 +116,7 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     trajectories: layers.trajectories !== false,
     tracks: layers.tracks !== false,
     labels: layers.labels !== false,
+    groups: true,
   };
 
   // 1. Build threat map for O(1) lookup
@@ -148,6 +155,35 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
       const th = threatMap.get(t.id);
       const intel = intelligence[t.id];
 
+      // Multi-track intelligence lookups
+      let groupId: string | null = null;
+      let behaviorState: string | null = null;
+      let priorityScore: number | null = intel?.priority?.priority_score ?? null;
+      let priorityLevel: string | null = intel?.priority?.priority_level ?? null;
+      let isCoordinated = false;
+
+      if (multiTrackIntelligence) {
+        if (!priorityScore && multiTrackIntelligence.priorities) {
+          const p = multiTrackIntelligence.priorities.find((x) => x.track_id === t.id);
+          if (p) {
+            priorityScore = p.priority_score;
+            priorityLevel = p.priority_level;
+            if (p.group_id) groupId = p.group_id;
+          }
+        }
+        if (multiTrackIntelligence.behaviors) {
+          const b = multiTrackIntelligence.behaviors.find((x) => x.track_id === t.id);
+          if (b) behaviorState = b.state;
+        }
+        if (!groupId && multiTrackIntelligence.groups) {
+          const g = multiTrackIntelligence.groups.find((x) => x.member_track_ids.includes(t.id));
+          if (g) groupId = g.group_id;
+        }
+        if (multiTrackIntelligence.formations) {
+          isCoordinated = multiTrackIntelligence.formations.some((f) => f.member_track_ids.includes(t.id));
+        }
+      }
+
       renderTracks.push({
         id: t.id,
         latitude: t.latitude,
@@ -162,8 +198,13 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
         confidence: t.confidence,
         anomalyScore: intel?.anomaly?.anomaly_score ?? null,
         anomalyLevel: intel?.anomaly?.anomaly_level ?? null,
+        groupId,
+        behaviorState,
+        priorityScore,
+        priorityLevel,
+        isCoordinated,
         isSelected,
-        isThreatElevated: (th?.score ?? 0) >= 50,
+        isThreatElevated: (th?.score ?? 0) >= 50 || (priorityScore != null && priorityScore >= 60),
       });
     }
   }
@@ -354,6 +395,66 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     }
   }
 
+  // 7. Build normalized Group items (AI2)
+  const renderGroups: RenderGroupItem[] = [];
+  if (multiTrackIntelligence?.groups && multiTrackIntelligence.groups.length > 0) {
+    const formationMap = new Map<string, any>();
+    if (multiTrackIntelligence.formations) {
+      for (const f of multiTrackIntelligence.formations) {
+        formationMap.set(f.group_id, f);
+      }
+    }
+
+    const trackCoordMap = new Map<string, { x: number; y: number }>();
+    for (const t of renderTracks) {
+      trackCoordMap.set(t.id, { x: t.screenX, y: t.screenY });
+    }
+
+    const cosLat = Math.cos((centerLat * Math.PI) / 180);
+    const pixelsPerMeter = (BASE_PIXELS_PER_DEGREE * zoom * cosLat) / ((2 * Math.PI * EARTH_RADIUS_METERS) / 360);
+
+    for (const g of multiTrackIntelligence.groups) {
+      const centroidScreen = projectLatLon(
+        g.centroid_lat,
+        g.centroid_lon,
+        centerLat,
+        centerLon,
+        zoom,
+        panOffsetX,
+        panOffsetY,
+        width,
+        height
+      );
+
+      const radiusPixels = Math.max(20, g.radius_meters * pixelsPerMeter);
+      const isSelected = g.group_id === selectedGroupId;
+
+      const memberScreenCoords: Array<{ x: number; y: number; trackId: string }> = [];
+      for (const mid of g.member_track_ids) {
+        const coord = trackCoordMap.get(mid);
+        if (coord) {
+          memberScreenCoords.push({ x: coord.x, y: coord.y, trackId: mid });
+        }
+      }
+
+      const formation = formationMap.get(g.group_id);
+
+      renderGroups.push({
+        groupId: g.group_id,
+        centroidScreenX: centroidScreen.x,
+        centroidScreenY: centroidScreen.y,
+        radiusPixels,
+        memberTrackIds: g.member_track_ids,
+        memberScreenCoords,
+        confidence: g.confidence,
+        behaviorState: g.behavioral_state,
+        isCoordinated: formation != null,
+        synchronizationIndex: formation?.synchronization_index,
+        isSelected,
+      });
+    }
+  }
+
   return {
     viewport,
     layers: activeLayers,
@@ -362,9 +463,11 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     prediction: renderPrediction,
     geofences: renderGeofences,
     sensors: renderSensors,
+    groups: renderGroups,
     selectedTrackId,
     selectedSensorId,
     selectedGeofenceId,
+    selectedGroupId,
     timestamp: Date.now(),
   };
 }

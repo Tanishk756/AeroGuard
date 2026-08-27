@@ -177,9 +177,58 @@ export const TrackInspector: React.FC<TrackInspectorProps> = ({
               </div>
             )}
 
+            {/* Explainable Defensive Threat Priority (AI2-E / AI2-G) */}
+            {intelligence.priority && (
+              <div style={{ padding: '8px', backgroundColor: 'var(--bg-canvas)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div className="uppercase-tracking text-muted" style={{ fontSize: '9px', fontWeight: 700 }}>
+                    Explainable Defensive Priority
+                  </div>
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: '3px',
+                      backgroundColor:
+                        intelligence.priority.priority_level === 'CRITICAL'
+                          ? 'rgba(239, 68, 68, 0.2)'
+                          : intelligence.priority.priority_level === 'HIGH'
+                          ? 'rgba(251, 146, 60, 0.2)'
+                          : intelligence.priority.priority_level === 'MEDIUM'
+                          ? 'rgba(234, 179, 8, 0.2)'
+                          : 'rgba(34, 197, 94, 0.15)',
+                      color:
+                        intelligence.priority.priority_level === 'CRITICAL'
+                          ? '#f87171'
+                          : intelligence.priority.priority_level === 'HIGH'
+                          ? '#fb923c'
+                          : intelligence.priority.priority_level === 'MEDIUM'
+                          ? '#facc15'
+                          : '#4ade80',
+                    }}
+                  >
+                    {intelligence.priority.priority_level} ({intelligence.priority.priority_score.toFixed(1)})
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '10.5px' }}>
+                  {intelligence.priority.factors.map((f) => (
+                    <div key={f.name} className="font-mono kv-row" style={{ padding: '1px 0' }} title={f.description}>
+                      <span className="text-muted" style={{ textTransform: 'capitalize' }}>{f.name} ({f.score.toFixed(0)} × {f.weight.toFixed(2)})</span>
+                      <span style={{ fontWeight: 600, color: f.contribution >= 15 ? '#fb923c' : 'var(--text-primary)' }}>
+                        → {f.contribution.toFixed(1)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Explainability Summary */}
             <p className="font-mono text-xs text-muted" style={{ margin: 0, lineHeight: 1.4 }}>
-              {intelligence.anomaly.summary}
+              {intelligence.priority?.reason || intelligence.anomaly.summary}
             </p>
 
             {/* Geofence Ingress & Time-to-Breach */}

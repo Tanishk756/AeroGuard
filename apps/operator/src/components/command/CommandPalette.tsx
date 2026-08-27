@@ -53,6 +53,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => navigate('/app/tracks'),
     },
     {
+      id: 'nav-intelligence',
+      label: 'Go to Defensive AI & Intelligence',
+      category: 'Navigation',
+      shortcut: 'g i',
+      icon: '🧠',
+      action: () => navigate('/app/intelligence'),
+    },
+    {
       id: 'nav-sensors',
       label: 'Go to Sensor Inventory',
       category: 'Navigation',

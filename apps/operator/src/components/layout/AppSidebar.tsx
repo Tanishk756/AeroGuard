@@ -26,6 +26,12 @@ export const AppSidebar: React.FC = () => {
       requiredPermission: 'tracks.read',
     },
     {
+      path: '/app/intelligence',
+      label: 'Defensive AI',
+      icon: '🧠',
+      requiredPermission: 'tracks.read',
+    },
+    {
       path: '/app/sensors',
       label: 'Sensors',
       icon: '⋉',

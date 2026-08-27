@@ -7,6 +7,7 @@ import {
   DefensiveIntelligenceSummary,
   Geofence,
   MapLayerVisibility,
+  MultiTrackIntelligenceSummary,
   Sensor,
   ThreatAssessment,
   Track,
@@ -27,6 +28,7 @@ interface TacticalMapCanvasProps {
   tracks: Track[];
   threats?: ThreatAssessment[];
   intelligence?: Record<string, DefensiveIntelligenceSummary>;
+  multiTrackIntelligence?: MultiTrackIntelligenceSummary | null;
   sensors: Sensor[];
   geofences: Geofence[];
   selectedTrackHistory?: TrackHistoryPoint[];
@@ -34,6 +36,7 @@ interface TacticalMapCanvasProps {
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
+  selectedGroupId?: string | null;
   layers?: Partial<MapLayerVisibility>;
   centerLat: number;
   centerLon: number;
@@ -43,6 +46,7 @@ interface TacticalMapCanvasProps {
   onSelectTrack?: (trackId: string) => void;
   onSelectSensor?: (sensorId: string) => void;
   onSelectGeofence?: (geofenceId: string) => void;
+  onSelectGroup?: (groupId: string) => void;
   onPan?: (dx: number, dy: number) => void;
 }
 
@@ -50,6 +54,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   tracks,
   threats = [],
   intelligence = {},
+  multiTrackIntelligence = null,
   sensors,
   geofences,
   selectedTrackHistory = [],
@@ -57,6 +62,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   selectedTrackId = null,
   selectedSensorId = null,
   selectedGeofenceId = null,
+  selectedGroupId = null,
   layers = {},
   centerLat,
   centerLon,
@@ -66,6 +72,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   onSelectTrack,
   onSelectSensor,
   onSelectGeofence,
+  onSelectGroup,
   onPan,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -155,9 +162,11 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
       tracks,
       threats,
       intelligence,
+      multiTrackIntelligence,
       selectedTrackId,
       selectedSensorId,
       selectedGeofenceId,
+      selectedGroupId,
       selectedTrackHistory,
       selectedTrackPrediction,
       geofences,
@@ -176,9 +185,11 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     tracks,
     threats,
     intelligence,
+    multiTrackIntelligence,
     selectedTrackId,
     selectedSensorId,
     selectedGeofenceId,
+    selectedGroupId,
     selectedTrackHistory,
     selectedTrackPrediction,
     geofences,

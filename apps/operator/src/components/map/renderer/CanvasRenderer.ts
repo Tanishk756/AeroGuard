@@ -5,6 +5,7 @@
 import { BaseMapRenderer } from './MapRenderer';
 import {
   RenderGeofenceItem,
+  RenderGroupItem,
   RenderPredictionItem,
   RenderScene,
   RenderSensorItem,
@@ -76,9 +77,78 @@ export class CanvasRenderer extends BaseMapRenderer {
       this.renderPrediction(ctx, scene.prediction);
     }
 
-    // 7. Render Track Markers
+    // 7. Render Multi-Track Groups & Formations (AI2)
+    if (scene.groups && scene.groups.length > 0) {
+      this.renderGroups(ctx, scene.groups, scene.selectedGroupId);
+    }
+
+    // 8. Render Track Markers
     if (scene.layers.tracks) {
       this.renderTracks(ctx, scene.tracks, scene.layers.labels);
+    }
+
+    ctx.restore();
+  }
+
+  private renderGroups(
+    ctx: CanvasRenderingContext2D,
+    groups: RenderGroupItem[],
+    selectedGroupId?: string | null
+  ): void {
+    ctx.save();
+
+    for (let i = 0; i < groups.length; i++) {
+      const g = groups[i];
+      const isSelected = g.isSelected || g.groupId === selectedGroupId;
+
+      const strokeColor = isSelected
+        ? '#38bdf8'
+        : g.isCoordinated
+        ? 'rgba(168, 85, 247, 0.7)'
+        : 'rgba(148, 163, 184, 0.5)';
+
+      const fillColor = isSelected
+        ? 'rgba(56, 189, 248, 0.08)'
+        : g.isCoordinated
+        ? 'rgba(168, 85, 247, 0.05)'
+        : 'rgba(148, 163, 184, 0.03)';
+
+      // 1. Group Hull / Radius Boundary
+      ctx.beginPath();
+      ctx.arc(g.centroidScreenX, g.centroidScreenY, g.radiusPixels, 0, Math.PI * 2);
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = isSelected ? 2 : 1.2;
+      ctx.setLineDash(g.isCoordinated ? [5, 3] : [3, 3]);
+      ctx.stroke();
+
+      // 2. Member Connecting Baselines
+      if (g.memberScreenCoords.length > 1) {
+        ctx.setLineDash([2, 4]);
+        ctx.lineWidth = 0.8;
+        ctx.strokeStyle = isSelected ? 'rgba(56, 189, 248, 0.5)' : strokeColor;
+
+        for (const m of g.memberScreenCoords) {
+          ctx.beginPath();
+          ctx.moveTo(g.centroidScreenX, g.centroidScreenY);
+          ctx.lineTo(m.x, m.y);
+          ctx.stroke();
+        }
+      }
+
+      // 3. Centroid Node
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(g.centroidScreenX, g.centroidScreenY, isSelected ? 4 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = isSelected ? '#38bdf8' : g.isCoordinated ? '#c084fc' : '#94a3b8';
+      ctx.fill();
+
+      // 4. Group Tag Label
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = isSelected ? '#38bdf8' : g.isCoordinated ? '#c084fc' : '#cbd5e1';
+      const syncStr = g.synchronizationIndex != null ? ` ⬡ ${(g.synchronizationIndex * 100).toFixed(0)}%` : '';
+      ctx.fillText(`[${g.groupId} (${g.memberTrackIds.length})${syncStr}]`, g.centroidScreenX + 6, g.centroidScreenY - 6);
     }
 
     ctx.restore();
@@ -370,6 +440,16 @@ export class CanvasRenderer extends BaseMapRenderer {
         ctx.fill();
       }
 
+      // 1.5. Priority Alert Ring (if HIGH or CRITICAL)
+      if (track.priorityLevel === 'CRITICAL' || track.priorityLevel === 'HIGH' || (track.priorityScore != null && track.priorityScore >= 60)) {
+        ctx.beginPath();
+        ctx.arc(x, y, 16, 0, Math.PI * 2);
+        ctx.strokeStyle = track.priorityLevel === 'CRITICAL' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(251, 146, 60, 0.7)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([2, 2]);
+        ctx.stroke();
+      }
+
       // 2. Selection Ring
       if (isSelected) {
         ctx.beginPath();
@@ -382,9 +462,9 @@ export class CanvasRenderer extends BaseMapRenderer {
 
       // 3. Track Marker Chevron / Circle
       const baseColor =
-        track.isThreatElevated
+        track.isThreatElevated || track.priorityLevel === 'CRITICAL'
           ? '#ef4444'
-          : track.anomalyScore && track.anomalyScore >= 60
+          : track.priorityLevel === 'HIGH' || (track.anomalyScore && track.anomalyScore >= 60)
           ? '#fb923c'
           : isSelected
           ? '#38bdf8'
@@ -423,19 +503,21 @@ export class CanvasRenderer extends BaseMapRenderer {
       }
 
       // 4. Track Callout Labels (Throttled under high density unless selected or threat elevated)
-      const shouldDrawLabel = (showLabels && (!isDense || isSelected || track.isThreatElevated || (track.anomalyScore && track.anomalyScore >= 60))) || isSelected;
+      const shouldDrawLabel = (showLabels && (!isDense || isSelected || track.isThreatElevated || (track.anomalyScore && track.anomalyScore >= 60) || (track.priorityScore != null && track.priorityScore >= 60))) || isSelected;
 
       if (shouldDrawLabel) {
         ctx.font = '10px monospace';
         ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(226, 232, 240, 0.9)';
-        ctx.fillText(track.id, x + 9, y - 5);
+        const prioTag = track.priorityScore != null && track.priorityScore >= 30 ? ` [P:${track.priorityScore.toFixed(0)}]` : '';
+        ctx.fillText(`${track.id}${prioTag}`, x + 9, y - 5);
 
-        if (velocity != null || altitude != null) {
+        if (velocity != null || altitude != null || track.behaviorState) {
           ctx.font = '8.5px monospace';
           ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
           const altStr = altitude != null ? `${altitude.toFixed(0)}m` : '';
           const velStr = velocity != null ? `${velocity.toFixed(0)}m/s` : '';
-          const subText = [altStr, velStr].filter(Boolean).join(' • ');
+          const behaviorStr = track.behaviorState && track.behaviorState !== 'NORMAL' ? track.behaviorState : '';
+          const subText = [altStr, velStr, behaviorStr].filter(Boolean).join(' • ');
           if (subText) {
             ctx.fillText(subText, x + 9, y + 6);
           }
