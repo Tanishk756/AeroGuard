@@ -28,7 +28,9 @@ coverage/
 *.tsbuildinfo
 
 # Rust
-/target/
+target/
+src-tauri/target/
+src-tauri/gen/
 Cargo.lock
 
 # Generated artifacts
