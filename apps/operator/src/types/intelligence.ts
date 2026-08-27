@@ -1,5 +1,6 @@
 /**
  * AeroGuard Defensive AI & Kinematic Intelligence Types
+ * Includes AI1 Single-Track and AI2 Multi-Track Behavioral & Priority Contracts
  */
 
 export type AnomalyCategory =
@@ -83,5 +84,79 @@ export interface DefensiveIntelligenceSummary {
   anomaly: AnomalyAssessment;
   trajectory: TrajectoryPrediction;
   ingress_estimates: GeofenceIngressEstimate[];
+  evaluated_at: string;
+}
+
+// =====================================================================
+// STAGE AI2 MULTI-TRACK INTELLIGENCE & BEHAVIORAL CONTRACTS
+// =====================================================================
+
+export type BehavioralState =
+  | 'NORMAL'
+  | 'APPROACHING'
+  | 'DEPARTING'
+  | 'LOITERING'
+  | 'RAPID_CHANGE'
+  | 'COORDINATED'
+  | 'ANOMALOUS';
+
+export interface BehaviorClassification {
+  track_id: string;
+  state: BehavioralState;
+  confidence: number;
+  duration_seconds: number;
+  reason: string;
+  contributing_factors: string[];
+  evaluated_at: string;
+}
+
+export interface TrackGroup {
+  group_id: string;
+  member_track_ids: string[];
+  centroid_lat: number;
+  centroid_lon: number;
+  centroid_alt?: number | null;
+  radius_meters: number;
+  member_count: number;
+  confidence: number;
+  behavioral_state: BehavioralState;
+  updated_at: string;
+}
+
+export interface CoordinatedFormation {
+  formation_id: string;
+  group_id: string;
+  member_track_ids: string[];
+  synchronization_index: number;
+  heading_dispersion_deg: number;
+  velocity_dispersion_mps: number;
+  confidence: number;
+  evaluated_at: string;
+}
+
+export interface ThreatPriorityFactor {
+  name: string;
+  score: number;
+  weight: number;
+  contribution: number;
+  description: string;
+}
+
+export interface ThreatPriorityAssessment {
+  track_id: string;
+  group_id?: string | null;
+  priority_score: number;
+  priority_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  confidence: number;
+  factors: ThreatPriorityFactor[];
+  reason: string;
+  evaluated_at: string;
+}
+
+export interface MultiTrackIntelligenceSummary {
+  groups: TrackGroup[];
+  behaviors: BehaviorClassification[];
+  formations: CoordinatedFormation[];
+  priorities: ThreatPriorityAssessment[];
   evaluated_at: string;
 }
