@@ -1,5 +1,4 @@
-import React from 'react';
-import { Alert, Geofence, SelectedEntity, Sensor, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
+import { Alert, DefensiveIntelligenceSummary, Geofence, SelectedEntity, Sensor, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
 import { Card } from '../common/Card';
 import { EmptyState } from '../common/EmptyState';
 import { AlertInspector } from './AlertInspector';
@@ -15,6 +14,7 @@ interface WorkspaceInspectorProps {
   geofences: Geofence[];
   alerts: Alert[];
   threats: ThreatAssessment[];
+  intelligence?: Record<string, DefensiveIntelligenceSummary>;
   selectedTrackHistory?: TrackHistoryPoint[];
   isHistoryLoading?: boolean;
   onClearSelection: () => void;
@@ -32,6 +32,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
   geofences,
   alerts,
   threats,
+  intelligence = {},
   selectedTrackHistory = [],
   isHistoryLoading = false,
   onClearSelection,
@@ -74,6 +75,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
       <TrackInspector
         track={track}
         threat={threat}
+        intelligence={intelligence[track.id] || null}
         relatedAlerts={relatedAlerts}
         geofences={geofences}
         historyPoints={selectedTrackHistory}

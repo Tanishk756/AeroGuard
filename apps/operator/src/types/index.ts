@@ -14,3 +14,4 @@ export * from './audit';
 export * from './rbac';
 export * from './developer';
 export * from './realtime';
+export * from './intelligence';

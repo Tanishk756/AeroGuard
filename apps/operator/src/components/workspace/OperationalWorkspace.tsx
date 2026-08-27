@@ -29,6 +29,7 @@ export const OperationalWorkspace: React.FC = () => {
     alerts,
     threats,
     timeline,
+    intelligence,
     lastUpdated,
     isLoading,
     isRefreshing,
@@ -418,6 +419,7 @@ export const OperationalWorkspace: React.FC = () => {
             sensors={filteredSensors}
             geofences={filteredGeofences}
             selectedTrackHistory={selectedTrackHistory}
+            selectedTrackPrediction={selectedTrackId ? (intelligence[selectedTrackId]?.trajectory || null) : null}
             selectedTrackId={selectedTrackId}
             selectedSensorId={selectedSensorId}
             selectedGeofenceId={selectedGeofenceId}
@@ -438,6 +440,7 @@ export const OperationalWorkspace: React.FC = () => {
               geofences={geofences}
               alerts={alerts}
               threats={threats}
+              intelligence={intelligence}
               selectedTrackHistory={selectedTrackHistory}
               isHistoryLoading={isHistoryLoading}
               onClearSelection={handleClearSelection}

@@ -1,5 +1,4 @@
-import React from 'react';
-import { Alert, Geofence, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
+import { Alert, DefensiveIntelligenceSummary, Geofence, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { LoadingState } from '../common/LoadingState';
@@ -8,6 +7,7 @@ import { StatusBadge } from '../common/StatusBadge';
 interface TrackInspectorProps {
   track: Track;
   threat?: ThreatAssessment | null;
+  intelligence?: DefensiveIntelligenceSummary | null;
   relatedAlerts?: Alert[];
   geofences?: Geofence[];
   historyPoints?: TrackHistoryPoint[];
@@ -19,6 +19,7 @@ interface TrackInspectorProps {
 export const TrackInspector: React.FC<TrackInspectorProps> = ({
   track,
   threat,
+  intelligence,
   relatedAlerts = [],
   geofences = [],
   historyPoints = [],
@@ -102,6 +103,102 @@ export const TrackInspector: React.FC<TrackInspectorProps> = ({
             <span className="kv-value font-mono">{ageSeconds}s ago</span>
           </div>
         </div>
+      </Card>
+
+      {/* Defensive AI & Kinematic Intelligence */}
+      <Card
+        title="Defensive AI & Kinematics"
+        badge={
+          intelligence?.anomaly ? (
+            <StatusBadge status={intelligence.anomaly.anomaly_level} />
+          ) : (
+            <span className="font-mono text-xs text-muted">AWAITING EVALUATION</span>
+          )
+        }
+      >
+        {intelligence?.anomaly ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            <div className="kv-row">
+              <span className="kv-key">Anomaly Score</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '60px', height: '6px', backgroundColor: 'var(--bg-canvas)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(0, intelligence.anomaly.anomaly_score))}%`,
+                      height: '100%',
+                      backgroundColor:
+                        intelligence.anomaly.anomaly_score >= 80
+                          ? 'var(--status-critical)'
+                          : intelligence.anomaly.anomaly_score >= 60
+                          ? '#fb923c'
+                          : intelligence.anomaly.anomaly_score >= 30
+                          ? 'var(--status-warning)'
+                          : 'var(--status-success)',
+                    }}
+                  />
+                </div>
+                <span className="font-mono text-sm" style={{ fontWeight: 600 }}>
+                  {intelligence.anomaly.anomaly_score.toFixed(1)} / 100
+                </span>
+              </div>
+            </div>
+
+            <div className="kv-row">
+              <span className="kv-key">Primary Pattern</span>
+              <span className="font-mono text-xs" style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
+                {intelligence.anomaly.primary_category.replace(/_/g, ' ')}
+              </span>
+            </div>
+
+            <div className="kv-row">
+              <span className="kv-key">Sensor Quality</span>
+              <span className="font-mono text-xs">
+                {(intelligence.anomaly.sensor_confidence * 100).toFixed(0)}% confidence
+              </span>
+            </div>
+
+            {/* Extracted Kinematic Metadata */}
+            {intelligence.features && (
+              <div style={{ padding: '6px', backgroundColor: 'var(--bg-canvas)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <div className="uppercase-tracking text-muted" style={{ fontSize: '9px', marginBottom: '4px' }}>
+                  Extracted Kinematic Features
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', fontSize: '11px' }}>
+                  <div className="font-mono text-muted">Turn: <span style={{ color: 'var(--text-primary)' }}>{intelligence.features.turn_rate_dps.toFixed(1)}°/s</span></div>
+                  <div className="font-mono text-muted">Vert: <span style={{ color: 'var(--text-primary)' }}>{intelligence.features.vertical_speed_mps.toFixed(1)} m/s</span></div>
+                  <div className="font-mono text-muted">Accel: <span style={{ color: 'var(--text-primary)' }}>{intelligence.features.acceleration_mps2.toFixed(1)} m/s²</span></div>
+                  <div className="font-mono text-muted">Consistency: <span style={{ color: 'var(--text-primary)' }}>{(intelligence.features.directional_consistency * 100).toFixed(0)}%</span></div>
+                  {intelligence.features.loiter_radius_meters != null && (
+                    <div className="font-mono text-muted" style={{ gridColumn: 'span 2' }}>
+                      Loiter Radius: <span style={{ color: '#fb923c', fontWeight: 600 }}>~{intelligence.features.loiter_radius_meters.toFixed(0)}m</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Explainability Summary */}
+            <p className="font-mono text-xs text-muted" style={{ margin: 0, lineHeight: 1.4 }}>
+              {intelligence.anomaly.summary}
+            </p>
+
+            {/* Geofence Ingress & Time-to-Breach */}
+            {intelligence.ingress_estimates && intelligence.ingress_estimates.some((e) => e.status === 'APPROACHING' || e.status === 'INSIDE') && (
+              <div style={{ padding: '6px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-sm)' }}>
+                <div className="uppercase-tracking" style={{ fontSize: '9px', color: '#fca5a5', fontWeight: 700, marginBottom: '2px' }}>
+                  Perimeter Ingress Forecast
+                </div>
+                {intelligence.ingress_estimates.filter((e) => e.status === 'APPROACHING' || e.status === 'INSIDE').map((e) => (
+                  <div key={e.geofence_id} className="font-mono text-xs" style={{ color: '#fca5a5' }}>
+                    • {e.geofence_name}: {e.status === 'INSIDE' ? 'INSIDE ZONE' : `Ingress in ~${e.estimated_time_to_breach_seconds?.toFixed(0)}s`}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="font-mono text-xs text-muted">Kinematic observation history accumulating for intelligence evaluation.</p>
+        )}
       </Card>
 
       {/* Threat Triage Assessment */}

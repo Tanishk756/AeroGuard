@@ -9,6 +9,7 @@ import { getTracks } from '../api/tracks';
 import { useAuth } from '../context/AuthContext';
 import {
   Alert,
+  DefensiveIntelligenceSummary,
   Geofence,
   OperationalConnectionMode,
   RealtimeEventEnvelope,
@@ -27,6 +28,7 @@ export interface OperationalDataState {
   alerts: Alert[];
   threats: ThreatAssessment[];
   timeline: TimelineItem[];
+  intelligence: Record<string, DefensiveIntelligenceSummary>;
   lastUpdated: Date | null;
   isLoading: boolean;
   isRefreshing: boolean;
@@ -59,6 +61,7 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [threats, setThreats] = useState<ThreatAssessment[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [intelligence, setIntelligence] = useState<Record<string, DefensiveIntelligenceSummary>>({});
 
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -314,6 +317,17 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
           }
           break;
         }
+        case 'ai.summary': {
+          const intelSummary = envelope.payload as unknown as DefensiveIntelligenceSummary;
+          if (intelSummary && intelSummary.track_id) {
+            setIntelligence((prev) => ({
+              ...prev,
+              [intelSummary.track_id]: intelSummary,
+            }));
+            setLastUpdated(new Date());
+          }
+          break;
+        }
         default:
           break;
       }
@@ -378,6 +392,7 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
     alerts,
     threats,
     timeline,
+    intelligence,
     lastUpdated,
     isLoading,
     isRefreshing,

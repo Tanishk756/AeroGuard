@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMapViewport } from '../../hooks/useMapViewport';
-import { Geofence, GeofenceGeometry, MapLayerVisibility, Sensor, Track, TrackHistoryPoint } from '../../types';
+import { Geofence, GeofenceGeometry, MapLayerVisibility, Sensor, Track, TrackHistoryPoint, TrajectoryPrediction } from '../../types';
 import { CoordinateReadout } from './CoordinateReadout';
 import { GeofenceLayer } from './GeofenceLayer';
 import { MapControls } from './MapControls';
@@ -13,6 +13,7 @@ interface TacticalMapProps {
   sensors: Sensor[];
   geofences: Geofence[];
   selectedTrackHistory?: TrackHistoryPoint[];
+  selectedTrackPrediction?: TrajectoryPrediction | null;
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
@@ -28,6 +29,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   sensors,
   geofences,
   selectedTrackHistory = [],
+  selectedTrackPrediction = null,
   selectedTrackId,
   selectedSensorId,
   selectedGeofenceId,
@@ -378,10 +380,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           />
         )}
 
-        {/* 3. Trajectory History Layer */}
+        {/* 3. Trajectory History & Forward Prediction Layer */}
         {layers.trajectories && (
           <TrajectoryLayer
             historyPoints={selectedTrackHistory}
+            prediction={selectedTrackPrediction}
             latLonToScreen={projectedScreen}
           />
         )}
