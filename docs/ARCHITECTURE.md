@@ -297,3 +297,10 @@ defensive situational-awareness constraints with zero offensive/destructive logi
 kinematic feature extraction engine, multi-sensor confidence calibration, deterministic 5-factor explainable
 anomaly scoring with blended peak/weighted aggregation, 60s forward trajectory prediction with expanding spatial
 uncertainty envelopes, and defensive geofence ingress forecasting.
+
+Stage MAP2 establishes the Advanced Tactical Visualization & GPU Acceleration architecture.
+It replaces DOM/SVG element thrashing with a high-performance rendering abstraction (`IMapRenderer`),
+a runtime capability detection cascade (`WEBGPU` -> `CANVAS` -> `LEGACY`), WGSL vertex/fragment shaders
+with instanced quad buffers, high-DPI 2D batch canvas fallback, spatial viewport culling ($O(\text{visible})$),
+density-aware label throttling for 1,000+ tracks, bounded track trails, forward trajectory prediction vectors,
+expanding uncertainty envelopes, perimeter ingress hazard crosshairs, and accessible keyboard navigation.

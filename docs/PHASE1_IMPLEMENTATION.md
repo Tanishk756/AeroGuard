@@ -68,3 +68,6 @@ Authentication, RBAC, audit logging, sensors, simulation, AI, and frontend
 integration were implemented in subsequent stages (F1-F6, UI1-UI7).
 Stage UI8 subsequently delivered Tauri 2 desktop packaging, native Windows
 notifications, system tray support, and dual-mode runtime execution.
+Stage RT1 delivered realtime WebSocket streaming and in-process EventBus architecture.
+Stage AI1 delivered defensive kinematic anomaly detection and trajectory prediction.
+Stage MAP2 delivered GPU-accelerated tactical visualization with WebGPU and Canvas 2D fallback.

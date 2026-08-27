@@ -247,6 +247,14 @@ spatial uncertainty envelopes; defensive geofence ingress forecasting; realtime 
 EventBus broadcasting; `GET /api/v1/tracks/{track_id}/intelligence` REST endpoint; and
 Operator Console forward trajectory vector and Track Inspector intelligence surfaces.
 
+Stage MAP2 delivers Advanced Tactical Visualization & GPU Acceleration: unified tactical
+renderer abstraction (`IMapRenderer`); hardware capability detection cascade (`WEBGPU` -> `CANVAS` -> `LEGACY`);
+WGSL shaders and instanced GPU quad/chevron pipelines; high-performance 2D batch canvas fallback;
+high-density spatial culling and density-aware label throttling for 1,000 live tracks;
+bounded historical trails; AI1 forward trajectory vectors, expanding uncertainty bands,
+time tags (+30s, +60s), and perimeter ingress hazard crosshairs; and keyboard pan/zoom navigation
+with screen reader accessibility.
+
 ## Phase 10: testing, validation, and hardening
 
 Objectives:
