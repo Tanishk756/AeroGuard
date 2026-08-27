@@ -133,12 +133,17 @@ AeroGuard depends on an event-driven design to move data between sensors, fusion
 - workflow events: task, approval, or orchestration triggers
 - system events: health, configuration, and lifecycle notifications
 
-### Realtime architecture
+### Realtime architecture (Implemented in Stage RT1)
 
-- WebSocket transport for operator-facing updates and streaming state changes
-- typed event contracts to ensure schema clarity and versioning
-- batching and filtering for high-volume feeds
-- event persistence for operational traceability and replay
+- In-process asynchronous `EventBus` with atomic monotonic sequencing per channel (`operational`, `simulation`, `system`).
+- Bounded subscriber queues (default: 100) with state freshness eviction (non-critical kinematic telemetry dropped when queue full; critical alerts evict oldest non-critical item).
+- Authenticated WebSocket streaming channels (`/api/v1/ws/operational`, `/api/v1/ws/simulation`) validating HttpOnly session cookies and RBAC permissions.
+- Bi-directional heartbeat ping/pong protocol with 37.5s dead socket watchdog detection.
+- Frontend `useWebSocketStream` hook with exponential backoff, jitter, and automatic sequence gap REST reconciliation.
+- RequestAnimationFrame track batching on frontend for 60 FPS visualizer stability.
+- Desktop native notification integration with Tauri 2 and bounded LRU deduplication.
+- Typed `RealtimeEventEnvelope` contract across Python backend and TypeScript frontend.
+- REST endpoints preserved as authoritative baseline and seamless fallback.
 
 ### Event flow
 

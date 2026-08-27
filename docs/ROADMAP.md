@@ -228,7 +228,14 @@ Planned work:
 
 Stage F6 delivers the historical querying, multi-source operational timeline aggregation,
 descriptive SQL analytics, virtual clock deterministic replay stepping, and canonical
-structural replay run comparison engine. Real-time WebSocket streaming and UI visualization remain future work.
+structural replay run comparison engine.
+
+Stage RT1 delivers the Realtime Streaming & WebSocket Event Bus architecture: in-process
+async EventBus with monotonic atomic sequencing, bounded backpressure queue eviction,
+authenticated WebSocket streaming channels (`/api/v1/ws/operational`, `/api/v1/ws/simulation`),
+frontend `useWebSocketStream` hook with exponential backoff and jitter, `useOperationalData`
+adaptive REST reconciliation and requestAnimationFrame track batching, and native Tauri 2
+desktop toast notification dispatch.
 
 ## Phase 10: testing, validation, and hardening
 
