@@ -1,4 +1,4 @@
-"""Multi-track correlation and grouping package."""
+"""Multi-track correlation, grouping, and coordination index package."""
 
 from ai.correlation.grouping import (
     TrackObservation,
@@ -7,6 +7,10 @@ from ai.correlation.grouping import (
     correlate_tracks,
     evaluate_pairwise_correlation,
 )
+from ai.correlation.coordination import (
+    MemberObservation,
+    compute_coordination_index,
+)
 
 __all__ = [
     "TrackObservation",
@@ -14,4 +18,6 @@ __all__ = [
     "GroupingConfig",
     "correlate_tracks",
     "evaluate_pairwise_correlation",
+    "MemberObservation",
+    "compute_coordination_index",
 ]
