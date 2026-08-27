@@ -84,16 +84,13 @@ class SpatialHashGrid:
         self._config = config or SpatialGridConfig()
         self._cell_size_meters = max(10.0, float(self._config.cell_size_meters))
 
-        # Latitude row parameters
+        # Latitude row parameters (O(1) initialization)
         self._delta_lat: float = self._cell_size_meters / METERS_PER_DEGREE_LAT
         self._num_rows: int = max(1, math.ceil(180.0 / self._delta_lat))
-        # Re-adjust delta_lat so exactly num_rows span 180 degrees
         self._delta_lat_adj: float = 180.0 / self._num_rows
 
-        # Precompute per-row longitude column counts and widths
-        self._row_cols: list[int] = [0] * self._num_rows
-        self._row_delta_lon: list[float] = [0.0] * self._num_rows
-        self._precompute_row_quantization()
+        # Cache for row quantization (computed on-demand only for active rows)
+        self._row_cache: dict[int, tuple[int, float]] = {}
 
         # Primary spatial index: (row, col) -> set of track_ids
         self._grid: dict[tuple[int, int], set[str]] = {}
@@ -103,27 +100,30 @@ class SpatialHashGrid:
         self._track_coords: dict[str, tuple[float, float]] = {}
         self._track_obs: dict[str, TrackObservation] = {}
 
-    def _precompute_row_quantization(self) -> None:
-        """Precompute longitude quantization parameters for all latitude rows."""
-        for r in range(self._num_rows):
-            lat_south = (r * self._delta_lat_adj) - 90.0
-            lat_north = ((r + 1) * self._delta_lat_adj) - 90.0
+    def _get_row_quantization(self, row: int) -> tuple[int, float]:
+        """Compute or retrieve cached (n_cols, delta_lon_adj) for a specific latitude row in O(1)."""
+        cached = self._row_cache.get(row)
+        if cached is not None:
+            return cached
 
-            # Find maximum cos(lat) in this latitude row
-            if lat_south <= 0.0 <= lat_north:
-                cos_max = 1.0
-            else:
-                cos_south = math.cos(math.radians(lat_south))
-                cos_north = math.cos(math.radians(lat_north))
-                cos_max = max(cos_south, cos_north)
+        lat_south = (row * self._delta_lat_adj) - 90.0
+        lat_north = ((row + 1) * self._delta_lat_adj) - 90.0
 
-            # Clamp cos_max to avoid division by zero near poles
-            cos_max_clamped = max(0.0001, cos_max)
-            delta_lon_target = self._delta_lat_adj / cos_max_clamped
-            n_cols = max(1, math.ceil(360.0 / delta_lon_target))
+        if lat_south <= 0.0 <= lat_north:
+            cos_max = 1.0
+        else:
+            cos_south = math.cos(math.radians(lat_south))
+            cos_north = math.cos(math.radians(lat_north))
+            cos_max = max(cos_south, cos_north)
 
-            self._row_cols[r] = n_cols
-            self._row_delta_lon[r] = 360.0 / n_cols
+        cos_max_clamped = max(0.0001, cos_max)
+        delta_lon_target = self._delta_lat_adj / cos_max_clamped
+        n_cols = max(1, math.ceil(360.0 / delta_lon_target))
+        delta_lon_adj = 360.0 / n_cols
+
+        res = (n_cols, delta_lon_adj)
+        self._row_cache[row] = res
+        return res
 
     # ── Coordinate & Cell Conversion ──────────────────────────────────────────
 
@@ -136,9 +136,8 @@ class SpatialHashGrid:
         row = int((lat + 90.0) / self._delta_lat_adj)
         row = max(0, min(self._num_rows - 1, row))
 
-        # Column index in [0, row_cols[row] - 1]
-        n_cols = self._row_cols[row]
-        delta_lon = self._row_delta_lon[row]
+        # Column index in [0, n_cols - 1]
+        n_cols, delta_lon = self._get_row_quantization(row)
         lon_360 = (lon + 180.0) % 360.0
         col = int(lon_360 / delta_lon) % n_cols
 
@@ -147,8 +146,7 @@ class SpatialHashGrid:
     def _get_col_in_row_for_lon(self, row: int, longitude: float) -> int:
         """Compute the column index in row `row` corresponding to a given longitude."""
         lon = normalize_longitude(longitude)
-        n_cols = self._row_cols[row]
-        delta_lon = self._row_delta_lon[row]
+        n_cols, delta_lon = self._get_row_quantization(row)
         lon_360 = (lon + 180.0) % 360.0
         return int(lon_360 / delta_lon) % n_cols
 
@@ -245,7 +243,7 @@ class SpatialHashGrid:
         for dr in (-1, 0, 1):
             r = center_row + dr
             if 0 <= r < self._num_rows:
-                n_cols = self._row_cols[r]
+                n_cols, _ = self._get_row_quantization(r)
                 col_center = self._get_col_in_row_for_lon(r, lon)
                 # Inspect 3 columns: col_center - 1, col_center, col_center + 1 (with antimeridian wrap)
                 for dc in (-1, 0, 1):
@@ -282,8 +280,7 @@ class SpatialHashGrid:
         for dr in range(-row_radius, row_radius + 1):
             r = center_row + dr
             if 0 <= r < self._num_rows:
-                n_cols = self._row_cols[r]
-                delta_lon = self._row_delta_lon[r]
+                n_cols, _ = self._get_row_quantization(r)
                 col_center = self._get_col_in_row_for_lon(r, lon)
 
                 # Column radius based on physical width of row

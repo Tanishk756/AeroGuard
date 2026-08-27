@@ -315,16 +315,32 @@ def correlate_tracks(
     if n < cfg.min_group_size:
         return []
 
-    # 2. Build adjacency graph
+    # 2. Index observations into SpatialHashGrid with configured max distance threshold
+    from ai.correlation.spatial_grid import SpatialGridConfig, SpatialHashGrid
+
+    grid = SpatialHashGrid(SpatialGridConfig(cell_size_meters=cfg.max_distance_meters))
+    for obs in sorted_obs:
+        grid.insert(obs.id, obs.latitude, obs.longitude, observation=obs)
+
+    # 3. Build adjacency graph using candidate neighborhood queries
     adj: dict[str, set[str]] = {o.id: set() for o in sorted_obs}
-    for i in range(n):
-        for j in range(i + 1, n):
-            t1 = sorted_obs[i]
-            t2 = sorted_obs[j]
-            corr = evaluate_pairwise_correlation(t1, t2, cfg)
-            if corr.is_correlated:
-                adj[t1.id].add(t2.id)
-                adj[t2.id].add(t1.id)
+    evaluated_pairs: set[tuple[str, str]] = set()
+
+    for t1 in sorted_obs:
+        candidate_ids = grid.get_candidate_neighbors(t1.id)
+        for cand_id in candidate_ids:
+            # Canonical pair key (t1.id < cand_id) ensures each unordered pair is evaluated at most once
+            if t1.id < cand_id:
+                pair_key = (t1.id, cand_id)
+                if pair_key in evaluated_pairs:
+                    continue
+                evaluated_pairs.add(pair_key)
+
+                t2 = observations_map[cand_id]
+                corr = evaluate_pairwise_correlation(t1, t2, cfg)
+                if corr.is_correlated:
+                    adj[t1.id].add(t2.id)
+                    adj[t2.id].add(t1.id)
 
     # 3. Find connected components deterministically
     visited: set[str] = set()
