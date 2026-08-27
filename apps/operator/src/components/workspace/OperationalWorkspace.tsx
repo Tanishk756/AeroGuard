@@ -34,6 +34,8 @@ export const OperationalWorkspace: React.FC = () => {
     isRefreshing,
     isStale,
     error,
+    connectionMode,
+    latencyMs,
     refresh,
   } = useOperationalData();
 
@@ -323,6 +325,32 @@ export const OperationalWorkspace: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+          <span
+            className="font-mono text-xs"
+            style={{
+              padding: '2px 6px',
+              borderRadius: '2px',
+              backgroundColor:
+                connectionMode === 'STREAMING'
+                  ? 'rgba(34, 197, 94, 0.15)'
+                  : connectionMode === 'POLLING'
+                  ? 'rgba(234, 179, 8, 0.15)'
+                  : 'rgba(239, 68, 68, 0.15)',
+              color:
+                connectionMode === 'STREAMING'
+                  ? 'var(--status-success)'
+                  : connectionMode === 'POLLING'
+                  ? 'var(--status-warning)'
+                  : 'var(--status-critical)',
+              border:
+                connectionMode === 'STREAMING'
+                  ? '1px solid rgba(34, 197, 94, 0.3)'
+                  : '1px solid rgba(234, 179, 8, 0.3)',
+            }}
+          >
+            ● {connectionMode} {latencyMs !== null ? `(${latencyMs}ms)` : ''}
+          </span>
+
           <span className="font-mono text-xs" style={{ color: isStale ? '#fcd34d' : 'var(--text-secondary)' }}>
             DATA STATE:{' '}
             <strong>

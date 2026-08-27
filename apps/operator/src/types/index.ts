@@ -13,3 +13,4 @@ export * from './scenario';
 export * from './audit';
 export * from './rbac';
 export * from './developer';
+export * from './realtime';

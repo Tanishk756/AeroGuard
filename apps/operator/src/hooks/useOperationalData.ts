@@ -7,7 +7,18 @@ import { getSensors } from '../api/sensors';
 import { getThreats } from '../api/threats';
 import { getTracks } from '../api/tracks';
 import { useAuth } from '../context/AuthContext';
-import { Alert, Geofence, Sensor, ThreatAssessment, TimelineItem, Track } from '../types';
+import {
+  Alert,
+  Geofence,
+  OperationalConnectionMode,
+  RealtimeEventEnvelope,
+  Sensor,
+  StreamStatus,
+  ThreatAssessment,
+  TimelineItem,
+  Track,
+} from '../types';
+import { useWebSocketStream } from './useWebSocketStream';
 
 export interface OperationalDataState {
   tracks: Track[];
@@ -21,17 +32,26 @@ export interface OperationalDataState {
   isRefreshing: boolean;
   isStale: boolean;
   error: string | null;
+  connectionMode: OperationalConnectionMode;
+  streamStatus: StreamStatus;
+  latencyMs: number | null;
   refresh: () => Promise<void>;
 }
 
 export interface UseOperationalDataOptions {
-  autoRefreshIntervalMs?: number; // Default: 15000ms (15 seconds) - conservative, non-aggressive
+  autoRefreshIntervalMs?: number; // Default: 15000ms fallback interval
   enabled?: boolean;
+  enableStreaming?: boolean;
 }
 
 export function useOperationalData(options: UseOperationalDataOptions = {}): OperationalDataState {
-  const { autoRefreshIntervalMs = 15000, enabled = true } = options;
-  const { hasPermission } = useAuth();
+  const {
+    autoRefreshIntervalMs = 15000,
+    enabled = true,
+    enableStreaming = true,
+  } = options;
+
+  const { hasPermission, user } = useAuth();
 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [sensors, setSensors] = useState<Sensor[]>([]);
@@ -62,7 +82,6 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
   const fetchOperationalData = useCallback(async () => {
     if (!enabled) return;
 
-    // Abort previous in-flight request to prevent race conditions or request storms
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -151,7 +170,6 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
       const hasRejections = results.some((r) => r.status === 'rejected');
       if (hasRejections) {
         setIsStale(true);
-        // Stale-while-refresh: keep previous data, flag stale warning
         const rejectedReason = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
         const msg = rejectedReason?.reason instanceof Error ? rejectedReason.reason.message : 'Partial refresh failure';
         setError(msg);
@@ -173,20 +191,132 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
     }
   }, [enabled, hasPermission, lastUpdated]);
 
+  // Handle incoming realtime operational WebSocket events
+  const handleWebSocketMessage = useCallback((envelope: RealtimeEventEnvelope) => {
+    if (!isMountedRef.current) return;
+
+    switch (envelope.event_type) {
+      case 'track.created':
+      case 'track.updated': {
+        const trackData = envelope.payload as unknown as Track;
+        if (trackData && trackData.id) {
+          setTracks((prev) => {
+            const idx = prev.findIndex((t) => t.id === trackData.id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...trackData };
+              return updated;
+            }
+            return [trackData, ...prev];
+          });
+        }
+        break;
+      }
+      case 'track.dropped': {
+        const payload = envelope.payload as { id?: string };
+        if (payload && payload.id) {
+          setTracks((prev) => prev.filter((t) => t.id !== payload.id));
+        }
+        break;
+      }
+      case 'alert.created': {
+        const alertData = envelope.payload as unknown as Alert;
+        if (alertData && alertData.id) {
+          setAlerts((prev) => {
+            const exists = prev.some((a) => a.id === alertData.id);
+            if (exists) return prev;
+            return [alertData, ...prev];
+          });
+          dispatchAlertNotifications([alertData]).catch(() => {});
+        }
+        break;
+      }
+      case 'alert.updated': {
+        const alertData = envelope.payload as unknown as Alert;
+        if (alertData && alertData.id) {
+          setAlerts((prev) => {
+            const idx = prev.findIndex((a) => a.id === alertData.id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...alertData };
+              return updated;
+            }
+            return [alertData, ...prev];
+          });
+        }
+        break;
+      }
+      case 'threat.updated': {
+        const threatData = envelope.payload as unknown as ThreatAssessment;
+        if (threatData && threatData.id) {
+          setThreats((prev) => {
+            const idx = prev.findIndex((th) => th.id === threatData.id || th.track_id === threatData.track_id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...threatData };
+              return updated;
+            }
+            return [threatData, ...prev];
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    setLastUpdated(new Date());
+  }, []);
+
+  const handleSequenceGap = useCallback(() => {
+    // Reconcile full state via REST upon sequence gap
+    fetchOperationalData();
+  }, [fetchOperationalData]);
+
+  const stream = useWebSocketStream({
+    channel: 'operational',
+    enabled: enabled && enableStreaming && !!user,
+    onMessage: handleWebSocketMessage,
+    onSequenceGap: handleSequenceGap,
+  });
+
+  // Reconcile state when stream transitions to CONNECTED
+  const prevStreamStatusRef = useRef<StreamStatus>(stream.status);
+  useEffect(() => {
+    if (prevStreamStatusRef.current !== 'CONNECTED' && stream.status === 'CONNECTED') {
+      fetchOperationalData();
+    }
+    prevStreamStatusRef.current = stream.status;
+  }, [stream.status, fetchOperationalData]);
+
+  // Initial fetch on mount
   useEffect(() => {
     fetchOperationalData();
   }, [fetchOperationalData]);
 
-  // Restrained background auto-refresh
+  // Compute operational connection mode
+  const connectionMode: OperationalConnectionMode =
+    stream.status === 'CONNECTED'
+      ? 'STREAMING'
+      : stream.status === 'CONNECTING'
+      ? 'CONNECTING'
+      : stream.status === 'RECONNECTING'
+      ? 'RECONNECTING'
+      : 'POLLING';
+
+  // Adaptive background polling: fast (15s) when in POLLING mode, relaxed (60s) when STREAMING
   useEffect(() => {
-    if (!enabled || autoRefreshIntervalMs <= 0) return;
+    if (!enabled) return;
+
+    const intervalMs = connectionMode === 'STREAMING' ? 60000 : autoRefreshIntervalMs;
+    if (intervalMs <= 0) return;
 
     const interval = setInterval(() => {
       fetchOperationalData();
-    }, autoRefreshIntervalMs);
+    }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [enabled, autoRefreshIntervalMs, fetchOperationalData]);
+  }, [enabled, connectionMode, autoRefreshIntervalMs, fetchOperationalData]);
 
   return {
     tracks,
@@ -200,6 +330,9 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
     isRefreshing,
     isStale,
     error,
+    connectionMode,
+    streamStatus: stream.status,
+    latencyMs: stream.latencyMs,
     refresh: fetchOperationalData,
   };
 }
