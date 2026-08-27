@@ -12,3 +12,4 @@ export * from './workspace';
 export * from './scenario';
 export * from './audit';
 export * from './rbac';
+export * from './developer';

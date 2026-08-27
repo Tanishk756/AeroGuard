@@ -40,7 +40,9 @@ the historical operations, unified timeline aggregation, descriptive SQL analyti
 and deterministic virtual-clock replay and comparison subsystem, Stage UI1
 delivers the Operator Console frontend foundation, Stage UI2 delivers the
 Operational Map & Mission Workspace, Stage UI3 delivers Mission Operations & Interaction,
-and Stage UI4 delivers Mission Governance, Security Audit & Administrative Operations.
+Stage UI4 delivers Mission Governance, Security Audit & Administrative Operations,
+Stage UI5 delivers Mission Authoring & Defense Zone Studio, Stage UI6 delivers
+Advanced Analytics & Reporting, and Stage UI7 delivers the Developer and API Console.
 
 ## Windows commands
 

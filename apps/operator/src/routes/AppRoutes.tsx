@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
 import { AlertsPage } from '../pages/AlertsPage';
 import { AnalyticsPage } from '../pages/AnalyticsPage';
+import { ApiConsolePage } from '../pages/ApiConsolePage';
 import { AuditLogPage } from '../pages/AuditLogPage';
 import { DiagnosticsPage } from '../pages/DiagnosticsPage';
 import { GeofencesPage } from '../pages/GeofencesPage';
@@ -127,6 +128,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute requiredPermission="system.read">
               <DiagnosticsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="developer"
+          element={
+            <ProtectedRoute requiredPermission="system.read">
+              <ApiConsolePage />
             </ProtectedRoute>
           }
         />

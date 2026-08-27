@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 export interface CommandItem {
   id: string;
   label: string;
-  category: 'Navigation' | 'Tactical Map' | 'Operations' | 'Workspace' | 'Analytics';
+  category: 'Navigation' | 'Tactical Map' | 'Operations' | 'Workspace' | 'Analytics' | 'Developer';
   shortcut?: string;
   icon?: string;
   action: () => void;
@@ -180,6 +180,35 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       shortcut: 'g d',
       icon: '🩺',
       action: () => navigate('/app/diagnostics'),
+    },
+    {
+      id: 'nav-developer',
+      label: 'Go to Developer & API Console',
+      category: 'Navigation',
+      shortcut: 'g e',
+      icon: '⚡',
+      action: () => navigate('/app/developer'),
+    },
+    {
+      id: 'dev-dispatcher',
+      label: 'Open Interactive API Request Dispatcher',
+      category: 'Developer',
+      icon: '⚡',
+      action: () => navigate('/app/developer?tab=dispatcher'),
+    },
+    {
+      id: 'dev-workbench',
+      label: 'Open Synthetic Sensor Ingestion Workbench',
+      category: 'Developer',
+      icon: '🛰️',
+      action: () => navigate('/app/developer?tab=workbench'),
+    },
+    {
+      id: 'dev-schemas',
+      label: 'Open Data Contract & Pydantic Schema Viewer',
+      category: 'Developer',
+      icon: '📋',
+      action: () => navigate('/app/developer?tab=schemas'),
     },
     {
       id: 'map-fit',

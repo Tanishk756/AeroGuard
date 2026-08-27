@@ -75,6 +75,18 @@ inspection; RBAC Role & Access Governance with custom role builder, domain-group
 matrix, system role immutability, and User ID role assignment/revocation; and Platform Diagnostics
 with database connectivity verification (SELECT 1), runtime environment inspection, and session authority.
 
+Stage UI5 delivers Mission Authoring & Defense Zone Studio: comprehensive visual management
+for defensive geofence perimeters and deterministic simulation scenario authoring, providing full CRUD
+workflows, live SVG TacticalMap boundary preview, template cloning, unsaved draft protection, and two-step deletion safety.
+
+Stage UI6 delivers Advanced Analytics & Reporting: comprehensive analytical dashboard,
+classification distribution charts, speed and altitude kinematics histograms, threat level breakdowns,
+time-window filtering presets, and summary reporting views over Stage F6 analytical datasets.
+
+Stage UI7 delivers the Developer and API Console: versioned REST API catalog across 8 domains,
+interactive request dispatcher with live round-trip latency and telemetry inspection, synthetic sensor
+detection ingestion workbench, Pydantic schema contract viewer, and multi-format cURL/fetch code snippet generation.
+
 ## Phase 3: backend and data services
 
 Objectives:

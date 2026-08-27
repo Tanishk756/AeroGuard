@@ -97,6 +97,12 @@ export const AppSidebar: React.FC = () => {
       icon: '🩺',
       requiredPermission: 'system.read',
     },
+    {
+      path: '/app/developer',
+      label: 'API Console',
+      icon: '⚡',
+      requiredPermission: 'system.read',
+    },
   ];
 
   const filterVisible = (item: NavItemConfig) => {
