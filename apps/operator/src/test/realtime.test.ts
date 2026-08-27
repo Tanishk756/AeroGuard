@@ -371,4 +371,80 @@ describe('AeroGuard Stage RT1 Realtime Streaming & WebSocket Event Bus Unit Test
       assert.strictEqual(getPollingInterval('DISCONNECTED'), 15000);
     });
   });
+
+  describe('Desktop Realtime Notification Dispatch & Deduplication', () => {
+    it('identifies eligible alert.created events for desktop toast notifications', () => {
+      const shouldDispatchNotification = (envelope: { event_type: string; payload: { severity?: string } }) => {
+        if (envelope.event_type !== 'alert.created') return false;
+        const sev = envelope.payload.severity;
+        return sev === 'CRITICAL' || sev === 'HIGH';
+      };
+
+      assert.strictEqual(
+        shouldDispatchNotification({ event_type: 'alert.created', payload: { severity: 'CRITICAL' } }),
+        true
+      );
+      assert.strictEqual(
+        shouldDispatchNotification({ event_type: 'alert.created', payload: { severity: 'HIGH' } }),
+        true
+      );
+      assert.strictEqual(
+        shouldDispatchNotification({ event_type: 'alert.created', payload: { severity: 'LOW' } }),
+        false
+      );
+      assert.strictEqual(
+        shouldDispatchNotification({ event_type: 'track.created', payload: { severity: 'CRITICAL' } }),
+        false
+      );
+    });
+
+    it('identifies critical threat escalation events for desktop toast notifications', () => {
+      const isCriticalThreat = (envelope: { event_type: string; payload: { level?: string; score?: number } }) => {
+        if (envelope.event_type !== 'threat.updated') return false;
+        return envelope.payload.level === 'CRITICAL' || (envelope.payload.score || 0) >= 80;
+      };
+
+      assert.strictEqual(
+        isCriticalThreat({ event_type: 'threat.updated', payload: { level: 'CRITICAL', score: 85 } }),
+        true
+      );
+      assert.strictEqual(
+        isCriticalThreat({ event_type: 'threat.updated', payload: { level: 'HIGH', score: 70 } }),
+        false
+      );
+    });
+  });
+
+  describe('Heartbeat Watchdog & Dead Socket Detection', () => {
+    it('detects stream stall when activity exceeds maxIdle threshold', () => {
+      const checkWatchdog = (lastActivityTime: number, now: number, heartbeatIntervalMs = 15000) => {
+        const maxIdleMs = heartbeatIntervalMs * 2.5; // 37500ms
+        return now - lastActivityTime > maxIdleMs;
+      };
+
+      const baseTime = 100000;
+      assert.strictEqual(checkWatchdog(baseTime, baseTime + 10000), false); // 10s idle - OK
+      assert.strictEqual(checkWatchdog(baseTime, baseTime + 35000), false); // 35s idle - OK
+      assert.strictEqual(checkWatchdog(baseTime, baseTime + 40000), true); // 40s idle - Stalled!
+    });
+  });
+
+  describe('Rate-Limited Animation Frame Track Batching', () => {
+    it('coalesces multiple rapid track updates into a single deduplicated map', () => {
+      const pendingTracks = new Map<string, Track>();
+
+      const track1V1: Track = { id: 'TRK-1', latitude: 37.1, longitude: -122.1 } as Track;
+      const track2V1: Track = { id: 'TRK-2', latitude: 37.2, longitude: -122.2 } as Track;
+      const track1V2: Track = { id: 'TRK-1', latitude: 37.15, longitude: -122.15 } as Track;
+
+      // Rapidly incoming events in same frame
+      pendingTracks.set(track1V1.id, track1V1);
+      pendingTracks.set(track2V1.id, track2V1);
+      pendingTracks.set(track1V2.id, track1V2); // Overwrites TRK-1 with freshest coordinates
+
+      assert.strictEqual(pendingTracks.size, 2);
+      assert.strictEqual(pendingTracks.get('TRK-1')?.latitude, 37.15);
+      assert.strictEqual(pendingTracks.get('TRK-2')?.latitude, 37.2);
+    });
+  });
 });

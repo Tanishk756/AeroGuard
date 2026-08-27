@@ -55,7 +55,9 @@ export function useWebSocketStream(options: UseWebSocketStreamOptions = {}): Web
   const retryCountRef = useRef<number>(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingTimestampRef = useRef<number | null>(null);
+  const lastActivityTimeRef = useRef<number>(Date.now());
   const isMountedRef = useRef<boolean>(true);
 
   const onMessageRef = useRef(onMessage);
@@ -98,6 +100,10 @@ export function useWebSocketStream(options: UseWebSocketStreamOptions = {}): Web
       clearInterval(heartbeatTimerRef.current);
       heartbeatTimerRef.current = null;
     }
+    if (watchdogTimerRef.current) {
+      clearInterval(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
   }, []);
 
   const disconnect = useCallback(() => {
@@ -130,6 +136,7 @@ export function useWebSocketStream(options: UseWebSocketStreamOptions = {}): Web
     const wsUrl = resolveWebSocketUrl(path);
     updateStatus(retryCountRef.current > 0 ? 'RECONNECTING' : 'CONNECTING');
     setError(null);
+    lastActivityTimeRef.current = Date.now();
 
     try {
       const socket = new WebSocket(wsUrl);
@@ -138,17 +145,32 @@ export function useWebSocketStream(options: UseWebSocketStreamOptions = {}): Web
       socket.onopen = () => {
         if (!isMountedRef.current) return;
         retryCountRef.current = 0;
+        lastActivityTimeRef.current = Date.now();
         updateStatus('CONNECTED');
         setError(null);
 
-        // Start heartbeat interval
+        // Start heartbeat interval and watchdog
         if (heartbeatIntervalMs > 0) {
           heartbeatTimerRef.current = setInterval(sendPing, heartbeatIntervalMs);
+          const maxIdleMs = heartbeatIntervalMs * 2.5; // ~37.5s
+          watchdogTimerRef.current = setInterval(() => {
+            if (Date.now() - lastActivityTimeRef.current > maxIdleMs) {
+              console.warn('[AeroGuard Realtime] Stream stall detected by watchdog; forcing reconnect');
+              if (socketRef.current) {
+                try {
+                  socketRef.current.close(1006, 'Stream stalled');
+                } catch {
+                  // Safe ignore
+                }
+              }
+            }
+          }, 5000);
         }
       };
 
       socket.onmessage = (event: MessageEvent) => {
         if (!isMountedRef.current) return;
+        lastActivityTimeRef.current = Date.now();
         try {
           const envelope = JSON.parse(event.data) as RealtimeEventEnvelope;
           if (!envelope || typeof envelope !== 'object') return;

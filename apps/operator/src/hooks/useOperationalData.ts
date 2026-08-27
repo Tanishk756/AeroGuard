@@ -68,6 +68,50 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const pendingTracksRef = useRef<Map<string, Track>>(new Map());
+  const rafIdRef = useRef<number | null>(null);
+
+  const flushPendingTracks = useCallback(() => {
+    if (!isMountedRef.current || pendingTracksRef.current.size === 0) {
+      rafIdRef.current = null;
+      return;
+    }
+
+    const updates = Array.from(pendingTracksRef.current.values());
+    pendingTracksRef.current.clear();
+    rafIdRef.current = null;
+
+    setTracks((prev) => {
+      const updateMap = new Map(updates.map((t) => [t.id, t]));
+      const updatedList = prev.map((t) => {
+        const up = updateMap.get(t.id);
+        if (up) {
+          updateMap.delete(t.id);
+          return { ...t, ...up };
+        }
+        return t;
+      });
+      if (updateMap.size > 0) {
+        return [...updateMap.values(), ...updatedList];
+      }
+      return updatedList;
+    });
+    setLastUpdated(new Date());
+  }, []);
+
+  const queueTrackUpdate = useCallback(
+    (track: Track) => {
+      pendingTracksRef.current.set(track.id, track);
+      if (rafIdRef.current === null) {
+        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+          rafIdRef.current = window.requestAnimationFrame(flushPendingTracks);
+        } else {
+          rafIdRef.current = (setTimeout(flushPendingTracks, 16) as unknown) as number;
+        }
+      }
+    },
+    [flushPendingTracks]
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -75,6 +119,14 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
       isMountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+      }
+      if (rafIdRef.current !== null) {
+        if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+          window.cancelAnimationFrame(rafIdRef.current);
+        } else {
+          clearTimeout(rafIdRef.current);
+        }
+        rafIdRef.current = null;
       }
     };
   }, []);
@@ -192,81 +244,82 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
   }, [enabled, hasPermission, lastUpdated]);
 
   // Handle incoming realtime operational WebSocket events
-  const handleWebSocketMessage = useCallback((envelope: RealtimeEventEnvelope) => {
-    if (!isMountedRef.current) return;
+  const handleWebSocketMessage = useCallback(
+    (envelope: RealtimeEventEnvelope) => {
+      if (!isMountedRef.current) return;
 
-    switch (envelope.event_type) {
-      case 'track.created':
-      case 'track.updated': {
-        const trackData = envelope.payload as unknown as Track;
-        if (trackData && trackData.id) {
-          setTracks((prev) => {
-            const idx = prev.findIndex((t) => t.id === trackData.id);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], ...trackData };
-              return updated;
-            }
-            return [trackData, ...prev];
-          });
-        }
-        break;
-      }
-      case 'track.dropped': {
-        const payload = envelope.payload as { id?: string };
-        if (payload && payload.id) {
-          setTracks((prev) => prev.filter((t) => t.id !== payload.id));
-        }
-        break;
-      }
-      case 'alert.created': {
-        const alertData = envelope.payload as unknown as Alert;
-        if (alertData && alertData.id) {
-          setAlerts((prev) => {
-            const exists = prev.some((a) => a.id === alertData.id);
-            if (exists) return prev;
-            return [alertData, ...prev];
-          });
-          dispatchAlertNotifications([alertData]).catch(() => {});
-        }
-        break;
-      }
-      case 'alert.updated': {
-        const alertData = envelope.payload as unknown as Alert;
-        if (alertData && alertData.id) {
-          setAlerts((prev) => {
-            const idx = prev.findIndex((a) => a.id === alertData.id);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], ...alertData };
-              return updated;
-            }
-            return [alertData, ...prev];
-          });
-        }
-        break;
-      }
-      case 'threat.updated': {
-        const threatData = envelope.payload as unknown as ThreatAssessment;
-        if (threatData && threatData.id) {
-          setThreats((prev) => {
-            const idx = prev.findIndex((th) => th.id === threatData.id || th.track_id === threatData.track_id);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], ...threatData };
-              return updated;
-            }
-            return [threatData, ...prev];
-          });
-        }
-        break;
-      }
-      default:
-        break;
-    }
+      // Realtime Desktop Notifications for critical alerts / threats
+      dispatchAlertNotifications([]).catch(() => {});
 
-    setLastUpdated(new Date());
-  }, []);
+      switch (envelope.event_type) {
+        case 'track.created':
+        case 'track.updated': {
+          const trackData = envelope.payload as unknown as Track;
+          if (trackData && trackData.id) {
+            queueTrackUpdate(trackData);
+          }
+          break;
+        }
+        case 'track.dropped': {
+          const payload = envelope.payload as { id?: string };
+          if (payload && payload.id) {
+            pendingTracksRef.current.delete(payload.id);
+            setTracks((prev) => prev.filter((t) => t.id !== payload.id));
+            setLastUpdated(new Date());
+          }
+          break;
+        }
+        case 'alert.created': {
+          const alertData = envelope.payload as unknown as Alert;
+          if (alertData && alertData.id) {
+            setAlerts((prev) => {
+              const exists = prev.some((a) => a.id === alertData.id);
+              if (exists) return prev;
+              return [alertData, ...prev];
+            });
+            dispatchAlertNotifications([alertData]).catch(() => {});
+            setLastUpdated(new Date());
+          }
+          break;
+        }
+        case 'alert.updated': {
+          const alertData = envelope.payload as unknown as Alert;
+          if (alertData && alertData.id) {
+            setAlerts((prev) => {
+              const idx = prev.findIndex((a) => a.id === alertData.id);
+              if (idx >= 0) {
+                const updated = [...prev];
+                updated[idx] = { ...updated[idx], ...alertData };
+                return updated;
+              }
+              return [alertData, ...prev];
+            });
+            setLastUpdated(new Date());
+          }
+          break;
+        }
+        case 'threat.updated': {
+          const threatData = envelope.payload as unknown as ThreatAssessment;
+          if (threatData && threatData.id) {
+            setThreats((prev) => {
+              const idx = prev.findIndex((th) => th.id === threatData.id || th.track_id === threatData.track_id);
+              if (idx >= 0) {
+                const updated = [...prev];
+                updated[idx] = { ...updated[idx], ...threatData };
+                return updated;
+              }
+              return [threatData, ...prev];
+            });
+            setLastUpdated(new Date());
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    },
+    [queueTrackUpdate]
+  );
 
   const handleSequenceGap = useCallback(() => {
     // Reconcile full state via REST upon sequence gap

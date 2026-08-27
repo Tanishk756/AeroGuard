@@ -252,3 +252,43 @@ export async function dispatchAlertNotifications(
   }
   return notifiedCount;
 }
+
+/**
+ * Evaluates an incoming RealtimeEventEnvelope and triggers a high-priority desktop toast notification
+ * if it represents an eligible high/critical operational event (alert.created, geofence.breach, critical threat).
+ */
+export async function dispatchRealtimeEventNotification(
+  envelope: { event_type: string; payload: unknown; timestamp?: string },
+  isOnline = true
+): Promise<boolean> {
+  if (!isTauri() || !isOnline || !envelope) {
+    return false;
+  }
+
+  if (envelope.event_type === 'alert.created') {
+    const alert = envelope.payload as Alert;
+    if (alert && alert.id) {
+      const count = await dispatchAlertNotifications([alert], isOnline);
+      return count > 0;
+    }
+  }
+
+  if (envelope.event_type === 'threat.updated') {
+    const threat = envelope.payload as { id?: string; track_id?: string; score?: number; level?: string };
+    if (threat && (threat.level === 'CRITICAL' || (typeof threat.score === 'number' && threat.score >= 80))) {
+      const threatKey = `threat-${threat.id || threat.track_id}-${threat.level}`;
+      if (
+        alertDeduplicator.shouldNotify({
+          id: threatKey,
+          updated_at: envelope.timestamp || new Date().toISOString(),
+        } as Alert)
+      ) {
+        const title = `⚠️ [CRITICAL THREAT] Track ${threat.track_id || threat.id}`;
+        const body = `Threat priority score escalated to ${threat.score?.toFixed(0) || 80} (${threat.level})`;
+        return await sendDesktopNotification({ title, body, id: threatKey });
+      }
+    }
+  }
+
+  return false;
+}
