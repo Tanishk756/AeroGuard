@@ -120,8 +120,10 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     }
   }
 
-  // 2. Build normalized Track items
+  // 2. Build normalized Track items with viewport spatial culling
   const renderTracks: RenderTrackItem[] = [];
+  const CULL_PADDING = 60;
+
   for (const t of tracks) {
     const screen = projectLatLon(
       t.latitude,
@@ -136,26 +138,34 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     );
 
     const isSelected = t.id === selectedTrackId;
-    const th = threatMap.get(t.id);
-    const intel = intelligence[t.id];
+    const isVisible =
+      screen.x >= -CULL_PADDING &&
+      screen.x <= width + CULL_PADDING &&
+      screen.y >= -CULL_PADDING &&
+      screen.y <= height + CULL_PADDING;
 
-    renderTracks.push({
-      id: t.id,
-      latitude: t.latitude,
-      longitude: t.longitude,
-      screenX: screen.x,
-      screenY: screen.y,
-      altitude: t.altitude,
-      velocity: t.velocity,
-      heading: t.heading,
-      state: t.state,
-      classification: t.classification,
-      confidence: t.confidence,
-      anomalyScore: intel?.anomaly?.anomaly_score ?? null,
-      anomalyLevel: intel?.anomaly?.anomaly_level ?? null,
-      isSelected,
-      isThreatElevated: (th?.score ?? 0) >= 50,
-    });
+    if (isVisible || isSelected) {
+      const th = threatMap.get(t.id);
+      const intel = intelligence[t.id];
+
+      renderTracks.push({
+        id: t.id,
+        latitude: t.latitude,
+        longitude: t.longitude,
+        screenX: screen.x,
+        screenY: screen.y,
+        altitude: t.altitude,
+        velocity: t.velocity,
+        heading: t.heading,
+        state: t.state,
+        classification: t.classification,
+        confidence: t.confidence,
+        anomalyScore: intel?.anomaly?.anomaly_score ?? null,
+        anomalyLevel: intel?.anomaly?.anomaly_level ?? null,
+        isSelected,
+        isThreatElevated: (th?.score ?? 0) >= 50,
+      });
+    }
   }
 
   // 3. Build selected track history trails (bounded)

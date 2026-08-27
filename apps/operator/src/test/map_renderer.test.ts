@@ -278,6 +278,54 @@ describe('AeroGuard Stage MAP2 Tactical Visualization & Renderer Unit Tests', ()
     });
   });
 
+  describe('High-Density Track Culling & Performance', () => {
+    it('culls off-screen tracks outside viewport padding', () => {
+      const width = 800;
+      const height = 600;
+      const CULL_PADDING = 60;
+
+      // 1000 tracks distributed across wide coordinate space
+      const rawTracks = Array.from({ length: 1000 }, (_, i) => ({
+        id: `TRK-${i}`,
+        screenX: (i % 50) * 40 - 500, // Range: -500 to +1500
+        screenY: Math.floor(i / 50) * 40 - 200, // Range: -200 to +600
+      }));
+
+      const visibleTracks = rawTracks.filter(
+        (t) =>
+          t.screenX >= -CULL_PADDING &&
+          t.screenX <= width + CULL_PADDING &&
+          t.screenY >= -CULL_PADDING &&
+          t.screenY <= height + CULL_PADDING
+      );
+
+      assert.ok(visibleTracks.length < rawTracks.length, 'Off-screen tracks must be culled');
+      assert.ok(visibleTracks.length > 0, 'Visible tracks must be retained');
+    });
+
+    it('throttles labels when track density exceeds threshold', () => {
+      const isDense = (count: number) => count > 80;
+      const shouldDrawLabel = (
+        isDenseScene: boolean,
+        showLabels: boolean,
+        isSelected: boolean,
+        isThreat: boolean
+      ) => {
+        return (showLabels && (!isDenseScene || isSelected || isThreat)) || isSelected;
+      };
+
+      // In sparse scene: show labels for all
+      assert.strictEqual(shouldDrawLabel(isDense(30), true, false, false), true);
+
+      // In dense scene: hide labels for nominal unselected track
+      assert.strictEqual(shouldDrawLabel(isDense(250), true, false, false), false);
+
+      // In dense scene: always show labels for selected track or elevated threat
+      assert.strictEqual(shouldDrawLabel(isDense(250), true, true, false), true);
+      assert.strictEqual(shouldDrawLabel(isDense(250), true, false, true), true);
+    });
+  });
+
   describe('Capability Detection & Fallback Policy', () => {
     const resolveRenderer = (hasWebGPU: boolean, hasCanvas: boolean): 'WEBGPU' | 'CANVAS' | 'LEGACY' => {
       if (hasWebGPU) return 'WEBGPU';

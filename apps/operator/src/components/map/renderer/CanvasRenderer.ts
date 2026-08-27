@@ -318,8 +318,10 @@ export class CanvasRenderer extends BaseMapRenderer {
 
   private renderTracks(ctx: CanvasRenderingContext2D, tracks: RenderTrackItem[], showLabels: boolean): void {
     ctx.save();
+    const isDense = tracks.length > 80;
 
-    for (const track of tracks) {
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
       const { screenX: x, screenY: y, isSelected, heading, velocity, altitude } = track;
 
       // 1. Anomaly Halo Indicator (if anomalyScore >= 30)
@@ -388,8 +390,10 @@ export class CanvasRenderer extends BaseMapRenderer {
         ctx.stroke();
       }
 
-      // 4. Track Callout Labels
-      if (showLabels || isSelected) {
+      // 4. Track Callout Labels (Throttled under high density unless selected or threat elevated)
+      const shouldDrawLabel = (showLabels && (!isDense || isSelected || track.isThreatElevated || (track.anomalyScore && track.anomalyScore >= 60))) || isSelected;
+
+      if (shouldDrawLabel) {
         ctx.font = '10px monospace';
         ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(226, 232, 240, 0.9)';
         ctx.fillText(track.id, x + 9, y - 5);
