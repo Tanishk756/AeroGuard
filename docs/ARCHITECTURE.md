@@ -304,3 +304,15 @@ a runtime capability detection cascade (`WEBGPU` -> `CANVAS` -> `LEGACY`), WGSL 
 with instanced quad buffers, high-DPI 2D batch canvas fallback, spatial viewport culling ($O(\text{visible})$),
 density-aware label throttling for 1,000+ tracks, bounded track trails, forward trajectory prediction vectors,
 expanding uncertainty envelopes, perimeter ingress hazard crosshairs, and accessible keyboard navigation.
+
+Stage AI2 establishes the Multi-Track Defensive Intelligence & Behavioral Swarm Correlation subsystem.
+It introduces deterministic multi-track correlation, spatial clustering, synchronized flight coordination analysis,
+explainable 7-state behavioral classification, persistent temporal anomaly accumulation, 5-factor threat prioritization,
+and Operator Console intelligence overlays. See [AI2 Architecture](file:///C:/AeroGuard/docs/AI2_MULTI_TRACK_INTELLIGENCE.md) for details.
+
+Stage AI3 delivers the Scalable Incremental Intelligence & Spatial Telemetry Pipeline. It replaces global $O(N^2)$ all-pairs
+spatial searches with a deterministic 500-meter `SpatialHashGrid`, introduces the pure-Python thread-safe
+`IncrementalIntelligenceStore` with localized dirty-neighborhood re-clustering, accelerates `GET /api/v1/intelligence/summary`
+to sub-millisecond in-memory cached reads ($< 100\text{ µs}$), dispatches granular semantic delta events (`ai.priority.updated`,
+`ai.behavior.updated`, `ai.group.updated`), and provides 16ms animation-frame telemetry coalescing in the Operator Console.
+See [AI3 Architecture](file:///C:/AeroGuard/docs/AI3_ARCHITECTURE.md) for full architectural documentation.
