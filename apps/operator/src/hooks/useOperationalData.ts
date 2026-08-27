@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAlerts } from '../api/alerts';
+import { dispatchAlertNotifications } from '../api/desktop';
 import { getGeofences } from '../api/geofences';
 import { getTimeline } from '../api/history';
 import { getSensors } from '../api/sensors';
@@ -116,7 +117,9 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
         promises.push(
           getAlerts({ limit: 50 }).then((res) => {
             if (isMountedRef.current && !controller.signal.aborted) {
-              setAlerts(res.items || []);
+              const items = res.items || [];
+              setAlerts(items);
+              dispatchAlertNotifications(items).catch(() => {});
             }
           })
         );

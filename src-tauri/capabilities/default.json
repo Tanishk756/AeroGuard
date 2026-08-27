@@ -4,6 +4,7 @@
   "description": "Default capability configuration for the AeroGuard desktop application",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "notification:default"
   ]
 }
