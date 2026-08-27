@@ -441,7 +441,7 @@ def evaluate_threat_priority(
     p_base_clamped = max(cfg.score_min, min(cfg.score_max, p_base))
 
     # ── 3. Confidence Scaling ──────────────────────────────────────────────
-    c_s = max(0.0, min(1.0, float(sensor_confidence)))
+    c_s = max(0.0, min(1.0, float(sensor_confidence if sensor_confidence is not None else 1.0)))
     conf_scale = cfg.confidence_base + (cfg.confidence_scale * c_s)
     p_scaled = p_base_clamped * conf_scale
     final_score = round(max(cfg.score_min, min(cfg.score_max, p_scaled)), 1)

@@ -255,6 +255,15 @@ bounded historical trails; AI1 forward trajectory vectors, expanding uncertainty
 time tags (+30s, +60s), and perimeter ingress hazard crosshairs; and keyboard pan/zoom navigation
 with screen reader accessibility.
 
+Stage AI2 delivers Multi-Track Defensive Intelligence, Behavioral Classification & Threat Prioritization:
+deterministic spatial and kinematic clustering engine (Haversine geodesic, velocity delta, heading delta, temporal compatibility);
+7-state behavioral classification state machine (`NORMAL`, `APPROACHING`, `DEPARTING`, `LOITERING`, `RAPID_CHANGE`, `COORDINATED`, `ANOMALOUS`) with hysteresis;
+temporal persistent anomaly tracking with exponential decay ($\tau_{1/2}=30$s) and entry/exit hysteresis;
+swarm formation coordination index (heading dispersion, velocity dispersion, spatial coherence);
+explainable 5-factor defensive threat prioritization engine with sensor-confidence scaling ($P_{\text{base}} = \sum w_i s_i$);
+REST `/api/v1/intelligence/summary` and WebSocket `ai.summary` telemetry integration;
+and Operator Console Defensive AI Workspace (`/app/intelligence`) with priority rankings, group inspector, and hardware-accelerated MAP2 tactical group hull overlays.
+
 ## Phase 10: testing, validation, and hardening
 
 Objectives:
