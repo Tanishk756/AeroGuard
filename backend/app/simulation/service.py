@@ -239,7 +239,22 @@ class ScenarioExecutionService:
             self.db.commit()
             raise
 
-        return self.get_status(scenario_id)
+        status_res = self.get_status(scenario_id)
+        try:
+            from app.core.events import get_event_bus
+            from app.schemas.events import RealtimeChannel, RealtimeEventType
+
+            get_event_bus().publish(
+                event_type=RealtimeEventType.SIMULATION_STEP,
+                channel=RealtimeChannel.SIMULATION,
+                payload=status_res.model_dump(mode="json"),
+                resource_type="scenario",
+                resource_id=scenario_id,
+            )
+        except Exception:
+            pass
+
+        return status_res
 
     def get_status(self, scenario_id: str) -> ScenarioExecutionStatusResponse:
         scenario = self.db.get(Scenario, scenario_id)

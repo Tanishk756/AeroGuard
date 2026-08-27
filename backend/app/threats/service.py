@@ -106,6 +106,28 @@ class ThreatAssessmentService:
             timestamp=eval_time,
         )
 
+        try:
+            from app.core.events import get_event_bus
+            from app.schemas.events import RealtimeChannel, RealtimeEventType
+
+            get_event_bus().publish(
+                event_type=RealtimeEventType.THREAT_UPDATED,
+                channel=RealtimeChannel.OPERATIONAL,
+                payload={
+                    "id": assessment.id,
+                    "track_id": assessment.track_id,
+                    "score": assessment.score,
+                    "level": assessment.level.value,
+                    "factors": assessment.factors,
+                    "created_at": assessment.created_at.isoformat() if assessment.created_at else eval_time.isoformat(),
+                    "updated_at": assessment.updated_at.isoformat() if assessment.updated_at else eval_time.isoformat(),
+                },
+                resource_type="threat",
+                resource_id=assessment.id,
+            )
+        except Exception:
+            pass
+
         return ThreatEvaluationResult(
             assessment=assessment,
             factors=factors,

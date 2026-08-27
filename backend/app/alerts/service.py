@@ -81,6 +81,31 @@ class AlertService:
                 )
             )
 
+            try:
+                from app.core.events import get_event_bus
+                from app.schemas.events import RealtimeChannel, RealtimeEventType
+
+                get_event_bus().publish(
+                    event_type=RealtimeEventType.ALERT_CREATED,
+                    channel=RealtimeChannel.OPERATIONAL,
+                    payload={
+                        "id": new_alert.id,
+                        "type": new_alert.type.value,
+                        "severity": new_alert.severity.value,
+                        "status": new_alert.status.value,
+                        "track_id": new_alert.track_id,
+                        "sensor_id": new_alert.sensor_id,
+                        "reason": new_alert.reason,
+                        "metadata_json": new_alert.metadata_json or {},
+                        "created_at": new_alert.created_at.isoformat() if new_alert.created_at else eval_time.isoformat(),
+                        "updated_at": new_alert.updated_at.isoformat() if new_alert.updated_at else eval_time.isoformat(),
+                    },
+                    resource_type="alert",
+                    resource_id=new_alert.id,
+                )
+            except Exception:
+                pass
+
         return raised_events
 
     def resolve_track_alerts(
@@ -103,5 +128,30 @@ class AlertService:
             alert.status = AlertStatus.RESOLVED
             alert.resolved_at = eval_time
             alert.updated_at = eval_time
+            try:
+                from app.core.events import get_event_bus
+                from app.schemas.events import RealtimeChannel, RealtimeEventType
+
+                get_event_bus().publish(
+                    event_type=RealtimeEventType.ALERT_UPDATED,
+                    channel=RealtimeChannel.OPERATIONAL,
+                    payload={
+                        "id": alert.id,
+                        "type": alert.type.value,
+                        "severity": alert.severity.value,
+                        "status": alert.status.value,
+                        "track_id": alert.track_id,
+                        "sensor_id": alert.sensor_id,
+                        "reason": alert.reason,
+                        "metadata_json": alert.metadata_json or {},
+                        "resolved_at": alert.resolved_at.isoformat() if alert.resolved_at else None,
+                        "created_at": alert.created_at.isoformat() if alert.created_at else None,
+                        "updated_at": alert.updated_at.isoformat() if alert.updated_at else None,
+                    },
+                    resource_type="alert",
+                    resource_id=alert.id,
+                )
+            except Exception:
+                pass
 
         return len(active_alerts)

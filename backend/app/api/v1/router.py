@@ -17,6 +17,7 @@ from app.api.v1.routes.sensors import router as sensors_router
 from app.api.v1.routes.system import router as system_router
 from app.api.v1.routes.threats import router as threats_router
 from app.api.v1.routes.tracks import router as tracks_router
+from app.api.v1.routes.ws import router as ws_router
 
 router = APIRouter()
 router.include_router(health_router, tags=["health"])
@@ -34,3 +35,4 @@ router.include_router(scenarios_router, tags=["scenarios"])
 router.include_router(history_router, tags=["history"])
 router.include_router(analytics_router, tags=["analytics"])
 router.include_router(replay_router, tags=["replay"])
+router.include_router(ws_router, tags=["websocket"])

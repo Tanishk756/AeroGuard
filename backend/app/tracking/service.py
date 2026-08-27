@@ -260,6 +260,34 @@ class TrackingService:
 
         try:
             self.db.commit()
+            try:
+                from app.core.events import get_event_bus
+                from app.schemas.events import RealtimeChannel, RealtimeEventType
+
+                get_event_bus().publish(
+                    event_type=RealtimeEventType.TRACK_CREATED,
+                    channel=RealtimeChannel.OPERATIONAL,
+                    payload={
+                        "id": track.id,
+                        "state": track.state.value,
+                        "first_seen_at": track.first_seen_at.isoformat() if track.first_seen_at else None,
+                        "last_seen_at": track.last_seen_at.isoformat() if track.last_seen_at else None,
+                        "latitude": track.latitude,
+                        "longitude": track.longitude,
+                        "altitude": track.altitude,
+                        "velocity": track.velocity,
+                        "heading": track.heading,
+                        "confidence": track.confidence,
+                        "classification": track.classification,
+                        "source_count": track.source_count,
+                        "created_at": track.created_at.isoformat() if track.created_at else None,
+                        "updated_at": track.updated_at.isoformat() if track.updated_at else None,
+                    },
+                    resource_type="track",
+                    resource_id=track.id,
+                )
+            except Exception:
+                pass
         except Exception:
             self.db.rollback()
             raise
@@ -461,6 +489,34 @@ class TrackingService:
 
         try:
             self.db.commit()
+            try:
+                from app.core.events import get_event_bus
+                from app.schemas.events import RealtimeChannel, RealtimeEventType
+
+                get_event_bus().publish(
+                    event_type=RealtimeEventType.TRACK_UPDATED,
+                    channel=RealtimeChannel.OPERATIONAL,
+                    payload={
+                        "id": track.id,
+                        "state": track.state.value,
+                        "first_seen_at": track.first_seen_at.isoformat() if track.first_seen_at else None,
+                        "last_seen_at": track.last_seen_at.isoformat() if track.last_seen_at else None,
+                        "latitude": track.latitude,
+                        "longitude": track.longitude,
+                        "altitude": track.altitude,
+                        "velocity": track.velocity,
+                        "heading": track.heading,
+                        "confidence": track.confidence,
+                        "classification": track.classification,
+                        "source_count": track.source_count,
+                        "created_at": track.created_at.isoformat() if track.created_at else None,
+                        "updated_at": track.updated_at.isoformat() if track.updated_at else None,
+                    },
+                    resource_type="track",
+                    resource_id=track.id,
+                )
+            except Exception:
+                pass
         except Exception:
             self.db.rollback()
             raise
