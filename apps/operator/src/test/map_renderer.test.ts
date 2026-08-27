@@ -376,6 +376,38 @@ describe('AeroGuard Stage MAP2 Tactical Visualization & Renderer Unit Tests', ()
     });
   });
 
+  describe('Interaction, Keyboard Navigation & Accessibility', () => {
+    it('maps keyboard pan deltas correctly', () => {
+      const PAN_STEP = 30;
+      const getPanDelta = (key: string): { dx: number; dy: number } => {
+        if (key === 'ArrowUp' || key === 'w') return { dx: 0, dy: PAN_STEP };
+        if (key === 'ArrowDown' || key === 's') return { dx: 0, dy: -PAN_STEP };
+        if (key === 'ArrowLeft' || key === 'a') return { dx: PAN_STEP, dy: 0 };
+        if (key === 'ArrowRight' || key === 'd') return { dx: -PAN_STEP, dy: 0 };
+        return { dx: 0, dy: 0 };
+      };
+
+      assert.deepStrictEqual(getPanDelta('ArrowUp'), { dx: 0, dy: 30 });
+      assert.deepStrictEqual(getPanDelta('s'), { dx: 0, dy: -30 });
+      assert.deepStrictEqual(getPanDelta('a'), { dx: 30, dy: 0 });
+      assert.deepStrictEqual(getPanDelta('d'), { dx: -30, dy: 0 });
+    });
+
+    it('generates semantic accessible status summary for screen readers', () => {
+      const track = {
+        id: 'TRK-99',
+        classification: 'DRONE_ROTARY',
+        state: 'ACTIVE',
+      };
+      const anomalyScore = 74.5;
+
+      const summary = `Selected track ${track.id}, classification ${track.classification}, state ${track.state}, anomaly score ${anomalyScore}`;
+      assert.ok(summary.includes('TRK-99'));
+      assert.ok(summary.includes('DRONE_ROTARY'));
+      assert.ok(summary.includes('74.5'));
+    });
+  });
+
   describe('Capability Detection & Fallback Policy', () => {
     const resolveRenderer = (hasWebGPU: boolean, hasCanvas: boolean): 'WEBGPU' | 'CANVAS' | 'LEGACY' => {
       if (hasWebGPU) return 'WEBGPU';

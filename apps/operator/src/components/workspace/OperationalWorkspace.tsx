@@ -416,6 +416,8 @@ export const OperationalWorkspace: React.FC = () => {
         <div style={{ height: '100%', minHeight: '440px' }}>
           <TacticalMap
             tracks={filteredTracks}
+            threats={threats}
+            intelligence={intelligence}
             sensors={filteredSensors}
             geofences={filteredGeofences}
             selectedTrackHistory={selectedTrackHistory}

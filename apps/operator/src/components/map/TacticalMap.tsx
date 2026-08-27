@@ -1,15 +1,30 @@
+/**
+ * AeroGuard Tactical Map Component
+ * Upgraded in MAP2 with WebGPU / Canvas 2D Hardware Acceleration
+ */
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useMapViewport } from '../../hooks/useMapViewport';
-import { Geofence, GeofenceGeometry, MapLayerVisibility, Sensor, Track, TrackHistoryPoint, TrajectoryPrediction } from '../../types';
+import {
+  DefensiveIntelligenceSummary,
+  Geofence,
+  GeofenceGeometry,
+  MapLayerVisibility,
+  Sensor,
+  ThreatAssessment,
+  Track,
+  TrackHistoryPoint,
+  TrajectoryPrediction,
+} from '../../types';
 import { CoordinateReadout } from './CoordinateReadout';
 import { GeofenceLayer } from './GeofenceLayer';
 import { MapControls } from './MapControls';
-import { SensorLayer } from './SensorLayer';
-import { TrackLayer } from './TrackLayer';
-import { TrajectoryLayer } from './TrajectoryLayer';
+import { TacticalMapCanvas } from './TacticalMapCanvas';
 
 interface TacticalMapProps {
   tracks: Track[];
+  threats?: ThreatAssessment[];
+  intelligence?: Record<string, DefensiveIntelligenceSummary>;
   sensors: Sensor[];
   geofences: Geofence[];
   selectedTrackHistory?: TrackHistoryPoint[];
@@ -26,6 +41,8 @@ interface TacticalMapProps {
 
 export const TacticalMap: React.FC<TacticalMapProps> = ({
   tracks,
+  threats = [],
+  intelligence = {},
   sensors,
   geofences,
   selectedTrackHistory = [],
@@ -41,8 +58,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 800, height: 500 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [cursorLatLon, setCursorLatLon] = useState<{ lat: number; lon: number } | null>(null);
 
   const [layers, setLayers] = useState<MapLayerVisibility>({
@@ -66,7 +81,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     fitBounds,
   } = useMapViewport(37.7749, -122.4194, 1.2);
 
-  // ResizeObserver for responsive SVG dimensions
+  // ResizeObserver for responsive canvas dimensions
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -116,10 +131,34 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     }
   }, [tracks, sensors, geofences]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Only main left-click
-    setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY });
+  // Keyboard navigation & accessibility handlers
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const PAN_STEP = 30;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      pan(0, PAN_STEP);
+      e.preventDefault();
+    } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      pan(0, -PAN_STEP);
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      pan(PAN_STEP, 0);
+      e.preventDefault();
+    } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      pan(-PAN_STEP, 0);
+      e.preventDefault();
+    } else if (e.key === '+' || e.key === '=') {
+      zoomIn();
+      e.preventDefault();
+    } else if (e.key === '-' || e.key === '_') {
+      zoomOut();
+      e.preventDefault();
+    } else if (e.key === '0' || e.key === 'r' || e.key === 'R') {
+      resetView();
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      onClearSelection?.();
+      e.preventDefault();
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -130,17 +169,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       const geo = screenToLatLon(relX, relY, dimensions.width, dimensions.height);
       setCursorLatLon(geo);
     }
-
-    if (isDragging) {
-      const dx = e.clientX - dragStart.x;
-      const dy = e.clientY - dragStart.y;
-      pan(dx, dy);
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -159,29 +187,19 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const projectedScreen = (lat: number, lon: number) =>
     latLonToScreen(lat, lon, dimensions.width, dimensions.height);
 
-  const centerScreen = projectedScreen(viewport.centerLat, viewport.centerLon);
-
-  // Concentric range rings radii in pixels
-  const METERS_PER_DEGREE = 111320;
-  const BASE_PIXELS_PER_DEGREE = 2500;
-  const getRadiusPixels = (meters: number) => {
-    return (meters / METERS_PER_DEGREE) * BASE_PIXELS_PER_DEGREE * viewport.zoom;
-  };
-
-  const ring500 = getRadiusPixels(500);
-  const ring1000 = getRadiusPixels(1000);
-  const ring2000 = getRadiusPixels(2000);
-  const ring5000 = getRadiusPixels(5000);
+  // Selected track summary for screen readers
+  const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
+  const selectedIntel = selectedTrackId ? intelligence[selectedTrackId] : null;
 
   return (
     <div
       ref={containerRef}
-      onMouseDown={handleMouseDown}
+      role="region"
+      aria-label="Tactical Operational Map"
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
-      onClick={() => onClearSelection?.()}
       style={{
         width: '100%',
         height: '100%',
@@ -189,217 +207,55 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         position: 'relative',
         overflow: 'hidden',
         backgroundColor: '#040910',
-        cursor: isDragging ? 'grabbing' : 'crosshair',
         userSelect: 'none',
+        outline: 'none',
       }}
     >
-      <svg
-        width={dimensions.width}
-        height={dimensions.height}
-        style={{ display: 'block', width: '100%', height: '100%' }}
-      >
-        {/* Adaptive Coordinate Grid Lines */}
-        {layers.grid && (
-          <g className="grid-layer" opacity={0.35}>
-            {[-0.04, -0.02, 0, 0.02, 0.04].map((dLat) => {
-              const latVal = viewport.centerLat + dLat / viewport.zoom;
-              const p = projectedScreen(latVal, viewport.centerLon);
-              return (
-                <g key={`lat-${dLat}`}>
-                  <line
-                    x1={0}
-                    y1={p.y}
-                    x2={dimensions.width}
-                    y2={p.y}
-                    stroke="rgba(56, 189, 248, 0.25)"
-                    strokeWidth="0.8"
-                    strokeDasharray="2 4"
-                  />
-                  <text
-                    x={8}
-                    y={p.y - 3}
-                    fill="rgba(56, 189, 248, 0.6)"
-                    fontSize="8px"
-                    fontFamily="monospace"
-                  >
-                    {latVal.toFixed(3)}°
-                  </text>
-                </g>
-              );
-            })}
+      {/* 1. High-Performance WebGPU / Canvas 2D Accelerated Tactical Map */}
+      <TacticalMapCanvas
+        tracks={tracks}
+        threats={threats}
+        intelligence={intelligence}
+        sensors={sensors}
+        geofences={geofences}
+        selectedTrackHistory={selectedTrackHistory}
+        selectedTrackPrediction={selectedTrackPrediction}
+        selectedTrackId={selectedTrackId}
+        selectedSensorId={selectedSensorId}
+        selectedGeofenceId={selectedGeofenceId}
+        layers={layers}
+        centerLat={viewport.centerLat}
+        centerLon={viewport.centerLon}
+        zoom={viewport.zoom}
+        panOffsetX={viewport.panOffset.x}
+        panOffsetY={viewport.panOffset.y}
+        onSelectTrack={onSelectTrack}
+        onSelectSensor={onSelectSensor}
+        onSelectGeofence={onSelectGeofence}
+        onPan={pan}
+      />
 
-            {[-0.04, -0.02, 0, 0.02, 0.04].map((dLon) => {
-              const lonVal = viewport.centerLon + dLon / viewport.zoom;
-              const p = projectedScreen(viewport.centerLat, lonVal);
-              return (
-                <g key={`lon-${dLon}`}>
-                  <line
-                    x1={p.x}
-                    y1={0}
-                    x2={p.x}
-                    y2={dimensions.height}
-                    stroke="rgba(56, 189, 248, 0.25)"
-                    strokeWidth="0.8"
-                    strokeDasharray="2 4"
-                  />
-                  <text
-                    x={p.x + 3}
-                    y={dimensions.height - 8}
-                    fill="rgba(56, 189, 248, 0.6)"
-                    fontSize="8px"
-                    fontFamily="monospace"
-                  >
-                    {lonVal.toFixed(3)}°
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        )}
-
-        {/* Concentric Range Rings */}
-        {layers.rangeRings && (
-          <g className="range-rings-layer" opacity={0.65}>
-            {ring500 > 10 && (
-              <g>
-                <circle
-                  cx={centerScreen.x}
-                  cy={centerScreen.y}
-                  r={ring500}
-                  fill="none"
-                  stroke="rgba(56, 189, 248, 0.25)"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                />
-                <text
-                  x={centerScreen.x + ring500 + 4}
-                  y={centerScreen.y - 2}
-                  fill="rgba(56, 189, 248, 0.6)"
-                  fontSize="8.5px"
-                  fontFamily="monospace"
-                >
-                  500m
-                </text>
-              </g>
-            )}
-
-            {ring1000 > 15 && (
-              <g>
-                <circle
-                  cx={centerScreen.x}
-                  cy={centerScreen.y}
-                  r={ring1000}
-                  fill="none"
-                  stroke="rgba(56, 189, 248, 0.2)"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                />
-                <text
-                  x={centerScreen.x + ring1000 + 4}
-                  y={centerScreen.y - 2}
-                  fill="rgba(56, 189, 248, 0.5)"
-                  fontSize="8.5px"
-                  fontFamily="monospace"
-                >
-                  1000m
-                </text>
-              </g>
-            )}
-
-            {ring2000 > 25 && (
-              <g>
-                <circle
-                  cx={centerScreen.x}
-                  cy={centerScreen.y}
-                  r={ring2000}
-                  fill="none"
-                  stroke="rgba(56, 189, 248, 0.15)"
-                  strokeWidth="1"
-                  strokeDasharray="4 4"
-                />
-                <text
-                  x={centerScreen.x + ring2000 + 4}
-                  y={centerScreen.y - 2}
-                  fill="rgba(56, 189, 248, 0.4)"
-                  fontSize="8.5px"
-                  fontFamily="monospace"
-                >
-                  2000m
-                </text>
-              </g>
-            )}
-
-            {ring5000 > 40 && (
-              <g>
-                <circle
-                  cx={centerScreen.x}
-                  cy={centerScreen.y}
-                  r={ring5000}
-                  fill="none"
-                  stroke="rgba(56, 189, 248, 0.1)"
-                  strokeWidth="1"
-                />
-                <text
-                  x={centerScreen.x + ring5000 + 4}
-                  y={centerScreen.y - 2}
-                  fill="rgba(56, 189, 248, 0.3)"
-                  fontSize="8.5px"
-                  fontFamily="monospace"
-                >
-                  5000m
-                </text>
-              </g>
-            )}
-
-            {/* Viewport Center Reticle */}
-            <circle cx={centerScreen.x} cy={centerScreen.y} r={4} fill="none" stroke="var(--color-accent)" strokeWidth="1" />
-            <line x1={centerScreen.x - 10} y1={centerScreen.y} x2={centerScreen.x + 10} y2={centerScreen.y} stroke="var(--color-accent)" strokeWidth="1" opacity={0.6} />
-            <line x1={centerScreen.x} y1={centerScreen.y - 10} x2={centerScreen.x} y2={centerScreen.y + 10} stroke="var(--color-accent)" strokeWidth="1" opacity={0.6} />
-          </g>
-        )}
-
-        {/* 1. Geofence Layer */}
-        {layers.geofences && (
+      {/* 2. Draft Geometry SVG Overlay (for Zone Studio interactive authoring) */}
+      {draftGeometry && (
+        <svg
+          width={dimensions.width}
+          height={dimensions.height}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+          }}
+        >
           <GeofenceLayer
-            geofences={geofences}
-            selectedGeofenceId={selectedGeofenceId}
+            geofences={[]}
             draftGeometry={draftGeometry}
-            onSelectGeofence={onSelectGeofence}
             latLonToScreen={projectedScreen}
           />
-        )}
-
-        {/* 2. Sensor Layer */}
-        {layers.sensors && (
-          <SensorLayer
-            sensors={sensors}
-            selectedSensorId={selectedSensorId}
-            onSelectSensor={onSelectSensor}
-            latLonToScreen={projectedScreen}
-            zoom={viewport.zoom}
-          />
-        )}
-
-        {/* 3. Trajectory History & Forward Prediction Layer */}
-        {layers.trajectories && (
-          <TrajectoryLayer
-            historyPoints={selectedTrackHistory}
-            prediction={selectedTrackPrediction}
-            latLonToScreen={projectedScreen}
-          />
-        )}
-
-        {/* 4. Track Layer */}
-        {layers.tracks && (
-          <TrackLayer
-            tracks={tracks}
-            selectedTrackId={selectedTrackId}
-            onSelectTrack={onSelectTrack}
-            latLonToScreen={projectedScreen}
-            showLabels={layers.labels}
-          />
-        )}
-      </svg>
+        </svg>
+      )}
 
       {/* Top Left: Controls Bar */}
       <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 10 }}>
@@ -446,6 +302,26 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           zoom={viewport.zoom}
           cursorLatLon={cursorLatLon}
         />
+      </div>
+
+      {/* Visually Hidden Semantic Status for Screen Readers */}
+      <div
+        aria-live="polite"
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: '0',
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: '0',
+        }}
+      >
+        {selectedTrack
+          ? `Selected track ${selectedTrack.id}, classification ${selectedTrack.classification || 'unknown'}, state ${selectedTrack.state}, anomaly score ${selectedIntel?.anomaly?.anomaly_score ?? 'none'}`
+          : `Tactical map showing ${tracks.length} tracks, ${sensors.length} sensors, ${geofences.length} geofences.`}
       </div>
     </div>
   );
