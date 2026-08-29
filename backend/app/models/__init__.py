@@ -6,6 +6,21 @@ from app.models.alert import Alert, AlertSeverity, AlertStatus, AlertType
 from app.models.detection import Detection
 from app.models.geofence import Geofence
 from app.models.session import Session
+from app.models.incident import (
+    Incident,
+    IncidentSeverity,
+    IncidentSource,
+    IncidentStatus,
+    InvalidIncidentTransitionError,
+    VALID_INCIDENT_TRANSITIONS,
+    can_transition,
+    validate_transition,
+)
+from app.models.incident_event import (
+    DefensiveActionCategory,
+    IncidentEvent,
+    IncidentEventType,
+)
 from app.models.intelligence_history import (
     BehaviorEventHistory,
     IntelligenceSnapshot,
@@ -20,9 +35,12 @@ from app.models.track import Track, TrackHistory, TrackState
 from app.models.user import User, UserStatus
 
 __all__ = [
-	"Alert", "AlertSeverity", "AlertStatus", "AlertType", "AuditEvent", "BehaviorEventHistory",
-	"Detection", "Geofence", "IntelligenceSnapshot", "Permission", "Role", "Scenario",
-	"ScenarioStatus", "Sensor", "SensorSourceClass", "SensorStatus", "Session",
-	"ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
-	"TrackGroupHistory", "TrackHistory", "TrackState", "User", "UserStatus",
+    "Alert", "AlertSeverity", "AlertStatus", "AlertType", "AuditEvent", "BehaviorEventHistory",
+    "DefensiveActionCategory", "Detection", "Geofence", "Incident", "IncidentEvent",
+    "IncidentEventType", "IncidentSeverity", "IncidentSource", "IncidentStatus",
+    "IntelligenceSnapshot", "InvalidIncidentTransitionError", "Permission", "Role", "Scenario",
+    "ScenarioStatus", "Sensor", "SensorSourceClass", "SensorStatus", "Session",
+    "ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
+    "TrackGroupHistory", "TrackHistory", "TrackState", "User", "UserStatus",
+    "VALID_INCIDENT_TRANSITIONS", "can_transition", "validate_transition",
 ]
