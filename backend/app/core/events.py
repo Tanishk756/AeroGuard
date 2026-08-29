@@ -22,6 +22,18 @@ CRITICAL_EVENT_TYPES = {
     RealtimeEventType.GEOFENCE_BREACH,
     RealtimeEventType.SIMULATION_STATE,
     RealtimeEventType.SIMULATION_RESET,
+    # Incident lifecycle and operational timeline events
+    RealtimeEventType.INCIDENT_CREATED,
+    RealtimeEventType.INCIDENT_ACKNOWLEDGED,
+    RealtimeEventType.INCIDENT_ASSIGNED,
+    RealtimeEventType.INCIDENT_REASSIGNED,
+    RealtimeEventType.INCIDENT_TRIAGED,
+    RealtimeEventType.INCIDENT_ESCALATED,
+    RealtimeEventType.INCIDENT_DE_ESCALATED,
+    RealtimeEventType.INCIDENT_RESOLVED,
+    RealtimeEventType.INCIDENT_CLOSED,
+    RealtimeEventType.INCIDENT_NOTE_ADDED,
+    RealtimeEventType.INCIDENT_ACTION_LOGGED,
 }
 
 

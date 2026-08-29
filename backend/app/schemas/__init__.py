@@ -9,7 +9,12 @@ from app.schemas.analytics import (
     TrackMetrics,
 )
 from app.schemas.detection import DetectionSchema
-from app.schemas.events import RealtimeChannel, RealtimeEventEnvelope, RealtimeEventType
+from app.schemas.events import (
+    IncidentRealtimePayload,
+    RealtimeChannel,
+    RealtimeEventEnvelope,
+    RealtimeEventType,
+)
 from app.schemas.geofence import (
     GeofenceCreateRequest,
     GeofencePage,
@@ -105,6 +110,7 @@ __all__ = [
     "HistoricalTrackStateResponse",
     "IncidentEventResponse",
     "IncidentListResponse",
+    "IncidentRealtimePayload",
     "IncidentResponse",
     "IncidentTimelineResponse",
     "LogDefensiveActionRequest",

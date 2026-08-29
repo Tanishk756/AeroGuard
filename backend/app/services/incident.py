@@ -1,12 +1,16 @@
 """Transactional incident management and timeline service."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
+import logging
 import secrets
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import event as sa_event, func, select
 from sqlalchemy.orm import Session
 
+from app.core.events import get_event_bus
 from app.models.audit import AuditEvent
 from app.models.incident import (
     Incident,
@@ -21,7 +25,50 @@ from app.models.incident_event import (
     IncidentEvent,
     IncidentEventType,
 )
+from app.schemas.events import IncidentRealtimePayload, RealtimeChannel, RealtimeEventType
 from app.services.audit import AuditService
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PendingIncidentEvent:
+    event_type: RealtimeEventType
+    payload: dict[str, Any]
+    incident_id: str
+    correlation_id: str | None = None
+
+
+def _dispatch_pending_session_events(session: Session) -> list[PendingIncidentEvent]:
+    """Drain and publish all pending incident events from a committed database session."""
+    pending: list[PendingIncidentEvent] = session.info.pop("_pending_incident_events", [])
+    if not pending:
+        return []
+
+    event_bus = get_event_bus()
+    for evt in pending:
+        try:
+            event_bus.publish(
+                event_type=evt.event_type,
+                channel=RealtimeChannel.OPERATIONAL,
+                payload=evt.payload,
+                resource_type="incident",
+                resource_id=evt.incident_id,
+                correlation_id=evt.correlation_id,
+            )
+        except Exception:
+            logger.exception("Failed to publish incident realtime event: %s", evt.event_type)
+    return pending
+
+
+@sa_event.listens_for(Session, "after_commit")
+def _handle_session_after_commit(session: Session) -> None:
+    _dispatch_pending_session_events(session)
+
+
+@sa_event.listens_for(Session, "after_rollback")
+def _handle_session_after_rollback(session: Session) -> None:
+    session.info.pop("_pending_incident_events", None)
 
 
 class IncidentNotFoundError(ValueError):
@@ -98,6 +145,7 @@ class IncidentService:
         next_seq = current_max + 1
 
         event = IncidentEvent(
+            id=str(uuid4()),
             incident=incident,
             incident_id=incident.id,
             sequence=next_seq,
@@ -138,6 +186,28 @@ class IncidentService:
             metadata=metadata or {},
             timestamp=timestamp,
         )
+
+    def _queue_event(
+        self,
+        event_type: RealtimeEventType,
+        payload: IncidentRealtimePayload,
+        incident_id: str,
+        correlation_id: str | None = None,
+    ) -> None:
+        """Queue a validated incident realtime event payload onto the active session pending buffer."""
+        pending_list = self.db.info.setdefault("_pending_incident_events", [])
+        pending_list.append(
+            PendingIncidentEvent(
+                event_type=event_type,
+                payload=payload.model_dump(mode="json"),
+                incident_id=incident_id,
+                correlation_id=correlation_id,
+            )
+        )
+
+    def publish_pending_events(self) -> list[PendingIncidentEvent]:
+        """Manually drain and publish pending incident events for manual or uncommitted test workflows."""
+        return _dispatch_pending_session_events(self.db)
 
     def create_incident(
         self,
@@ -181,7 +251,7 @@ class IncidentService:
         )
         self.db.add(incident)
 
-        self._append_event(
+        created_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.CREATED,
             now=timestamp,
@@ -206,6 +276,32 @@ class IncidentService:
                 "primary_track_id": incident.primary_track_id,
             },
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=None,
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=created_by,
+            incident_event_id=created_event.id,
+            incident_event_sequence=created_event.sequence,
+            incident_event_type=str(created_event.event_type),
+            category=None,
+            message=created_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_CREATED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return incident
@@ -273,7 +369,7 @@ class IncidentService:
         incident.acknowledged_at = timestamp
         incident.updated_at = timestamp
 
-        self._append_event(
+        ack_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.ACKNOWLEDGED,
             now=timestamp,
@@ -292,6 +388,32 @@ class IncidentService:
             correlation_id=correlation_id,
             metadata={"incident_number": incident.incident_number},
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=str(old_status),
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=ack_event.id,
+            incident_event_sequence=ack_event.sequence,
+            incident_event_type=str(ack_event.event_type),
+            category=None,
+            message=ack_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_ACKNOWLEDGED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return incident
@@ -321,8 +443,9 @@ class IncidentService:
 
         event_type = IncidentEventType.REASSIGNED if is_reassignment else IncidentEventType.ASSIGNED
         audit_event_type = "INCIDENT_REASSIGNED" if is_reassignment else "INCIDENT_ASSIGNED"
+        rt_type = RealtimeEventType.INCIDENT_REASSIGNED if is_reassignment else RealtimeEventType.INCIDENT_ASSIGNED
 
-        self._append_event(
+        assign_event = self._append_event(
             incident=incident,
             event_type=event_type,
             now=timestamp,
@@ -345,6 +468,32 @@ class IncidentService:
             },
         )
 
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=None,
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=assigned_to_clean,
+            previous_assignee=old_assignee,
+            actor_user_id=actor_user_id,
+            incident_event_id=assign_event.id,
+            incident_event_sequence=assign_event.sequence,
+            incident_event_type=str(assign_event.event_type),
+            category=None,
+            message=assign_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(rt_type, realtime_payload, incident.id, correlation_id)
+
         self.db.flush()
         return incident
 
@@ -360,6 +509,7 @@ class IncidentService:
         """Transition incident to TRIAGED (from ACKNOWLEDGED, ESCALATED, or RESOLVED reopen)."""
         incident = self.get_incident(incident_id)
         old_status = incident.status
+        old_severity = incident.severity
         validate_transition(old_status, IncidentStatus.TRIAGED)
 
         timestamp = self._normalize_now(now)
@@ -369,7 +519,7 @@ class IncidentService:
         incident.status = IncidentStatus.TRIAGED
         incident.updated_at = timestamp
 
-        self._append_event(
+        triage_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.TRIAGED,
             now=timestamp,
@@ -394,6 +544,32 @@ class IncidentService:
             },
         )
 
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=str(old_status),
+            severity=str(incident.severity),
+            previous_severity=str(old_severity) if severity is not None and old_severity != severity else None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=triage_event.id,
+            incident_event_sequence=triage_event.sequence,
+            incident_event_type=str(triage_event.event_type),
+            category=None,
+            message=triage_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_TRIAGED, realtime_payload, incident.id, correlation_id)
+
         self.db.flush()
         return incident
 
@@ -409,6 +585,7 @@ class IncidentService:
         """Transition incident from TRIAGED to ESCALATED."""
         incident = self.get_incident(incident_id)
         old_status = incident.status
+        old_severity = incident.severity
         validate_transition(old_status, IncidentStatus.ESCALATED)
 
         timestamp = self._normalize_now(now)
@@ -418,7 +595,7 @@ class IncidentService:
         incident.status = IncidentStatus.ESCALATED
         incident.updated_at = timestamp
 
-        self._append_event(
+        esc_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.ESCALATED,
             now=timestamp,
@@ -439,6 +616,32 @@ class IncidentService:
             reason=reason,
             metadata={"incident_number": incident.incident_number, "severity": str(incident.severity)},
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=str(old_status),
+            severity=str(incident.severity),
+            previous_severity=str(old_severity) if severity is not None and old_severity != severity else None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=esc_event.id,
+            incident_event_sequence=esc_event.sequence,
+            incident_event_type=str(esc_event.event_type),
+            category=None,
+            message=esc_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_ESCALATED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return incident
@@ -461,7 +664,7 @@ class IncidentService:
         incident.status = target_status
         incident.updated_at = timestamp
 
-        self._append_event(
+        de_esc_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.DE_ESCALATED,
             now=timestamp,
@@ -482,6 +685,32 @@ class IncidentService:
             reason=reason,
             metadata={"incident_number": incident.incident_number, "target_status": str(target_status)},
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=str(old_status),
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=de_esc_event.id,
+            incident_event_sequence=de_esc_event.sequence,
+            incident_event_type=str(de_esc_event.event_type),
+            category=None,
+            message=de_esc_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_DE_ESCALATED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return incident
@@ -505,7 +734,7 @@ class IncidentService:
         incident.resolved_at = timestamp
         incident.updated_at = timestamp
 
-        self._append_event(
+        res_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.RESOLVED,
             now=timestamp,
@@ -524,6 +753,32 @@ class IncidentService:
             correlation_id=correlation_id,
             metadata={"incident_number": incident.incident_number, "summary": resolution_summary},
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=str(old_status),
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=res_event.id,
+            incident_event_sequence=res_event.sequence,
+            incident_event_type=str(res_event.event_type),
+            category=None,
+            message=res_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_RESOLVED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return incident
@@ -547,7 +802,7 @@ class IncidentService:
         incident.closed_at = timestamp
         incident.updated_at = timestamp
 
-        self._append_event(
+        close_event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.CLOSED,
             now=timestamp,
@@ -566,6 +821,32 @@ class IncidentService:
             correlation_id=correlation_id,
             metadata={"incident_number": incident.incident_number, "closure_notes": closure_notes},
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=str(old_status),
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=close_event.id,
+            incident_event_sequence=close_event.sequence,
+            incident_event_type=str(close_event.event_type),
+            category=None,
+            message=close_event.message,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_CLOSED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return incident
@@ -605,6 +886,32 @@ class IncidentService:
             metadata={"incident_number": incident.incident_number},
         )
 
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=None,
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=event.id,
+            incident_event_sequence=event.sequence,
+            incident_event_type=str(event.event_type),
+            category=None,
+            message=clean_msg,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_NOTE_ADDED, realtime_payload, incident.id, correlation_id)
+
         self.db.flush()
         return event
 
@@ -624,12 +931,13 @@ class IncidentService:
             raise InvalidIncidentActionError(f"Invalid defensive action category: {category}")
 
         timestamp = self._normalize_now(now)
+        cat_enum = category if isinstance(category, DefensiveActionCategory) else DefensiveActionCategory(category)
         event = self._append_event(
             incident=incident,
             event_type=IncidentEventType.ACTION_LOGGED,
             now=timestamp,
             actor_user_id=actor_user_id,
-            category=category if isinstance(category, DefensiveActionCategory) else DefensiveActionCategory(category),
+            category=cat_enum,
             message=message.strip() if message else None,
             metadata=metadata or {},
         )
@@ -641,8 +949,34 @@ class IncidentService:
             actor_user_id=actor_user_id,
             timestamp=timestamp,
             correlation_id=correlation_id,
-            metadata={"incident_number": incident.incident_number, "category": str(category)},
+            metadata={"incident_number": incident.incident_number, "category": str(cat_enum)},
         )
+
+        iso_ts = timestamp if timestamp.tzinfo else timestamp.replace(tzinfo=UTC)
+        realtime_payload = IncidentRealtimePayload(
+            incident_id=incident.id,
+            incident_number=incident.incident_number,
+            title=incident.title,
+            status=str(incident.status),
+            previous_status=None,
+            severity=str(incident.severity),
+            previous_severity=None,
+            source=str(incident.source),
+            primary_track_id=incident.primary_track_id,
+            primary_group_id=incident.primary_group_id,
+            originating_alert_id=incident.originating_alert_id,
+            originating_intelligence_event_id=incident.originating_intelligence_event_id,
+            assigned_to=incident.assigned_to,
+            previous_assignee=None,
+            actor_user_id=actor_user_id,
+            incident_event_id=event.id,
+            incident_event_sequence=event.sequence,
+            incident_event_type=str(event.event_type),
+            category=str(cat_enum),
+            message=message.strip() if message else None,
+            timestamp=iso_ts,
+        )
+        self._queue_event(RealtimeEventType.INCIDENT_ACTION_LOGGED, realtime_payload, incident.id, correlation_id)
 
         self.db.flush()
         return event

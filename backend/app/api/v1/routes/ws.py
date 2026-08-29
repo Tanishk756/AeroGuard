@@ -103,10 +103,11 @@ async def _handle_stream(
     websocket: WebSocket,
     channel: RealtimeChannel,
     user: User,
+    filter_func: Any | None = None,
 ) -> None:
     """Pump realtime event envelopes to the connected client while handling incoming heartbeats."""
     event_bus = get_event_bus()
-    subscription = event_bus.subscribe(channel=channel, maxsize=100)
+    subscription = event_bus.subscribe(channel=channel, maxsize=100, filter_func=filter_func)
 
     # Send initial connection confirmation envelope
     greeting_seq = event_bus.get_next_sequence(channel.value)
@@ -188,20 +189,28 @@ async def operational_websocket_endpoint(
     websocket: WebSocket,
     db: Session = Depends(get_db),
 ):
-    """Realtime WebSocket stream for defensive operational events (tracks, alerts, threats, geofences)."""
+    """Realtime WebSocket stream for defensive operational events (tracks, alerts, threats, geofences, incidents)."""
     try:
         auth_res = await _authenticate_ws(
             websocket,
             db,
-            required_permissions=["tracks.read", "threats.read", "alerts.read", "system.read"],
+            required_permissions=["tracks.read", "threats.read", "alerts.read", "system.read", "incidents.read"],
             channel_name="/ws/operational",
         )
         if auth_res is None:
             return
 
         _, user = auth_res
+        auth_service = AuthorizationService(db)
+        has_incidents_permission = auth_service.has_permission(user, "incidents.read")
+
+        def _operational_filter(envelope: RealtimeEventEnvelope) -> bool:
+            if envelope.event_type.startswith("incident."):
+                return has_incidents_permission
+            return True
+
         await websocket.accept()
-        await _handle_stream(websocket, RealtimeChannel.OPERATIONAL, user)
+        await _handle_stream(websocket, RealtimeChannel.OPERATIONAL, user, filter_func=_operational_filter)
     except WebSocketDisconnect:
         logger.debug("Client disconnected from /ws/operational")
 

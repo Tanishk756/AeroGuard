@@ -41,6 +41,19 @@ class RealtimeEventType(StrEnum):
     AI_PRIORITY_UPDATED = "ai.priority.updated"
     AI_MULTI_SUMMARY = "ai.multi_summary"
 
+    # Defensive incident management events
+    INCIDENT_CREATED = "incident.created"
+    INCIDENT_ACKNOWLEDGED = "incident.acknowledged"
+    INCIDENT_ASSIGNED = "incident.assigned"
+    INCIDENT_REASSIGNED = "incident.reassigned"
+    INCIDENT_TRIAGED = "incident.triaged"
+    INCIDENT_ESCALATED = "incident.escalated"
+    INCIDENT_DE_ESCALATED = "incident.de_escalated"
+    INCIDENT_RESOLVED = "incident.resolved"
+    INCIDENT_CLOSED = "incident.closed"
+    INCIDENT_NOTE_ADDED = "incident.note_added"
+    INCIDENT_ACTION_LOGGED = "incident.action_logged"
+
     # Simulation lifecycle & clock events
     SIMULATION_STATE = "simulation.state"
     SIMULATION_STEP = "simulation.step"
@@ -49,6 +62,39 @@ class RealtimeEventType(StrEnum):
 
     # System & connection events
     HEARTBEAT = "system.heartbeat"
+
+
+class IncidentRealtimePayload(BaseModel):
+    """Normalized realtime event payload for incident lifecycle, assignments, and timeline events."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    incident_id: str = Field(min_length=1, max_length=64)
+    incident_number: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=256)
+    status: str = Field(min_length=1, max_length=32)
+    previous_status: str | None = Field(default=None, max_length=32)
+    severity: str = Field(min_length=1, max_length=32)
+    previous_severity: str | None = Field(default=None, max_length=32)
+    source: str = Field(min_length=1, max_length=32)
+    primary_track_id: str | None = Field(default=None, max_length=64)
+    primary_group_id: str | None = Field(default=None, max_length=64)
+    originating_alert_id: str | None = Field(default=None, max_length=64)
+    originating_intelligence_event_id: str | None = Field(default=None, max_length=64)
+    assigned_to: str | None = Field(default=None, max_length=64)
+    previous_assignee: str | None = Field(default=None, max_length=64)
+    actor_user_id: str | None = Field(default=None, max_length=64)
+    incident_event_id: str = Field(min_length=1, max_length=64)
+    incident_event_sequence: int = Field(ge=1)
+    incident_event_type: str = Field(min_length=1, max_length=32)
+    category: str | None = Field(default=None, max_length=64)
+    message: str | None = Field(default=None, max_length=2048)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("timestamp")
+    @classmethod
+    def timestamp_is_utc(cls, value: datetime) -> datetime:
+        return validate_utc(value)
 
 
 class RealtimeEventEnvelope(BaseModel):
