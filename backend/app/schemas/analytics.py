@@ -36,6 +36,22 @@ class ThreatMetrics(BaseModel):
     max_score: float = 0.0
 
 
+class IntelligenceAnalyticsReport(BaseModel):
+    window_start: datetime
+    window_end: datetime
+    total_snapshots: int = 0
+    total_group_events: int = 0
+    total_behavior_transitions: int = 0
+    behavior_distribution: dict[str, int] = Field(default_factory=dict)
+    group_state_distribution: dict[str, int] = Field(default_factory=dict)
+    avg_group_size: float = 0.0
+    max_group_size: int = 0
+    avg_coordination_index: float = 0.0
+    peak_threat_score: float = 0.0
+    threat_score_time_series: list[dict[str, Any]] = Field(default_factory=list)
+    coordination_peaks: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class AnalyticsSummaryResponse(BaseModel):
     window_start: datetime
     window_end: datetime
@@ -43,4 +59,5 @@ class AnalyticsSummaryResponse(BaseModel):
     tracks: TrackMetrics
     alerts: AlertMetrics
     threats: ThreatMetrics
+    intelligence: IntelligenceAnalyticsReport | None = None
     geofence_breach_count: int = 0

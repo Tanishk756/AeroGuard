@@ -14,6 +14,7 @@ from app.schemas.analytics import (
     AlertMetrics,
     AnalyticsSummaryResponse,
     DetectionMetrics,
+    IntelligenceAnalyticsReport,
     ThreatMetrics,
     TrackMetrics,
 )
@@ -89,5 +90,19 @@ def get_threat_metrics(
     try:
         service = AnalyticsService(db)
         return service.get_threat_metrics(start_time=start_time, end_time=end_time)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+
+
+@router.get("/intelligence", response_model=IntelligenceAnalyticsReport)
+def get_intelligence_metrics(
+    start_time: Annotated[datetime | None, Query()] = None,
+    end_time: Annotated[datetime | None, Query()] = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_any_permission("tracks.read", "threats.read")),
+) -> IntelligenceAnalyticsReport:
+    try:
+        service = AnalyticsService(db)
+        return service.get_intelligence_metrics(start_time=start_time, end_time=end_time)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

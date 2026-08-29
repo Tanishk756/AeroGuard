@@ -8,6 +8,7 @@ from app.analytics.metrics import compute_analytics_summary
 from app.analytics.queries import (
     aggregate_alert_metrics,
     aggregate_detection_metrics,
+    aggregate_intelligence_metrics,
     aggregate_threat_metrics,
     aggregate_track_metrics,
 )
@@ -15,6 +16,7 @@ from app.schemas.analytics import (
     AlertMetrics,
     AnalyticsSummaryResponse,
     DetectionMetrics,
+    IntelligenceAnalyticsReport,
     ThreatMetrics,
     TrackMetrics,
 )
@@ -52,3 +54,9 @@ class AnalyticsService:
     ) -> ThreatMetrics:
         data = aggregate_threat_metrics(self.db, start_time=start_time, end_time=end_time)
         return ThreatMetrics(**data)
+
+    def get_intelligence_metrics(
+        self, start_time: datetime | None = None, end_time: datetime | None = None
+    ) -> IntelligenceAnalyticsReport:
+        data = aggregate_intelligence_metrics(self.db, start_time=start_time, end_time=end_time)
+        return IntelligenceAnalyticsReport(**data)

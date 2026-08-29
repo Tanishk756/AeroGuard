@@ -172,3 +172,113 @@ def aggregate_threat_metrics(
         "avg_score": round(score_sum / total, 2),
         "max_score": round(max_score, 2),
     }
+
+
+def aggregate_intelligence_metrics(
+    db: Session, start_time: datetime | None = None, end_time: datetime | None = None
+) -> dict:
+    """Aggregate defensive intelligence snapshots, swarm groups, and behavior events."""
+    from app.models.intelligence_history import (
+        BehaviorEventHistory,
+        IntelligenceSnapshot,
+        TrackGroupHistory,
+    )
+
+    norm_start, norm_end = validate_time_window(start_time, end_time)
+
+    # 1. Query snapshots
+    snap_stmt = select(IntelligenceSnapshot)
+    if norm_start is not None:
+        snap_stmt = snap_stmt.where(IntelligenceSnapshot.timestamp >= norm_start)
+    if norm_end is not None:
+        snap_stmt = snap_stmt.where(IntelligenceSnapshot.timestamp <= norm_end)
+
+    snapshots = list(db.scalars(snap_stmt.order_by(IntelligenceSnapshot.timestamp.asc())).all())
+    total_snapshots = len(snapshots)
+
+    peak_threat = 0.0
+    threat_time_series: list[dict] = []
+    for s in snapshots:
+        if s.peak_threat_score > peak_threat:
+            peak_threat = s.peak_threat_score
+        threat_time_series.append({
+            "timestamp": s.timestamp.isoformat() if s.timestamp else None,
+            "peak_threat_score": s.peak_threat_score,
+            "group_count": s.group_count,
+            "formation_count": s.formation_count,
+            "active_track_count": s.active_track_count,
+        })
+
+    # Sample time series to max 50 points if dense
+    if len(threat_time_series) > 50:
+        step = len(threat_time_series) // 50
+        threat_time_series = threat_time_series[::step]
+
+    # 2. Query group history
+    grp_stmt = select(TrackGroupHistory)
+    if norm_start is not None:
+        grp_stmt = grp_stmt.where(TrackGroupHistory.timestamp >= norm_start)
+    if norm_end is not None:
+        grp_stmt = grp_stmt.where(TrackGroupHistory.timestamp <= norm_end)
+
+    group_rows = list(db.scalars(grp_stmt.order_by(TrackGroupHistory.timestamp.asc())).all())
+    total_groups = len(group_rows)
+
+    group_state_dist: dict[str, int] = {}
+    total_members = 0
+    max_members = 0
+    coord_sum = 0.0
+    coord_count = 0
+    coordination_peaks: list[dict] = []
+
+    for gr in group_rows:
+        group_state_dist[gr.behavioral_state] = group_state_dist.get(gr.behavioral_state, 0) + 1
+        total_members += gr.member_count
+        if gr.member_count > max_members:
+            max_members = gr.member_count
+
+        if gr.coordination_index is not None:
+            coord_sum += gr.coordination_index
+            coord_count += 1
+            if gr.coordination_index >= 0.70:
+                coordination_peaks.append({
+                    "timestamp": gr.timestamp.isoformat() if gr.timestamp else None,
+                    "group_id": gr.group_id,
+                    "member_count": gr.member_count,
+                    "coordination_index": round(gr.coordination_index, 3),
+                    "formation_type": gr.formation_type or "DYNAMIC",
+                })
+
+    # Sort coordination peaks by highest coordination index
+    coordination_peaks.sort(key=lambda p: p["coordination_index"], reverse=True)
+    coordination_peaks = coordination_peaks[:20]
+
+    # 3. Query behavior event transitions
+    beh_stmt = select(BehaviorEventHistory)
+    if norm_start is not None:
+        beh_stmt = beh_stmt.where(BehaviorEventHistory.timestamp >= norm_start)
+    if norm_end is not None:
+        beh_stmt = beh_stmt.where(BehaviorEventHistory.timestamp <= norm_end)
+
+    behavior_rows = list(db.scalars(beh_stmt.order_by(BehaviorEventHistory.timestamp.asc())).all())
+    total_behaviors = len(behavior_rows)
+
+    behavior_dist: dict[str, int] = {}
+    for b in behavior_rows:
+        behavior_dist[b.new_state] = behavior_dist.get(b.new_state, 0) + 1
+
+    return {
+        "window_start": norm_start or (datetime.now() if not snapshots else snapshots[0].timestamp),
+        "window_end": norm_end or (datetime.now() if not snapshots else snapshots[-1].timestamp),
+        "total_snapshots": total_snapshots,
+        "total_group_events": total_groups,
+        "total_behavior_transitions": total_behaviors,
+        "behavior_distribution": behavior_dist,
+        "group_state_distribution": group_state_dist,
+        "avg_group_size": round(total_members / total_groups, 2) if total_groups > 0 else 0.0,
+        "max_group_size": max_members,
+        "avg_coordination_index": round(coord_sum / coord_count, 3) if coord_count > 0 else 0.0,
+        "peak_threat_score": round(peak_threat, 2),
+        "threat_score_time_series": threat_time_series,
+        "coordination_peaks": coordination_peaks,
+    }
