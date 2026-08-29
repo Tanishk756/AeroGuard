@@ -20,10 +20,16 @@ def test_operational_migration_upgrade_downgrade_reupgrade(tmp_path):
     run_migration(database_url, "upgrade head", repo_root)
     connection = sqlite3.connect(database_path)
     tables = {row[0] for row in connection.execute("select name from sqlite_master where type='table'")}
-    assert {"sensors", "detections", "tracks", "track_history", "alerts", "threat_assessments", "scenarios", "geofences"}.issubset(tables)
+    expected_tables = {
+        "sensors", "detections", "tracks", "track_history", "alerts",
+        "threat_assessments", "scenarios", "geofences", "track_associations",
+        "intelligence_snapshots", "track_group_history", "behavior_event_history",
+    }
+    assert expected_tables.issubset(tables)
     run_migration(database_url, "downgrade 0004_audit_events", repo_root)
     tables_after_downgrade = {row[0] for row in connection.execute("select name from sqlite_master where type='table'")}
     assert "sensors" not in tables_after_downgrade
+    assert "intelligence_snapshots" not in tables_after_downgrade
     run_migration(database_url, "upgrade head", repo_root)
     run_migration(database_url, "upgrade head", repo_root)
     connection.close()

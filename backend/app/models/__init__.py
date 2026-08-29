@@ -6,6 +6,11 @@ from app.models.alert import Alert, AlertSeverity, AlertStatus, AlertType
 from app.models.detection import Detection
 from app.models.geofence import Geofence
 from app.models.session import Session
+from app.models.intelligence_history import (
+    BehaviorEventHistory,
+    IntelligenceSnapshot,
+    TrackGroupHistory,
+)
 from app.models.permission import Permission
 from app.models.role import Role
 from app.models.scenario import Scenario, ScenarioStatus
@@ -15,8 +20,9 @@ from app.models.track import Track, TrackHistory, TrackState
 from app.models.user import User, UserStatus
 
 __all__ = [
-	"Alert", "AlertSeverity", "AlertStatus", "AlertType", "AuditEvent", "Detection", "Geofence",
-	"Permission", "Role", "Scenario", "ScenarioStatus", "Sensor", "SensorSourceClass", "SensorStatus",
-	"Session", "ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
-	"TrackHistory", "TrackState", "User", "UserStatus",
+	"Alert", "AlertSeverity", "AlertStatus", "AlertType", "AuditEvent", "BehaviorEventHistory",
+	"Detection", "Geofence", "IntelligenceSnapshot", "Permission", "Role", "Scenario",
+	"ScenarioStatus", "Sensor", "SensorSourceClass", "SensorStatus", "Session",
+	"ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
+	"TrackGroupHistory", "TrackHistory", "TrackState", "User", "UserStatus",
 ]
