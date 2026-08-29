@@ -60,9 +60,12 @@ class IncidentArchiveStore(Protocol):
 class LocalFileArchiveStore:
     """Safe local cold-storage adapter storing binary archive packages under data/archives/."""
 
+    provider_name: str = "LOCAL"
+
     def __init__(self, base_dir: str = "data/archives"):
         self.base_dir = Path(base_dir)
-        self.base_dir.mkdir(parents=True, exist_ok=True)
+        if not self.base_dir.exists():
+            self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def archive(self, archive_number: str, payload_bytes: bytes, archive_format: str) -> str:
         ext = "pdf" if archive_format.upper() == "PDF" else "json"
@@ -107,7 +110,10 @@ class IncidentRetentionService:
 
     def __init__(self, db: Session, store: IncidentArchiveStore | None = None):
         self.db = db
-        self.store = store or LocalFileArchiveStore()
+        if store is None:
+            from app.services.archive_store_factory import get_archive_store
+            store = get_archive_store()
+        self.store = store
 
     def get_or_create_policy(self) -> IncidentRetentionPolicy:
         stmt = select(IncidentRetentionPolicy).where(IncidentRetentionPolicy.enabled.is_(True)).order_by(IncidentRetentionPolicy.created_at.asc())
@@ -383,7 +389,8 @@ class IncidentRetentionService:
             file_size_bytes = len(payload_bytes)
 
             # Store payload via ArchiveStore abstraction
-            self.store.archive(export_num, payload_bytes, archive_format)
+            storage_location = self.store.archive(export_num, payload_bytes, archive_format)
+            provider_name = getattr(self.store, "provider_name", None) or ("S3" if "s3://" in str(storage_location) else "LOCAL")
 
             archive = IncidentArchive(
                 id=str(uuid4()),
@@ -394,6 +401,8 @@ class IncidentRetentionService:
                 file_size_bytes=file_size_bytes,
                 archive_format=archive_format,
                 payload_data=payload_str,
+                storage_provider=provider_name,
+                storage_location=storage_location,
                 archived_at=now,
                 archived_by=actor_user_id,
                 verified_at=now,
@@ -417,6 +426,7 @@ class IncidentRetentionService:
                     "archive_number": archive.archive_number,
                     "sha256_checksum": sha256_checksum,
                     "file_size_bytes": file_size_bytes,
+                    "storage_provider": provider_name,
                 },
             )
 

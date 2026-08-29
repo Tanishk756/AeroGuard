@@ -26,6 +26,8 @@ class S3ObjectArchiveStore:
     Implements the IncidentArchiveStore protocol.
     """
 
+    provider_name: str = "S3"
+
     def __init__(
         self,
         bucket_name: str | None = None,

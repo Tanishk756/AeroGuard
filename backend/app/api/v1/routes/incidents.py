@@ -48,6 +48,7 @@ from app.services.incident import (
     IncidentService,
     InvalidIncidentActionError,
 )
+from app.services.archive_store_factory import get_archive_store_health
 from app.services.incident_analytics import IncidentAnalyticsService
 from app.services.incident_export import IncidentExportService
 from app.services.incident_retention import IncidentRetentionService
@@ -242,6 +243,14 @@ def evaluate_retention_governance(
     """Evaluate retention, archival, and purge eligibility (Read-only / Zero mutations)."""
     service = IncidentRetentionService(db)
     return service.evaluate_retention(dry_run=dry_run)
+
+
+@router.get("/retention/storage/health")
+def get_retention_storage_health(
+    _: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Retrieve non-destructive storage provider health status (LOCAL vs S3)."""
+    return get_archive_store_health()
 
 
 @router.post("/retention/holds", response_model=RetentionHoldResponse)
