@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.incident import IncidentSeverity, IncidentSource, IncidentStatus
 from app.models.incident_event import DefensiveActionCategory, IncidentEventType
+from app.models.incident_export import IncidentExportFormat, IncidentExportStatus
 
 
 def _validate_metadata_size(v: dict[str, Any]) -> dict[str, Any]:
@@ -252,3 +253,39 @@ class IncidentAnalyticsResponse(BaseModel):
     procedural_actions: IncidentProceduralActionMetrics
     correlations: IncidentCorrelationMetrics
     workflow: IncidentWorkflowEventMetrics
+
+
+# ---------------------------------------------------------------------------
+# Export Schemas
+# ---------------------------------------------------------------------------
+
+class CreateIncidentExportRequest(BaseModel):
+    format: IncidentExportFormat = Field(default=IncidentExportFormat.JSON, description="Desired export payload format")
+    start: datetime | None = Field(default=None, description="Filter created_at on or after timestamp")
+    end: datetime | None = Field(default=None, description="Filter created_at on or before timestamp")
+    severity: IncidentSeverity | None = Field(default=None, description="Filter by severity")
+    status: IncidentStatus | None = Field(default=None, description="Filter by status")
+    assigned_to: str | None = Field(default=None, max_length=64, description="Filter by assignee user ID")
+    primary_track_id: str | None = Field(default=None, max_length=64, description="Filter by primary track ID")
+    primary_group_id: str | None = Field(default=None, max_length=64, description="Filter by primary group ID")
+
+
+class IncidentExportMetadata(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    export_number: str
+    requested_by: str
+    format: IncidentExportFormat
+    status: IncidentExportStatus
+    record_count: int
+    file_size_bytes: int
+    sha256_checksum: str
+    created_at: datetime
+    completed_at: datetime | None = None
+    filter_params_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class IncidentExportResponse(BaseModel):
+    metadata: IncidentExportMetadata
+    payload: str | None = Field(default=None, description="Serialized JSON or CSV payload text")

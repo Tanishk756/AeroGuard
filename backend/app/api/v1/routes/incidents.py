@@ -19,11 +19,14 @@ from app.schemas.incidents import (
     AddIncidentNoteRequest,
     AssignIncidentRequest,
     CloseIncidentRequest,
+    CreateIncidentExportRequest,
     CreateIncidentRequest,
     DeEscalateIncidentRequest,
     EscalateIncidentRequest,
     IncidentAnalyticsResponse,
     IncidentEventResponse,
+    IncidentExportMetadata,
+    IncidentExportResponse,
     IncidentListResponse,
     IncidentResponse,
     IncidentTimelineResponse,
@@ -37,6 +40,7 @@ from app.services.incident import (
     InvalidIncidentActionError,
 )
 from app.services.incident_analytics import IncidentAnalyticsService
+from app.services.incident_export import IncidentExportService
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -147,6 +151,55 @@ def get_incident_analytics(
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Export Endpoints (IM2-A)
+# ---------------------------------------------------------------------------
+
+@router.post("/export", response_model=IncidentExportResponse, status_code=201)
+def create_incident_export(
+    payload: CreateIncidentExportRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.export")),
+):
+    """Request a deterministic JSON or CSV export of incident records."""
+    service = IncidentExportService(db)
+    export = service.create_export(actor_user_id=actor.id, request=payload)
+    return IncidentExportResponse(
+        metadata=IncidentExportMetadata.model_validate(export),
+        payload=export.payload_data,
+    )
+
+
+@router.get("/export", response_model=list[IncidentExportMetadata])
+def list_incident_exports(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.export")),
+    limit: int = Query(50, ge=1, le=100, description="Max items to return"),
+    offset: int = Query(0, ge=0, description="Items offset"),
+):
+    """Retrieve history of incident exports created by users."""
+    service = IncidentExportService(db)
+    items, _ = service.list_exports(limit=limit, offset=offset)
+    return [IncidentExportMetadata.model_validate(item) for item in items]
+
+
+@router.get("/export/{export_id}", response_model=IncidentExportResponse)
+def get_incident_export(
+    export_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.export")),
+):
+    """Retrieve a specific incident export metadata and payload by ID or export number."""
+    service = IncidentExportService(db)
+    export = service.get_export_by_id(export_id)
+    if not export:
+        raise HTTPException(status_code=404, detail="Export not found")
+    return IncidentExportResponse(
+        metadata=IncidentExportMetadata.model_validate(export),
+        payload=export.payload_data,
+    )
 
 
 @router.get("/{incident_id}", response_model=IncidentResponse)
