@@ -29,6 +29,7 @@ export interface MapLayerVisibility {
   trajectories: boolean;
   labels: boolean;
   grid: boolean;
+  incidents?: boolean;
 }
 
 export interface MapViewportState {

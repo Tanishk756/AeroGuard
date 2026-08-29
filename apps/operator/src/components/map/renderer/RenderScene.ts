@@ -5,6 +5,7 @@
 import {
   DefensiveIntelligenceSummary,
   Geofence,
+  Incident,
   MapLayerVisibility,
   MultiTrackIntelligenceSummary,
   Sensor,
@@ -16,6 +17,7 @@ import {
 import {
   RenderGeofenceItem,
   RenderGroupItem,
+  RenderIncidentItem,
   RenderLayerVisibility,
   RenderPredictionItem,
   RenderScene,
@@ -46,10 +48,12 @@ export interface BuildSceneOptions {
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
   selectedGroupId?: string | null;
+  selectedIncidentId?: string | null;
   selectedTrackHistory?: TrackHistoryPoint[];
   selectedTrackPrediction?: TrajectoryPrediction | null;
   geofences?: Geofence[];
   sensors?: Sensor[];
+  incidents?: Incident[];
   maxTrailLength?: number;
 }
 
@@ -90,10 +94,12 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     selectedSensorId = null,
     selectedGeofenceId = null,
     selectedGroupId = null,
+    selectedIncidentId = null,
     selectedTrackHistory = [],
     selectedTrackPrediction = null,
     geofences = [],
     sensors = [],
+    incidents = [],
     maxTrailLength = 30,
   } = options;
 
@@ -117,6 +123,7 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     tracks: layers.tracks !== false,
     labels: layers.labels !== false,
     groups: true,
+    incidents: layers.incidents !== false,
   };
 
   // 1. Build threat map for O(1) lookup
@@ -455,6 +462,87 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     }
   }
 
+  // 8. Build normalized Incident items (IM1-F)
+  const renderIncidents: RenderIncidentItem[] = [];
+  if (incidents && incidents.length > 0) {
+    const trackCoordMap = new Map<string, { x: number; y: number }>();
+    for (const t of renderTracks) {
+      trackCoordMap.set(t.id, { x: t.screenX, y: t.screenY });
+    }
+
+    const groupCoordMap = new Map<string, { x: number; y: number }>();
+    if (multiTrackIntelligence?.groups) {
+      for (const g of multiTrackIntelligence.groups) {
+        const centroidScreen = projectLatLon(
+          g.centroid_lat,
+          g.centroid_lon,
+          centerLat,
+          centerLon,
+          zoom,
+          panOffsetX,
+          panOffsetY,
+          width,
+          height
+        );
+        groupCoordMap.set(g.group_id, { x: centroidScreen.x, y: centroidScreen.y });
+      }
+    }
+
+    const entityIncidentCounts = new Map<string, number>();
+
+    for (const inc of incidents) {
+      let screenPos: { x: number; y: number } | null = null;
+      let targetEntityKey: string | null = null;
+
+      if (inc.primary_track_id && trackCoordMap.has(inc.primary_track_id)) {
+        screenPos = trackCoordMap.get(inc.primary_track_id)!;
+        targetEntityKey = `trk_${inc.primary_track_id}`;
+      } else if (inc.primary_group_id && groupCoordMap.has(inc.primary_group_id)) {
+        screenPos = groupCoordMap.get(inc.primary_group_id)!;
+        targetEntityKey = `grp_${inc.primary_group_id}`;
+      }
+
+      if (screenPos && targetEntityKey) {
+        const count = entityIncidentCounts.get(targetEntityKey) || 0;
+        entityIncidentCounts.set(targetEntityKey, count + 1);
+
+        const offsetX = 16 + (count % 3) * 14;
+        const offsetY = -16 - Math.floor(count / 3) * 14;
+
+        const posX = screenPos.x + offsetX;
+        const posY = screenPos.y + offsetY;
+
+        const isSelected = inc.id === selectedIncidentId;
+        const isHighlighted =
+          isSelected ||
+          (selectedTrackId != null && inc.primary_track_id === selectedTrackId) ||
+          (selectedGroupId != null && inc.primary_group_id === selectedGroupId);
+
+        const isVisible =
+          posX >= -CULL_PADDING &&
+          posX <= width + CULL_PADDING &&
+          posY >= -CULL_PADDING &&
+          posY <= height + CULL_PADDING;
+
+        if (isVisible || isSelected) {
+          renderIncidents.push({
+            incidentId: inc.id,
+            incidentNumber: inc.incident_number,
+            title: inc.title,
+            severity: inc.severity,
+            status: inc.status,
+            screenX: posX,
+            screenY: posY,
+            associatedTrackId: inc.primary_track_id,
+            associatedGroupId: inc.primary_group_id,
+            isSelected,
+            isHighlighted,
+          });
+        }
+      }
+    }
+  }
+
   return {
     viewport,
     layers: activeLayers,
@@ -464,10 +552,12 @@ export function buildRenderScene(options: BuildSceneOptions): RenderScene {
     geofences: renderGeofences,
     sensors: renderSensors,
     groups: renderGroups,
+    incidents: renderIncidents,
     selectedTrackId,
     selectedSensorId,
     selectedGeofenceId,
     selectedGroupId,
+    selectedIncidentId,
     timestamp: Date.now(),
   };
 }

@@ -114,6 +114,7 @@ export const MapControls: React.FC<MapControlsProps> = ({
             {(
               [
                 ['tracks', 'Tracks'],
+                ['incidents', 'Incidents'],
                 ['sensors', 'Sensors'],
                 ['geofences', 'Geofences'],
                 ['trajectories', 'Trajectories'],
@@ -129,13 +130,13 @@ export const MapControls: React.FC<MapControlsProps> = ({
                   alignItems: 'center',
                   gap: '6px',
                   fontSize: '11px',
-                  color: layers[key] ? 'var(--text-primary)' : 'var(--text-muted)',
+                  color: layers[key] !== false ? 'var(--text-primary)' : 'var(--text-muted)',
                   cursor: 'pointer',
                 }}
               >
                 <input
                   type="checkbox"
-                  checked={layers[key]}
+                  checked={layers[key] !== false}
                   onChange={() => onToggleLayer(key)}
                   style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
                 />

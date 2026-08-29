@@ -231,6 +231,35 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({
             Intel Snapshot: {incident.originating_intelligence_event_id}
           </span>
         )}
+
+        {(incident.primary_track_id || incident.primary_group_id) && (
+          <button
+            type="button"
+            className="font-mono text-xs"
+            onClick={() => {
+              if (incident.primary_track_id) {
+                navigate(`/app/overview?entity=track&id=${encodeURIComponent(incident.primary_track_id)}&incident_id=${encodeURIComponent(incident.id)}`);
+              } else {
+                navigate(`/app/overview?incident_id=${encodeURIComponent(incident.id)}`);
+              }
+            }}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: 'rgba(14, 165, 233, 0.15)',
+              color: '#38bdf8',
+              border: '1px solid rgba(14, 165, 233, 0.3)',
+              borderRadius: '3px',
+              padding: '2px 8px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            🗺 Show on Map
+          </button>
+        )}
       </div>
 
       {/* Tabs / Sub-views */}

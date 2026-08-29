@@ -122,6 +122,21 @@ export interface RenderPredictionItem {
   }>;
 }
 
+export interface RenderIncidentItem {
+  incidentId: string;
+  incidentNumber: string;
+  title: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: 'NEW' | 'ACKNOWLEDGED' | 'TRIAGED' | 'ESCALATED' | 'RESOLVED' | 'CLOSED';
+  screenX: number;
+  screenY: number;
+  associatedTrackId?: string | null;
+  associatedGroupId?: string | null;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  ageSeconds?: number;
+}
+
 export interface RenderLayerVisibility {
   grid: boolean;
   rangeRings: boolean;
@@ -131,6 +146,7 @@ export interface RenderLayerVisibility {
   tracks: boolean;
   labels: boolean;
   groups?: boolean;
+  incidents?: boolean;
 }
 
 export interface RenderScene {
@@ -142,15 +158,17 @@ export interface RenderScene {
   geofences: RenderGeofenceItem[];
   sensors: RenderSensorItem[];
   groups?: RenderGroupItem[];
+  incidents?: RenderIncidentItem[];
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
   selectedGroupId?: string | null;
+  selectedIncidentId?: string | null;
   timestamp: number;
 }
 
 export interface HitTestResult {
-  type: 'track' | 'sensor' | 'geofence' | 'group';
+  type: 'track' | 'sensor' | 'geofence' | 'group' | 'incident';
   id: string;
   screenX: number;
   screenY: number;

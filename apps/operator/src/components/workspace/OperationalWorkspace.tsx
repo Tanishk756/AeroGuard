@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOperationalData } from '../../hooks/useOperationalData';
 import { useTrackHistory } from '../../hooks/useTrackHistory';
 import { useWorkspaceSelection } from '../../hooks/useWorkspaceSelection';
@@ -20,6 +20,7 @@ import { WorkspaceFilterBar } from './WorkspaceFilterBar';
 type RegistryTab = 'tracks' | 'alerts' | 'threats' | 'sensors' | 'geofences' | 'timeline' | 'scenarios';
 
 export const OperationalWorkspace: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const {
@@ -28,6 +29,7 @@ export const OperationalWorkspace: React.FC = () => {
     geofences,
     alerts,
     threats,
+    incidents = [],
     timeline,
     intelligence,
     lastUpdated,
@@ -420,14 +422,17 @@ export const OperationalWorkspace: React.FC = () => {
             intelligence={intelligence}
             sensors={filteredSensors}
             geofences={filteredGeofences}
+            incidents={incidents}
             selectedTrackHistory={selectedTrackHistory}
             selectedTrackPrediction={selectedTrackId ? (intelligence[selectedTrackId]?.trajectory || null) : null}
             selectedTrackId={selectedTrackId}
             selectedSensorId={selectedSensorId}
             selectedGeofenceId={selectedGeofenceId}
+            selectedIncidentId={searchParams.get('incident_id')}
             onSelectTrack={handleSelectTrack}
             onSelectSensor={handleSelectSensor}
             onSelectGeofence={handleSelectGeofence}
+            onSelectIncident={(incId) => navigate(`/app/incidents?selected_id=${encodeURIComponent(incId)}`)}
             onClearSelection={handleClearSelection}
           />
         </div>
@@ -442,6 +447,7 @@ export const OperationalWorkspace: React.FC = () => {
               geofences={geofences}
               alerts={alerts}
               threats={threats}
+              incidents={incidents}
               intelligence={intelligence}
               selectedTrackHistory={selectedTrackHistory}
               isHistoryLoading={isHistoryLoading}
@@ -449,6 +455,7 @@ export const OperationalWorkspace: React.FC = () => {
               onSelectTrack={handleSelectTrack}
               onSelectAlert={handleSelectAlert}
               onSelectSensor={handleSelectSensor}
+              onSelectIncident={(incId) => navigate(`/app/incidents?selected_id=${encodeURIComponent(incId)}`)}
             />
           </div>
         )}

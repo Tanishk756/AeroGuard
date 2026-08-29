@@ -1,4 +1,4 @@
-import { Alert, DefensiveIntelligenceSummary, Geofence, SelectedEntity, Sensor, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
+import { Alert, DefensiveIntelligenceSummary, Geofence, Incident, SelectedEntity, Sensor, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
 import { Card } from '../common/Card';
 import { EmptyState } from '../common/EmptyState';
 import { AlertInspector } from './AlertInspector';
@@ -14,6 +14,7 @@ interface WorkspaceInspectorProps {
   geofences: Geofence[];
   alerts: Alert[];
   threats: ThreatAssessment[];
+  incidents?: Incident[];
   intelligence?: Record<string, DefensiveIntelligenceSummary>;
   selectedTrackHistory?: TrackHistoryPoint[];
   isHistoryLoading?: boolean;
@@ -21,6 +22,7 @@ interface WorkspaceInspectorProps {
   onSelectTrack: (trackId: string) => void;
   onSelectAlert: (alertId: string) => void;
   onSelectSensor?: (sensorId: string) => void;
+  onSelectIncident?: (incidentId: string) => void;
   onEditGeofence?: (geofence: Geofence) => void;
   onDeleteGeofence?: (geofence: Geofence) => void;
 }
@@ -32,6 +34,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
   geofences,
   alerts,
   threats,
+  incidents = [],
   intelligence = {},
   selectedTrackHistory = [],
   isHistoryLoading = false,
@@ -39,6 +42,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
   onSelectTrack,
   onSelectAlert,
   onSelectSensor,
+  onSelectIncident,
   onEditGeofence,
   onDeleteGeofence,
 }) => {
@@ -70,6 +74,7 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
 
     const threat = threats.find((th) => th.track_id === track.id) || null;
     const relatedAlerts = alerts.filter((a) => a.track_id === track.id);
+    const relatedIncidents = incidents.filter((i) => i.primary_track_id === track.id);
 
     return (
       <TrackInspector
@@ -77,11 +82,13 @@ export const WorkspaceInspector: React.FC<WorkspaceInspectorProps> = ({
         threat={threat}
         intelligence={intelligence[track.id] || null}
         relatedAlerts={relatedAlerts}
+        relatedIncidents={relatedIncidents}
         geofences={geofences}
         historyPoints={selectedTrackHistory}
         isHistoryLoading={isHistoryLoading}
         onClose={onClearSelection}
         onSelectAlert={onSelectAlert}
+        onSelectIncident={onSelectIncident}
       />
     );
   }

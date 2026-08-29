@@ -1,4 +1,4 @@
-import { Alert, DefensiveIntelligenceSummary, Geofence, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
+import { Alert, DefensiveIntelligenceSummary, Geofence, Incident, ThreatAssessment, Track, TrackHistoryPoint } from '../../types';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { LoadingState } from '../common/LoadingState';
@@ -9,11 +9,13 @@ interface TrackInspectorProps {
   threat?: ThreatAssessment | null;
   intelligence?: DefensiveIntelligenceSummary | null;
   relatedAlerts?: Alert[];
+  relatedIncidents?: Incident[];
   geofences?: Geofence[];
   historyPoints?: TrackHistoryPoint[];
   isHistoryLoading?: boolean;
   onClose?: () => void;
   onSelectAlert?: (alertId: string) => void;
+  onSelectIncident?: (incidentId: string) => void;
 }
 
 export const TrackInspector: React.FC<TrackInspectorProps> = ({
@@ -21,11 +23,13 @@ export const TrackInspector: React.FC<TrackInspectorProps> = ({
   threat,
   intelligence,
   relatedAlerts = [],
+  relatedIncidents = [],
   geofences = [],
   historyPoints = [],
   isHistoryLoading = false,
   onClose,
   onSelectAlert,
+  onSelectIncident,
 }) => {
   // Format staleness / age
   const lastSeenDate = new Date(track.last_seen_at);
@@ -313,6 +317,52 @@ export const TrackInspector: React.FC<TrackInspectorProps> = ({
           </div>
         ) : (
           <p className="font-mono text-xs text-muted">No elevated threat assessment evaluated for this track.</p>
+        )}
+      </Card>
+
+      {/* Associated Incidents (IM1-F) */}
+      <Card
+        title="Associated Incidents"
+        badge={<span className="font-mono text-xs text-muted">{relatedIncidents.length}</span>}
+      >
+        {relatedIncidents.length === 0 ? (
+          <p className="font-mono text-xs text-muted">No operational incidents associated with this track.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {relatedIncidents.map((inc) => (
+              <div
+                key={inc.id}
+                style={{
+                  padding: '6px 8px',
+                  backgroundColor: 'var(--bg-canvas)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <StatusBadge status={inc.severity} />
+                  <span className="font-mono text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                    {inc.incident_number}
+                  </span>
+                  <span className="font-mono text-xs text-muted">[{inc.status}]</span>
+                </div>
+                {onSelectIncident && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onSelectIncident(inc.id)}
+                    style={{ padding: '2px 6px', fontSize: '10px' }}
+                  >
+                    Open Incident
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </Card>
 

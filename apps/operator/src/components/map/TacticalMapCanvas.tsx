@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   DefensiveIntelligenceSummary,
   Geofence,
+  Incident,
   MapLayerVisibility,
   MultiTrackIntelligenceSummary,
   Sensor,
@@ -31,12 +32,14 @@ interface TacticalMapCanvasProps {
   multiTrackIntelligence?: MultiTrackIntelligenceSummary | null;
   sensors: Sensor[];
   geofences: Geofence[];
+  incidents?: Incident[];
   selectedTrackHistory?: TrackHistoryPoint[];
   selectedTrackPrediction?: TrajectoryPrediction | null;
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
   selectedGroupId?: string | null;
+  selectedIncidentId?: string | null;
   layers?: Partial<MapLayerVisibility>;
   centerLat: number;
   centerLon: number;
@@ -47,6 +50,7 @@ interface TacticalMapCanvasProps {
   onSelectSensor?: (sensorId: string) => void;
   onSelectGeofence?: (geofenceId: string) => void;
   onSelectGroup?: (groupId: string) => void;
+  onSelectIncident?: (incidentId: string) => void;
   onPan?: (dx: number, dy: number) => void;
 }
 
@@ -57,12 +61,14 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   multiTrackIntelligence = null,
   sensors,
   geofences,
+  incidents = [],
   selectedTrackHistory = [],
   selectedTrackPrediction = null,
   selectedTrackId = null,
   selectedSensorId = null,
   selectedGeofenceId = null,
   selectedGroupId = null,
+  selectedIncidentId = null,
   layers = {},
   centerLat,
   centerLon,
@@ -73,6 +79,7 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
   onSelectSensor,
   onSelectGeofence,
   onSelectGroup,
+  onSelectIncident,
   onPan,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -167,10 +174,12 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
       selectedSensorId,
       selectedGeofenceId,
       selectedGroupId,
+      selectedIncidentId,
       selectedTrackHistory,
       selectedTrackPrediction,
       geofences,
       sensors,
+      incidents,
     });
 
     rendererRef.current.render(scene);
@@ -190,10 +199,12 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
     selectedSensorId,
     selectedGeofenceId,
     selectedGroupId,
+    selectedIncidentId,
     selectedTrackHistory,
     selectedTrackPrediction,
     geofences,
     sensors,
+    incidents,
   ]);
 
   // 4. Pointer interactions & Hit Testing
@@ -244,23 +255,31 @@ export const TacticalMapCanvas: React.FC<TacticalMapCanvasProps> = ({
         tracks,
         threats,
         intelligence,
+        multiTrackIntelligence,
         selectedTrackId,
         selectedSensorId,
         selectedGeofenceId,
+        selectedGroupId,
+        selectedIncidentId,
         selectedTrackHistory,
         selectedTrackPrediction,
         geofences,
         sensors,
+        incidents,
       });
 
       const hit = rendererRef.current.hitTest(clickX, clickY, scene);
       if (hit) {
-        if (hit.type === 'track' && onSelectTrack) {
+        if (hit.type === 'incident' && onSelectIncident) {
+          onSelectIncident(hit.id);
+        } else if (hit.type === 'track' && onSelectTrack) {
           onSelectTrack(hit.id);
         } else if (hit.type === 'sensor' && onSelectSensor) {
           onSelectSensor(hit.id);
         } else if (hit.type === 'geofence' && onSelectGeofence) {
           onSelectGeofence(hit.id);
+        } else if (hit.type === 'group' && onSelectGroup) {
+          onSelectGroup(hit.id);
         }
       }
     }

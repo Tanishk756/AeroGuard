@@ -174,7 +174,7 @@ export function getPermissibleActions(status: IncidentStatus, permissions: Set<s
   if (status === 'RESOLVED' && permissions.has('incidents.close')) {
     actions.push('CLOSE');
   }
-  if (status !== 'CLOSED' && permissions.has('incidents.manage')) {
+  if (permissions.has('incidents.manage')) {
     actions.push('NOTE');
     actions.push('ACTION');
   }
@@ -355,7 +355,7 @@ describe('AeroGuard Stage IM1-E Incident Management Workspace Unit Tests', () =>
     const rawEvents: IncidentEvent[] = [
       { id: 'e3', incident_id: 'inc-1', sequence: 3, timestamp: '2026-08-29T08:10:00Z', event_type: 'TRIAGED', created_at: '' },
       { id: 'e1', incident_id: 'inc-1', sequence: 1, timestamp: '2026-08-29T08:00:00Z', event_type: 'CREATED', created_at: '' },
-      { id: 'e2', incident_id: 'inc-1', sequence: 2, timestamp: '2026-08-29T08:05:00Z', event_type: 'ACKNOWLEDGED', created_at: '' },
+      { id: 'e2', incident_id: 'inc-1', sequence: 2, timestamp: '2026-08-29T08:05:00Z', event_type: 'STATUS_CHANGED', created_at: '' },
     ];
     const sorted = [...rawEvents].sort((a, b) => a.sequence - b.sequence);
     assert.deepEqual(sorted.map((e) => e.sequence), [1, 2, 3]);

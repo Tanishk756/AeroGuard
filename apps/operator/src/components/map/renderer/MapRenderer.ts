@@ -40,7 +40,30 @@ export abstract class BaseMapRenderer implements IMapRenderer {
     let closestHit: HitTestResult | null = null;
     let minDistance = Infinity;
 
-    // 1. Test Track Markers (highest priority)
+    // 1. Test Incident Markers (highest priority)
+    const INCIDENT_HIT_RADIUS = 14;
+    if (scene.incidents && scene.incidents.length > 0) {
+      for (const inc of scene.incidents) {
+        const dx = screenX - inc.screenX;
+        const dy = screenY - inc.screenY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist <= INCIDENT_HIT_RADIUS && dist < minDistance) {
+          minDistance = dist;
+          closestHit = {
+            type: 'incident',
+            id: inc.incidentId,
+            screenX: inc.screenX,
+            screenY: inc.screenY,
+            distancePixels: dist,
+          };
+        }
+      }
+    }
+
+    if (closestHit) return closestHit;
+
+    // 2. Test Track Markers
     for (const track of scene.tracks) {
       const dx = screenX - track.screenX;
       const dy = screenY - track.screenY;

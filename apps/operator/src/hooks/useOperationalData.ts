@@ -3,6 +3,7 @@ import { getAlerts } from '../api/alerts';
 import { dispatchAlertNotifications } from '../api/desktop';
 import { getGeofences } from '../api/geofences';
 import { getTimeline } from '../api/history';
+import { getIncidents } from '../api/incidents';
 import { getSensors } from '../api/sensors';
 import { getThreats } from '../api/threats';
 import { getTracks } from '../api/tracks';
@@ -11,6 +12,8 @@ import {
   Alert,
   DefensiveIntelligenceSummary,
   Geofence,
+  Incident,
+  IncidentRealtimePayload,
   OperationalConnectionMode,
   RealtimeEventEnvelope,
   Sensor,
@@ -27,6 +30,7 @@ export interface OperationalDataState {
   geofences: Geofence[];
   alerts: Alert[];
   threats: ThreatAssessment[];
+  incidents: Incident[];
   timeline: TimelineItem[];
   intelligence: Record<string, DefensiveIntelligenceSummary>;
   lastUpdated: Date | null;
@@ -60,6 +64,7 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [threats, setThreats] = useState<ThreatAssessment[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [intelligence, setIntelligence] = useState<Record<string, DefensiveIntelligenceSummary>>({});
 
@@ -210,7 +215,18 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
         );
       }
 
-      // 6. Timeline (operational read)
+      // 6. Incidents (incidents.read)
+      if (hasPermission('incidents.read')) {
+        promises.push(
+          getIncidents({ limit: 100 }).then((res) => {
+            if (isMountedRef.current && !controller.signal.aborted) {
+              setIncidents(res.items || []);
+            }
+          })
+        );
+      }
+
+      // 7. Timeline (operational read)
       promises.push(
         getTimeline({ limit: 50 }).then((res) => {
           if (isMountedRef.current && !controller.signal.aborted) {
@@ -328,6 +344,61 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
           }
           break;
         }
+        case 'incident.created': {
+          const payload = envelope.payload as unknown as IncidentRealtimePayload;
+          if (payload && payload.incident_id) {
+            setIncidents((prev) => {
+              if (prev.some((i) => i.id === payload.incident_id)) return prev;
+              const newInc: Incident = {
+                id: payload.incident_id,
+                incident_number: payload.incident_number,
+                title: payload.title,
+                status: payload.status as any,
+                severity: payload.severity as any,
+                source: payload.source as any,
+                primary_track_id: payload.primary_track_id,
+                primary_group_id: payload.primary_group_id,
+                originating_alert_id: payload.originating_alert_id,
+                originating_intelligence_event_id: payload.originating_intelligence_event_id,
+                assigned_to: payload.assigned_to,
+                created_by: payload.actor_user_id,
+                created_at: payload.timestamp,
+                updated_at: payload.timestamp,
+              };
+              return [newInc, ...prev];
+            });
+            setLastUpdated(new Date());
+          }
+          break;
+        }
+        case 'incident.acknowledged':
+        case 'incident.assigned':
+        case 'incident.reassigned':
+        case 'incident.triaged':
+        case 'incident.escalated':
+        case 'incident.de_escalated':
+        case 'incident.resolved':
+        case 'incident.closed':
+        case 'incident.note_added':
+        case 'incident.action_logged': {
+          const payload = envelope.payload as unknown as IncidentRealtimePayload;
+          if (payload && payload.incident_id) {
+            setIncidents((prev) =>
+              prev.map((inc) => {
+                if (inc.id !== payload.incident_id) return inc;
+                return {
+                  ...inc,
+                  status: (payload.status as any) || inc.status,
+                  severity: (payload.severity as any) || inc.severity,
+                  assigned_to: payload.assigned_to !== undefined ? payload.assigned_to : inc.assigned_to,
+                  updated_at: payload.timestamp || inc.updated_at,
+                };
+              })
+            );
+            setLastUpdated(new Date());
+          }
+          break;
+        }
         default:
           break;
       }
@@ -391,6 +462,7 @@ export function useOperationalData(options: UseOperationalDataOptions = {}): Ope
     geofences,
     alerts,
     threats,
+    incidents,
     timeline,
     intelligence,
     lastUpdated,

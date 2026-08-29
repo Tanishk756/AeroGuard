@@ -3,7 +3,8 @@
  * Stage IM1-E: Operator Incident Workspace
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CreateIncidentModal } from '../components/incidents/CreateIncidentModal';
 import { IncidentDetail } from '../components/incidents/IncidentDetail';
 import { IncidentList } from '../components/incidents/IncidentList';
@@ -11,6 +12,8 @@ import { useAuth } from '../context/AuthContext';
 import { useIncidents } from '../hooks/useIncidents';
 
 export const IncidentsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const paramIncidentId = searchParams.get('selected_id') || searchParams.get('incident_id');
   const { hasPermission } = useAuth();
   const canCreate = hasPermission('incidents.create');
 
@@ -39,6 +42,12 @@ export const IncidentsPage: React.FC = () => {
     addNote,
     logDefensiveAction,
   } = useIncidents();
+
+  useEffect(() => {
+    if (paramIncidentId && paramIncidentId !== selectedIncidentId) {
+      selectIncident(paramIncidentId);
+    }
+  }, [paramIncidentId, selectIncident, selectedIncidentId]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 

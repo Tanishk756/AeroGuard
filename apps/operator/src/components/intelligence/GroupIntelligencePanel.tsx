@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   CoordinatedFormation,
+  Incident,
   TrackGroup,
 } from '../../types';
 import { BehaviorBadge } from './BehaviorBadge';
@@ -8,15 +9,19 @@ import { BehaviorBadge } from './BehaviorBadge';
 interface GroupIntelligencePanelProps {
   group: TrackGroup;
   formation?: CoordinatedFormation | null;
+  relatedIncidents?: Incident[];
   selectedTrackId?: string | null;
   onSelectTrack?: (trackId: string) => void;
+  onSelectIncident?: (incidentId: string) => void;
 }
 
 export const GroupIntelligencePanel: React.FC<GroupIntelligencePanelProps> = ({
   group,
   formation,
+  relatedIncidents = [],
   selectedTrackId,
   onSelectTrack,
+  onSelectIncident,
 }) => {
   return (
     <div
@@ -94,6 +99,49 @@ export const GroupIntelligencePanel: React.FC<GroupIntelligencePanelProps> = ({
                 {formation.velocity_dispersion_mps.toFixed(1)} m/s
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Associated Incidents (IM1-F) */}
+      {relatedIncidents.length > 0 && (
+        <div>
+          <div className="uppercase-tracking text-muted" style={{ fontSize: '9px', fontWeight: 700, marginBottom: '6px' }}>
+            Associated Incidents ({relatedIncidents.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {relatedIncidents.map((inc) => (
+              <div
+                key={inc.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                  borderRadius: '4px',
+                  borderLeft: `3px solid ${inc.severity === 'CRITICAL' ? '#ef4444' : inc.severity === 'HIGH' ? '#f59e0b' : '#3b82f6'}`,
+                  fontSize: '11px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="font-mono font-bold" style={{ color: 'var(--text-primary, #f8fafc)' }}>
+                    {inc.incident_number}
+                  </span>
+                  <span className="font-mono text-muted">[{inc.status}]</span>
+                </div>
+                {onSelectIncident && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectIncident(inc.id)}
+                    className="btn btn-secondary btn-xs font-mono"
+                    style={{ padding: '2px 6px', fontSize: '10px' }}
+                  >
+                    Open Incident
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ import { BaseMapRenderer } from './MapRenderer';
 import {
   RenderGeofenceItem,
   RenderGroupItem,
+  RenderIncidentItem,
   RenderPredictionItem,
   RenderScene,
   RenderSensorItem,
@@ -85,6 +86,11 @@ export class CanvasRenderer extends BaseMapRenderer {
     // 8. Render Track Markers
     if (scene.layers.tracks) {
       this.renderTracks(ctx, scene.tracks, scene.layers.labels);
+    }
+
+    // 9. Render Incident Markers & Overlays (IM1-F)
+    if (scene.layers.incidents !== false && scene.incidents && scene.incidents.length > 0) {
+      this.renderIncidents(ctx, scene.incidents, scene.selectedIncidentId);
     }
 
     ctx.restore();
@@ -527,4 +533,72 @@ export class CanvasRenderer extends BaseMapRenderer {
 
     ctx.restore();
   }
+
+  private renderIncidents(
+    ctx: CanvasRenderingContext2D,
+    incidents: RenderIncidentItem[],
+    selectedIncidentId?: string | null
+  ): void {
+    ctx.save();
+
+    for (let i = 0; i < incidents.length; i++) {
+      const inc = incidents[i];
+      const isSelected = inc.isSelected || inc.incidentId === selectedIncidentId;
+      const isClosed = inc.status === 'CLOSED';
+
+      const sevColor =
+        inc.severity === 'CRITICAL'
+          ? '#ef4444'
+          : inc.severity === 'HIGH'
+          ? '#f59e0b'
+          : inc.severity === 'MEDIUM'
+          ? '#3b82f6'
+          : '#94a3b8';
+
+      const x = inc.screenX;
+      const y = inc.screenY;
+
+      // 1. Selection / Highlight Halo
+      if (isSelected || inc.isHighlighted) {
+        ctx.beginPath();
+        ctx.arc(x, y, isSelected ? 12 : 9, 0, Math.PI * 2);
+        ctx.strokeStyle = isSelected ? '#38bdf8' : sevColor;
+        ctx.lineWidth = isSelected ? 1.8 : 1.2;
+        ctx.setLineDash(isSelected ? [3, 2] : [2, 2]);
+        ctx.stroke();
+      }
+
+      // 2. Incident Badge Marker (Diamond)
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x + 6, y);
+      ctx.lineTo(x, y + 6);
+      ctx.lineTo(x - 6, y);
+      ctx.closePath();
+
+      ctx.fillStyle = isClosed ? 'rgba(100, 116, 139, 0.6)' : isSelected ? '#38bdf8' : sevColor;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Symbol inside diamond
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 8px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('!', x, y);
+
+      // 3. Compact Label Tag
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.fillStyle = isSelected ? '#38bdf8' : isClosed ? '#94a3b8' : 'rgba(241, 245, 249, 0.9)';
+      ctx.fillText(`${inc.incidentNumber} [${inc.status}]`, x + 9, y + 3);
+    }
+
+    ctx.restore();
+  }
 }
+

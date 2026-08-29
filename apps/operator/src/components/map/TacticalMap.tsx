@@ -9,6 +9,7 @@ import {
   DefensiveIntelligenceSummary,
   Geofence,
   GeofenceGeometry,
+  Incident,
   MapLayerVisibility,
   MultiTrackIntelligenceSummary,
   Sensor,
@@ -29,17 +30,20 @@ interface TacticalMapProps {
   multiTrackIntelligence?: MultiTrackIntelligenceSummary | null;
   sensors: Sensor[];
   geofences: Geofence[];
+  incidents?: Incident[];
   selectedTrackHistory?: TrackHistoryPoint[];
   selectedTrackPrediction?: TrajectoryPrediction | null;
   selectedTrackId?: string | null;
   selectedSensorId?: string | null;
   selectedGeofenceId?: string | null;
   selectedGroupId?: string | null;
+  selectedIncidentId?: string | null;
   draftGeometry?: GeofenceGeometry | null;
   onSelectTrack?: (trackId: string) => void;
   onSelectSensor?: (sensorId: string) => void;
   onSelectGeofence?: (geofenceId: string) => void;
   onSelectGroup?: (groupId: string) => void;
+  onSelectIncident?: (incidentId: string) => void;
   onClearSelection?: () => void;
 }
 
@@ -50,17 +54,20 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   multiTrackIntelligence = null,
   sensors,
   geofences,
+  incidents = [],
   selectedTrackHistory = [],
   selectedTrackPrediction = null,
   selectedTrackId,
   selectedSensorId,
   selectedGeofenceId,
   selectedGroupId,
+  selectedIncidentId,
   draftGeometry,
   onSelectTrack,
   onSelectSensor,
   onSelectGeofence,
   onSelectGroup,
+  onSelectIncident,
   onClearSelection,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +82,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     trajectories: true,
     labels: true,
     grid: true,
+    incidents: true,
   });
 
   const {
@@ -226,12 +234,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         multiTrackIntelligence={multiTrackIntelligence}
         sensors={sensors}
         geofences={geofences}
+        incidents={incidents}
         selectedTrackHistory={selectedTrackHistory}
         selectedTrackPrediction={selectedTrackPrediction}
         selectedTrackId={selectedTrackId}
         selectedSensorId={selectedSensorId}
         selectedGeofenceId={selectedGeofenceId}
         selectedGroupId={selectedGroupId}
+        selectedIncidentId={selectedIncidentId}
         layers={layers}
         centerLat={viewport.centerLat}
         centerLon={viewport.centerLon}
@@ -242,6 +252,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         onSelectSensor={onSelectSensor}
         onSelectGeofence={onSelectGeofence}
         onSelectGroup={onSelectGroup}
+        onSelectIncident={onSelectIncident}
         onPan={pan}
       />
 
