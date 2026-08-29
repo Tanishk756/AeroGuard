@@ -316,3 +316,10 @@ spatial searches with a deterministic 500-meter `SpatialHashGrid`, introduces th
 to sub-millisecond in-memory cached reads ($< 100\text{ µs}$), dispatches granular semantic delta events (`ai.priority.updated`,
 `ai.behavior.updated`, `ai.group.updated`), and provides 16ms animation-frame telemetry coalescing in the Operator Console.
 See [AI3 Architecture](file:///C:/AeroGuard/docs/AI3_ARCHITECTURE.md) for full architectural documentation.
+
+Stage HI1 establishes the Historical Intelligence Persistence, Swarm Replay & AI Analytics subsystem.
+It introduces asynchronous, non-blocking DB persistence for multi-track intelligence snapshots (`intelligence_snapshots`),
+track group state histories (`track_group_history`), and explainable behavioral event transitions (`behavior_event_history`),
+reconstructs historical swarm group hulls and formation metrics during deterministic Replay (`ReplayEngine`), provides bounded
+SQL analytics aggregations via `GET /api/v1/analytics/intelligence`, and updates the Operator Replay and Analytics consoles.
+See [HI1 Historical Intelligence Architecture](file:///C:/AeroGuard/docs/HI1_HISTORICAL_INTELLIGENCE.md) for full specifications.

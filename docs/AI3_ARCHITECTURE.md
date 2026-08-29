@@ -267,7 +267,8 @@ AeroGuard AI3 is strictly a **defensive situational-awareness and decision-suppo
 ### Future Optimization Opportunities (Deferred)
 - Spatially indexed priority queries (e.g. bounding box viewport queries directly from spatial grid).
 - WebGPU compute shaders for client-side spatial projections.
-- Rust/PyO3 acceleration for extreme density workloads ($N > 25,000$).
+### Historical Persistence Integration (Stage HI1)
+As implemented in Stage HI1, the incremental pipeline asynchronously enqueues throttled multi-track snapshots, group topology changes, and behavioral state transitions into `IntelligencePersistenceService` via non-blocking `put_nowait()` ($< 1\text{ µs}$ overhead), enabling deterministic historical Replay and SQL analytics without impacting the sub-millisecond live telemetry path. See [HI1 Architecture](file:///C:/AeroGuard/docs/HI1_HISTORICAL_INTELLIGENCE.md).
 
 ---
 
@@ -280,3 +281,4 @@ AeroGuard AI3 is strictly a **defensive situational-awareness and decision-suppo
 - **Stage AI3-E (Scale Stress Benchmarks & Replay)**: **COMPLETE**
 - **Stage AI3-F (Operator Console Telemetry Optimization)**: **COMPLETE**
 - **Stage AI3-G (Architecture Finalization & Audit)**: **COMPLETE**
+- **Stage HI1 Integration (Historical Persistence & Replay)**: **COMPLETE**

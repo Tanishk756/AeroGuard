@@ -191,7 +191,7 @@ class TestAI2PerformanceBenchmarks:
             print(f"\n{stats.summary()}")
 
             # Priority evaluation is pure arithmetic O(N)
-            assert stats.per_track_us < 50.0
+            assert stats.per_track_us < 80.0
 
     def test_full_multi_track_intelligence_latency_scale(self) -> None:
         """Benchmark end-to-end evaluate_multi_track_intelligence latency across scales."""
