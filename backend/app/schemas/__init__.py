@@ -30,6 +30,22 @@ from app.schemas.history import (
     TimelineItem,
     TimelinePage,
 )
+from app.schemas.incidents import (
+    AcknowledgeIncidentRequest,
+    AddIncidentNoteRequest,
+    AssignIncidentRequest,
+    CloseIncidentRequest,
+    CreateIncidentRequest,
+    DeEscalateIncidentRequest,
+    EscalateIncidentRequest,
+    IncidentEventResponse,
+    IncidentListResponse,
+    IncidentResponse,
+    IncidentTimelineResponse,
+    LogDefensiveActionRequest,
+    ResolveIncidentRequest,
+    TriageIncidentRequest,
+)
 from app.schemas.ingestion import DetectionIngestionRequest, DetectionIngestionResponse, RawDetection
 from app.schemas.replay import (
     ReplayComparisonReport,
@@ -58,15 +74,22 @@ from app.schemas.threat import ThreatAssessmentPage, ThreatAssessmentResponse, T
 from app.schemas.track import TrackHistoryPage, TrackHistorySchema, TrackPage, TrackResponse, TrackSchema
 
 __all__ = [
+    "AcknowledgeIncidentRequest",
+    "AddIncidentNoteRequest",
     "AlertMetrics",
     "AlertPage",
     "AlertResponse",
     "AlertSchema",
     "AnalyticsSummaryResponse",
+    "AssignIncidentRequest",
+    "CloseIncidentRequest",
+    "CreateIncidentRequest",
+    "DeEscalateIncidentRequest",
     "DetectionIngestionRequest",
     "DetectionIngestionResponse",
     "DetectionMetrics",
     "DetectionSchema",
+    "EscalateIncidentRequest",
     "GeofenceCreateRequest",
     "GeofencePage",
     "GeofenceResponse",
@@ -80,6 +103,11 @@ __all__ = [
     "HistoricalThreatsPage",
     "HistoricalTrackPoint",
     "HistoricalTrackStateResponse",
+    "IncidentEventResponse",
+    "IncidentListResponse",
+    "IncidentResponse",
+    "IncidentTimelineResponse",
+    "LogDefensiveActionRequest",
     "RawDetection",
     "RealtimeChannel",
     "RealtimeEventEnvelope",
@@ -91,6 +119,7 @@ __all__ = [
     "ReplaySnapshot",
     "ReplayStepRequest",
     "ReplayTrackState",
+    "ResolveIncidentRequest",
     "ScenarioConfiguration",
     "ScenarioCreateRequest",
     "ScenarioExecutionStatusResponse",
@@ -117,4 +146,5 @@ __all__ = [
     "TrackPage",
     "TrackResponse",
     "TrackSchema",
+    "TriageIncidentRequest",
 ]
