@@ -16,6 +16,8 @@ export interface IncidentListProps {
   onFilterChange: (filters: Partial<IncidentFilterParams>) => void;
   onOpenCreateModal?: () => void;
   canCreate?: boolean;
+  onOpenExportModal?: () => void;
+  canExport?: boolean;
 }
 
 export const getSeverityColor = (severity: IncidentSeverity): string => {
@@ -59,6 +61,8 @@ export const IncidentList: React.FC<IncidentListProps> = ({
   onFilterChange,
   onOpenCreateModal,
   canCreate = false,
+  onOpenExportModal,
+  canExport = false,
 }) => {
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
@@ -108,16 +112,28 @@ export const IncidentList: React.FC<IncidentListProps> = ({
             ({filteredIncidents.length})
           </span>
         </div>
-        {canCreate && onOpenCreateModal && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm font-mono"
-            onClick={onOpenCreateModal}
-            aria-label="Create New Incident"
-          >
-            + New Incident
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {canExport && onOpenExportModal && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm font-mono"
+              onClick={onOpenExportModal}
+              aria-label="Export Incidents"
+            >
+              📥 Export
+            </button>
+          )}
+          {canCreate && onOpenCreateModal && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm font-mono"
+              onClick={onOpenCreateModal}
+              aria-label="Create New Incident"
+            >
+              + New Incident
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search & Filters */}

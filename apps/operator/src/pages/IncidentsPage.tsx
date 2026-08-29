@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CreateIncidentModal } from '../components/incidents/CreateIncidentModal';
 import { IncidentDetail } from '../components/incidents/IncidentDetail';
+import { IncidentExportModal } from '../components/incidents/IncidentExportModal';
 import { IncidentList } from '../components/incidents/IncidentList';
 import { useAuth } from '../context/AuthContext';
 import { useIncidents } from '../hooks/useIncidents';
@@ -16,6 +17,7 @@ export const IncidentsPage: React.FC = () => {
   const paramIncidentId = searchParams.get('selected_id') || searchParams.get('incident_id');
   const { hasPermission } = useAuth();
   const canCreate = hasPermission('incidents.create');
+  const canExport = hasPermission('incidents.export');
 
   const {
     incidents,
@@ -50,6 +52,7 @@ export const IncidentsPage: React.FC = () => {
   }, [paramIncidentId, selectIncident, selectedIncidentId]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   return (
     <div
@@ -108,6 +111,8 @@ export const IncidentsPage: React.FC = () => {
           onFilterChange={setFilters}
           onOpenCreateModal={() => setIsCreateModalOpen(true)}
           canCreate={canCreate}
+          onOpenExportModal={() => setIsExportModalOpen(true)}
+          canExport={canExport}
         />
 
         {/* Right Column: Incident Detail & Timeline */}
@@ -137,6 +142,12 @@ export const IncidentsPage: React.FC = () => {
           await createIncident(data);
         }}
         isSubmitting={isMutating}
+      />
+
+      {/* Incident Export Modal */}
+      <IncidentExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
       />
     </div>
   );

@@ -11,6 +11,9 @@ import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
 import { ErrorState } from '../components/common/ErrorState';
 import { LoadingState } from '../components/common/LoadingState';
+import { IncidentExportHistory } from '../components/incidents/IncidentExportHistory';
+import { IncidentExportModal } from '../components/incidents/IncidentExportModal';
+import { useAuth } from '../context/AuthContext';
 import { TimeWindowPreset, useIncidentAnalytics } from '../hooks/useIncidentAnalytics';
 import { IncidentSeverity, IncidentStatus } from '../types';
 
@@ -24,6 +27,11 @@ function formatDuration(seconds: number | null | undefined): string {
 
 export const IncidentAnalyticsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
+  const canExport = hasPermission('incidents.export');
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0);
+
   const {
     analytics,
     loading,
@@ -141,6 +149,15 @@ export const IncidentAnalyticsPage: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          {canExport && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsExportModalOpen(true)}
+            >
+              📥 Export Incidents
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={() => navigate('/app/incidents')}>
             📋 Active Incidents Workspace
           </Button>
@@ -549,8 +566,20 @@ export const IncidentAnalyticsPage: React.FC = () => {
               </div>
             </div>
           </Card>
+
+          {/* Incident Export Archival History */}
+          {canExport && (
+            <IncidentExportHistory onRefreshTrigger={historyRefreshTrigger} />
+          )}
         </>
       )}
+
+      {/* Incident Export Modal */}
+      <IncidentExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        onExportSuccess={() => setHistoryRefreshTrigger((prev) => prev + 1)}
+      />
     </div>
   );
 };

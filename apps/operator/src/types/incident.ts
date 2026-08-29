@@ -267,3 +267,46 @@ export interface IncidentAnalyticsFilterParams {
   primary_group_id?: string;
   bucket_size?: 'hour' | 'day' | 'week';
 }
+
+// ---------------------------------------------------------------------------
+// Incident Export Contracts (IM2-A / IM2-B)
+// ---------------------------------------------------------------------------
+
+export type IncidentExportFormat = 'JSON' | 'CSV';
+
+export type IncidentExportStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
+
+export interface CreateIncidentExportRequest {
+  format?: IncidentExportFormat;
+  start?: string | null;
+  end?: string | null;
+  severity?: IncidentSeverity | null;
+  status?: IncidentStatus | null;
+  assigned_to?: string | null;
+  primary_track_id?: string | null;
+  primary_group_id?: string | null;
+}
+
+export interface IncidentExportMetadata {
+  id: string;
+  export_number: string;
+  requested_by: string;
+  format: IncidentExportFormat;
+  status: IncidentExportStatus;
+  record_count: number;
+  file_size_bytes: number;
+  sha256_checksum: string;
+  created_at: string;
+  completed_at?: string | null;
+  filter_params_json?: Record<string, unknown>;
+}
+
+export interface IncidentExportResponse {
+  metadata: IncidentExportMetadata;
+  payload?: string | null;
+}
+
+export interface IncidentExportFilterParams {
+  limit?: number;
+  offset?: number;
+}

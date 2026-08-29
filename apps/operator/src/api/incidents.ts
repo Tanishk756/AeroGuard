@@ -8,6 +8,7 @@ import {
   AddIncidentNoteRequest,
   AssignIncidentRequest,
   CloseIncidentRequest,
+  CreateIncidentExportRequest,
   CreateIncidentRequest,
   DeEscalateIncidentRequest,
   EscalateIncidentRequest,
@@ -15,6 +16,9 @@ import {
   IncidentAnalyticsFilterParams,
   IncidentAnalyticsResponse,
   IncidentEvent,
+  IncidentExportFilterParams,
+  IncidentExportMetadata,
+  IncidentExportResponse,
   IncidentFilterParams,
   IncidentListResponse,
   LogDefensiveActionRequest,
@@ -145,5 +149,29 @@ export async function logDefensiveAction(
   return request<IncidentEvent>(`incidents/${encodeURIComponent(id)}/actions`, {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function createIncidentExport(
+  data: CreateIncidentExportRequest
+): Promise<IncidentExportResponse> {
+  return request<IncidentExportResponse>('incidents/export', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getIncidentExport(idOrNumber: string): Promise<IncidentExportResponse> {
+  return request<IncidentExportResponse>(`incidents/export/${encodeURIComponent(idOrNumber)}`, {
+    method: 'GET',
+  });
+}
+
+export async function getIncidentExportHistory(
+  params?: IncidentExportFilterParams
+): Promise<IncidentExportMetadata[]> {
+  return request<IncidentExportMetadata[]>('incidents/export', {
+    method: 'GET',
+    params: params as Record<string, string | number | boolean | undefined | null>,
   });
 }
