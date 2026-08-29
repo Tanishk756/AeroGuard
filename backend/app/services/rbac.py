@@ -21,6 +21,7 @@ PERMISSIONS = [
     "scenarios.delete", "scenarios.run", "tracks.read", "alerts.read", "threats.read",
     "models.read", "models.deploy", "audit.read",
     "incidents.read", "incidents.create", "incidents.triage", "incidents.assign", "incidents.manage", "incidents.close", "incidents.export",
+    "incidents.retention.read", "incidents.archive", "incidents.purge",
 ]
 
 ROLE_PERMISSIONS = {
@@ -32,6 +33,7 @@ ROLE_PERMISSIONS = {
         "scenarios.read", "scenarios.create", "scenarios.update", "scenarios.delete", "scenarios.run",
         "tracks.read", "alerts.read", "threats.read",
         "incidents.read", "incidents.create", "incidents.triage", "incidents.assign", "incidents.manage", "incidents.close", "incidents.export",
+        "incidents.retention.read", "incidents.archive",
     ],
     "OPERATOR": [
         "system.read", "sensors.read", "scenarios.read", "scenarios.run", "tracks.read", "alerts.read", "threats.read",

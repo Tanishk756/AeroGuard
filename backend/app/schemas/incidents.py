@@ -289,3 +289,138 @@ class IncidentExportMetadata(BaseModel):
 class IncidentExportResponse(BaseModel):
     metadata: IncidentExportMetadata
     payload: str | None = Field(default=None, description="Serialized JSON or CSV payload text")
+
+
+# ---------------------------------------------------------------------------
+# Retention & Archival Governance Schemas (IM2-D)
+# ---------------------------------------------------------------------------
+
+class RetentionPolicyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    policy_name: str
+    description: str | None = None
+    enabled: bool
+    incident_retention_days: int
+    export_retention_days: int
+    minimum_archive_age_days: int
+    minimum_purge_age_days: int
+    require_archive_before_purge: bool
+    require_supervisor_approval: bool
+    dry_run_by_default: bool
+    created_by: str | None = None
+    updated_by: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class RetentionPolicyUpdateRequest(BaseModel):
+    incident_retention_days: int | None = Field(default=None, ge=1, le=3650)
+    export_retention_days: int | None = Field(default=None, ge=1, le=3650)
+    minimum_archive_age_days: int | None = Field(default=None, ge=0, le=365)
+    minimum_purge_age_days: int | None = Field(default=None, ge=1, le=3650)
+    require_archive_before_purge: bool | None = None
+    require_supervisor_approval: bool | None = None
+    dry_run_by_default: bool | None = None
+
+
+class RetentionHoldCreateRequest(BaseModel):
+    incident_id: str = Field(min_length=1, max_length=36)
+    reason: str = Field(min_length=3, max_length=1024)
+
+
+class RetentionHoldResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    incident_id: str
+    reason: str
+    active: bool
+    placed_by: str
+    placed_at: datetime
+    released_by: str | None = None
+    released_at: datetime | None = None
+
+
+class RetentionEvaluationRecord(BaseModel):
+    incident_id: str
+    incident_number: str
+    status: str
+    archival_state: str
+    age_days: float
+    is_terminal: bool
+    has_active_hold: bool
+    eligible_for_archive: bool
+    eligible_for_purge: bool
+    blocking_reasons: list[str] = Field(default_factory=list)
+
+
+class RetentionEvaluationResponse(BaseModel):
+    policy: RetentionPolicyResponse
+    evaluated_at: datetime
+    dry_run: bool
+    total_evaluated: int
+    eligible_for_archive: int
+    already_archived: int
+    eligible_for_purge: int
+    blocked_by_hold: int
+    blocked_by_active_status: int
+    blocked_by_minimum_age: int
+    blocked_by_missing_archive: int
+    sample_records: list[RetentionEvaluationRecord] = Field(default_factory=list)
+
+
+class ArchiveIncidentsRequest(BaseModel):
+    incident_ids: list[str] | None = Field(default=None, description="Specific incident IDs to archive")
+    batch_all_eligible: bool = Field(default=False, description="Archive all eligible incidents matching policy")
+    archive_format: str = Field(default="JSON", description="Archive serialization format (JSON or PDF)")
+
+
+class ArchiveRecordMetadata(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    archive_number: str
+    incident_id: str
+    sha256_checksum: str
+    file_size_bytes: int
+    archive_format: str
+    archived_at: datetime
+    archived_by: str
+    verified_at: datetime | None = None
+
+
+class ArchiveIncidentsResponse(BaseModel):
+    message: str
+    archived_count: int
+    archives: list[ArchiveRecordMetadata] = Field(default_factory=list)
+
+
+class PurgeIncidentsRequest(BaseModel):
+    incident_ids: list[str] | None = Field(default=None, description="Specific incident IDs to purge")
+    batch_all_eligible: bool = Field(default=False, description="Purge all eligible incidents matching policy")
+    confirm: bool = Field(default=False, description="Explicit confirmation required for destructive deletion")
+
+
+class PurgePreviewRecord(BaseModel):
+    incident_id: str
+    incident_number: str
+    will_be_purged: bool
+    blocking_reasons: list[str] = Field(default_factory=list)
+
+
+class PurgePreviewResponse(BaseModel):
+    dry_run: bool
+    policy_name: str
+    eligible_for_purge_count: int
+    blocked_count: int
+    records: list[PurgePreviewRecord] = Field(default_factory=list)
+
+
+class PurgeIncidentsResponse(BaseModel):
+    message: str
+    dry_run: bool
+    purged_count: int
+    purged_incident_ids: list[str] = Field(default_factory=list)
+    audit_event_id: str | None = None

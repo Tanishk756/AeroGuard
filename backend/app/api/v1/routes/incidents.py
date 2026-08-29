@@ -17,6 +17,8 @@ from app.models.user import User
 from app.schemas.incidents import (
     AcknowledgeIncidentRequest,
     AddIncidentNoteRequest,
+    ArchiveIncidentsRequest,
+    ArchiveIncidentsResponse,
     AssignIncidentRequest,
     CloseIncidentRequest,
     CreateIncidentExportRequest,
@@ -31,7 +33,14 @@ from app.schemas.incidents import (
     IncidentResponse,
     IncidentTimelineResponse,
     LogDefensiveActionRequest,
+    PurgeIncidentsRequest,
+    PurgeIncidentsResponse,
     ResolveIncidentRequest,
+    RetentionEvaluationResponse,
+    RetentionHoldCreateRequest,
+    RetentionHoldResponse,
+    RetentionPolicyResponse,
+    RetentionPolicyUpdateRequest,
     TriageIncidentRequest,
 )
 from app.services.incident import (
@@ -41,6 +50,7 @@ from app.services.incident import (
 )
 from app.services.incident_analytics import IncidentAnalyticsService
 from app.services.incident_export import IncidentExportService
+from app.services.incident_retention import IncidentRetentionService
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -200,6 +210,82 @@ def get_incident_export(
         metadata=IncidentExportMetadata.model_validate(export),
         payload=export.payload_data,
     )
+
+
+@router.get("/retention/policy", response_model=RetentionPolicyResponse)
+def get_retention_policy(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Retrieve current incident retention policy configuration."""
+    service = IncidentRetentionService(db)
+    return service.get_or_create_policy()
+
+
+@router.put("/retention/policy", response_model=RetentionPolicyResponse)
+def update_retention_policy(
+    payload: RetentionPolicyUpdateRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.purge")),
+):
+    """Update incident retention policy configuration (Requires privileged permission)."""
+    service = IncidentRetentionService(db)
+    return service.update_policy(actor.id, payload)
+
+
+@router.get("/retention/evaluate", response_model=RetentionEvaluationResponse)
+def evaluate_retention_governance(
+    dry_run: bool = Query(True, description="Dry-run evaluation producing zero database mutations"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Evaluate retention, archival, and purge eligibility (Read-only / Zero mutations)."""
+    service = IncidentRetentionService(db)
+    return service.evaluate_retention(dry_run=dry_run)
+
+
+@router.post("/retention/holds", response_model=RetentionHoldResponse)
+def place_retention_hold(
+    payload: RetentionHoldCreateRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.archive")),
+):
+    """Place compliance/legal retention hold on an incident to block purge operations."""
+    service = IncidentRetentionService(db)
+    return service.place_hold(actor.id, payload.incident_id, payload.reason)
+
+
+@router.delete("/retention/holds/{hold_id}", response_model=RetentionHoldResponse)
+def release_retention_hold(
+    hold_id: str,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.archive")),
+):
+    """Release active compliance/legal retention hold on an incident."""
+    service = IncidentRetentionService(db)
+    return service.release_hold(actor.id, hold_id)
+
+
+@router.post("/retention/archive", response_model=ArchiveIncidentsResponse)
+def archive_incidents(
+    payload: ArchiveIncidentsRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.archive")),
+):
+    """Explicitly archive eligible incident records to cold storage."""
+    service = IncidentRetentionService(db)
+    return service.archive_incidents(actor.id, payload)
+
+
+@router.post("/retention/purge", response_model=PurgeIncidentsResponse)
+def purge_incidents(
+    payload: PurgeIncidentsRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.purge")),
+):
+    """Execute privileged retention purge operation (Requires explicit confirmation confirm=True)."""
+    service = IncidentRetentionService(db)
+    return service.purge_incidents(actor.id, payload)
 
 
 @router.get("/{incident_id}", response_model=IncidentResponse)

@@ -310,3 +310,142 @@ export interface IncidentExportFilterParams {
   limit?: number;
   offset?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Incident Retention & Archival Governance Contracts (IM2-D)
+// ---------------------------------------------------------------------------
+
+export type IncidentArchivalState =
+  | 'ACTIVE'
+  | 'ARCHIVE_ELIGIBLE'
+  | 'ARCHIVE_PENDING'
+  | 'ARCHIVED'
+  | 'ARCHIVE_FAILED'
+  | 'PURGE_ELIGIBLE'
+  | 'PURGE_APPROVED'
+  | 'PURGED';
+
+export interface RetentionPolicyResponse {
+  id: string;
+  policy_name: string;
+  description?: string | null;
+  enabled: boolean;
+  incident_retention_days: number;
+  export_retention_days: number;
+  minimum_archive_age_days: number;
+  minimum_purge_age_days: number;
+  require_archive_before_purge: boolean;
+  require_supervisor_approval: boolean;
+  dry_run_by_default: boolean;
+  created_by?: string | null;
+  updated_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RetentionPolicyUpdateRequest {
+  incident_retention_days?: number;
+  export_retention_days?: number;
+  minimum_archive_age_days?: number;
+  minimum_purge_age_days?: number;
+  require_archive_before_purge?: boolean;
+  require_supervisor_approval?: boolean;
+  dry_run_by_default?: boolean;
+}
+
+export interface RetentionHoldCreateRequest {
+  incident_id: string;
+  reason: string;
+}
+
+export interface RetentionHoldResponse {
+  id: string;
+  incident_id: string;
+  reason: string;
+  active: boolean;
+  placed_by: string;
+  placed_at: string;
+  released_by?: string | null;
+  released_at?: string | null;
+}
+
+export interface RetentionEvaluationRecord {
+  incident_id: string;
+  incident_number: string;
+  status: string;
+  archival_state: string;
+  age_days: number;
+  is_terminal: boolean;
+  has_active_hold: boolean;
+  eligible_for_archive: boolean;
+  eligible_for_purge: boolean;
+  blocking_reasons: string[];
+}
+
+export interface RetentionEvaluationResponse {
+  policy: RetentionPolicyResponse;
+  evaluated_at: string;
+  dry_run: boolean;
+  total_evaluated: number;
+  eligible_for_archive: number;
+  already_archived: number;
+  eligible_for_purge: number;
+  blocked_by_hold: number;
+  blocked_by_active_status: number;
+  blocked_by_minimum_age: number;
+  blocked_by_missing_archive: number;
+  sample_records: RetentionEvaluationRecord[];
+}
+
+export interface ArchiveIncidentsRequest {
+  incident_ids?: string[];
+  batch_all_eligible?: boolean;
+  archive_format?: 'JSON' | 'PDF';
+}
+
+export interface ArchiveRecordMetadata {
+  id: string;
+  archive_number: string;
+  incident_id: string;
+  sha256_checksum: string;
+  file_size_bytes: number;
+  archive_format: string;
+  archived_at: string;
+  archived_by: string;
+  verified_at?: string | null;
+}
+
+export interface ArchiveIncidentsResponse {
+  message: string;
+  archived_count: number;
+  archives: ArchiveRecordMetadata[];
+}
+
+export interface PurgeIncidentsRequest {
+  incident_ids?: string[];
+  batch_all_eligible?: boolean;
+  confirm?: boolean;
+}
+
+export interface PurgePreviewRecord {
+  incident_id: string;
+  incident_number: string;
+  will_be_purged: boolean;
+  blocking_reasons: string[];
+}
+
+export interface PurgePreviewResponse {
+  dry_run: boolean;
+  policy_name: string;
+  eligible_for_purge_count: number;
+  blocked_count: number;
+  records: PurgePreviewRecord[];
+}
+
+export interface PurgeIncidentsResponse {
+  message: string;
+  dry_run: boolean;
+  purged_count: number;
+  purged_incident_ids: string[];
+  audit_event_id?: string | null;
+}

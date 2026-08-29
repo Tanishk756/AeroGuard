@@ -8,6 +8,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, Index, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+from app.models.incident_retention import IncidentArchivalState
 
 
 class IncidentStatus(StrEnum):
@@ -158,9 +159,7 @@ class Incident(Base):
 
     # Lifecycle timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        nullable=False,
-        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -172,6 +171,14 @@ class Incident(Base):
     assigned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Archival & Retention governance lifecycle state
+    archival_state: Mapped[IncidentArchivalState] = mapped_column(
+        Enum(IncidentArchivalState, native_enum=False, create_constraint=False),
+        nullable=False,
+        default=IncidentArchivalState.ACTIVE,
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Structured metadata
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict)
