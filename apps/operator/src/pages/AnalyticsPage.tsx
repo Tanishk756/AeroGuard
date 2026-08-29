@@ -9,9 +9,9 @@ import { BarChart } from '../components/analytics/BarChart';
 import { TimeWindowFilter } from '../components/analytics/TimeWindowFilter';
 import { useAnalytics } from '../hooks/useAnalytics';
 
-type AnalyticsView = 'dashboard' | 'tracks' | 'alerts' | 'threats' | 'detections';
+type AnalyticsView = 'dashboard' | 'tracks' | 'alerts' | 'threats' | 'detections' | 'intelligence';
 
-const VALID_VIEWS: AnalyticsView[] = ['dashboard', 'tracks', 'alerts', 'threats', 'detections'];
+const VALID_VIEWS: AnalyticsView[] = ['dashboard', 'tracks', 'alerts', 'threats', 'detections', 'intelligence'];
 
 function parseView(raw: string | null): AnalyticsView {
   if (raw && VALID_VIEWS.includes(raw as AnalyticsView)) return raw as AnalyticsView;
@@ -66,6 +66,7 @@ export const AnalyticsPage: React.FC = () => {
 
   const tabs: { key: AnalyticsView; label: string }[] = [
     { key: 'dashboard', label: 'Dashboard' },
+    { key: 'intelligence', label: 'AI & Swarms' },
     { key: 'detections', label: 'Detections' },
     { key: 'tracks', label: 'Tracks' },
     { key: 'alerts', label: 'Alerts' },
@@ -163,12 +164,34 @@ export const AnalyticsPage: React.FC = () => {
                 <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
                   <div className="uppercase-tracking text-muted">Threat Assessments</div>
                   <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--status-critical)', marginTop: '4px' }}>
-                    {summary.threats.total_assessments.toLocaleString()}
+                    {(summary.threats.total_assessed ?? summary.threats.total_assessments ?? 0).toLocaleString()}
                   </div>
                   <div className="font-mono text-xs text-muted" style={{ marginTop: '2px' }}>
-                    Avg Score: {summary.threats.average_score.toFixed(1)} (Max: {summary.threats.max_score.toFixed(1)})
+                    Avg: {(summary.threats.avg_score ?? summary.threats.average_score ?? 0).toFixed(1)} (Max: {summary.threats.max_score.toFixed(1)})
                   </div>
                 </Card>
+                {summary.intelligence && (
+                  <>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">Peak AI Threat Score</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--status-critical)', marginTop: '4px' }}>
+                        {summary.intelligence.peak_threat_score.toFixed(1)}
+                      </div>
+                      <div className="font-mono text-xs text-muted" style={{ marginTop: '2px' }}>
+                        Snapshots: {summary.intelligence.total_snapshots}
+                      </div>
+                    </Card>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">Swarm Groups &amp; Formations</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--color-accent)', marginTop: '4px' }}>
+                        {summary.intelligence.total_group_events}
+                      </div>
+                      <div className="font-mono text-xs text-muted" style={{ marginTop: '2px' }}>
+                        Avg Size: {summary.intelligence.avg_group_size.toFixed(1)} (Max: {summary.intelligence.max_group_size})
+                      </div>
+                    </Card>
+                  </>
+                )}
               </div>
 
               {/* Overview Charts */}
@@ -194,14 +217,111 @@ export const AnalyticsPage: React.FC = () => {
                     color="var(--status-warning)"
                   />
                 </Card>
-                <Card title="Threat Assessments by Level">
-                  <BarChart
-                    title="Threat Assessments by Level"
-                    data={Object.entries(summary.threats.threats_by_level).map(([label, value]) => ({ label, value }))}
-                    color="var(--status-critical)"
-                  />
-                </Card>
+                {summary.intelligence && Object.keys(summary.intelligence.behavior_distribution).length > 0 && (
+                  <Card title="AI Behavior Transitions">
+                    <BarChart
+                      title="AI Behavior Transitions"
+                      data={Object.entries(summary.intelligence.behavior_distribution).map(([label, value]) => ({ label, value }))}
+                      color="var(--color-accent)"
+                    />
+                  </Card>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* ── INTELLIGENCE VIEW (Stage HI1) ── */}
+          {view === 'intelligence' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+              {summary.intelligence ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-sm)' }}>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">AI Snapshots</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--color-accent)', marginTop: '4px' }}>
+                        {summary.intelligence.total_snapshots}
+                      </div>
+                    </Card>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">Group Formations</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>
+                        {summary.intelligence.total_group_events}
+                      </div>
+                    </Card>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">Behavior Transitions</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--status-warning)', marginTop: '4px' }}>
+                        {summary.intelligence.total_behavior_transitions}
+                      </div>
+                    </Card>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">Avg Coordination Index</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--color-accent)', marginTop: '4px' }}>
+                        {(summary.intelligence.avg_coordination_index * 100).toFixed(0)}%
+                      </div>
+                    </Card>
+                    <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
+                      <div className="uppercase-tracking text-muted">Peak Threat Score</div>
+                      <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--status-critical)', marginTop: '4px' }}>
+                        {summary.intelligence.peak_threat_score.toFixed(1)}
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 'var(--space-md)' }}>
+                    <Card title="Behavior State Transitions">
+                      <BarChart
+                        title="Behavior State Transitions"
+                        data={Object.entries(summary.intelligence.behavior_distribution).map(([label, value]) => ({ label, value }))}
+                        color="var(--color-accent)"
+                      />
+                    </Card>
+                    <Card title="Swarm Group Behavioral States">
+                      <BarChart
+                        title="Swarm Group Behavioral States"
+                        data={Object.entries(summary.intelligence.group_state_distribution).map(([label, value]) => ({ label, value }))}
+                        color="var(--status-warning)"
+                      />
+                    </Card>
+                  </div>
+
+                  {summary.intelligence.coordination_peaks.length > 0 && (
+                    <Card title="Top Coordinated Swarm Peaks (Synchronization &gt; 70%)">
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-xs)' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--border-medium)', textAlign: 'left' }}>
+                              <th style={{ padding: '8px' }}>Timestamp (UTC)</th>
+                              <th style={{ padding: '8px' }}>Group ID</th>
+                              <th style={{ padding: '8px' }}>Member Count</th>
+                              <th style={{ padding: '8px' }}>Formation Type</th>
+                              <th style={{ padding: '8px' }}>Coordination Index</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {summary.intelligence.coordination_peaks.map((p, idx) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <td style={{ padding: '6px 8px' }} className="font-mono">{p.timestamp || '-'}</td>
+                                <td style={{ padding: '6px 8px' }} className="font-mono text-accent">{p.group_id}</td>
+                                <td style={{ padding: '6px 8px' }} className="font-mono">{p.member_count}</td>
+                                <td style={{ padding: '6px 8px' }} className="uppercase-tracking">{p.formation_type}</td>
+                                <td style={{ padding: '6px 8px', fontWeight: 700, color: 'var(--color-accent)' }} className="font-mono">
+                                  {(p.coordination_index * 100).toFixed(1)}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              ) : (
+                <EmptyState
+                  title="No Intelligence Data in Window"
+                  description="Zero historical AI snapshots or swarm behaviors recorded in this time range."
+                />
+              )}
             </div>
           )}
 
@@ -300,7 +420,7 @@ export const AnalyticsPage: React.FC = () => {
               <Card title="Threats by Level">
                 <BarChart
                   title="Threats by Level"
-                  data={Object.entries(summary.threats.threats_by_level).map(([label, value]) => ({ label, value }))}
+                  data={Object.entries(summary.threats.threats_by_level ?? summary.threats.by_level ?? {}).map(([label, value]) => ({ label, value }))}
                   color="var(--status-critical)"
                 />
               </Card>
@@ -308,7 +428,7 @@ export const AnalyticsPage: React.FC = () => {
                 <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>
                   <div className="uppercase-tracking text-muted">Average Score</div>
                   <div className="font-mono text-2xl" style={{ fontWeight: 700, color: 'var(--status-warning)' }}>
-                    {summary.threats.average_score.toFixed(2)}
+                    {(summary.threats.avg_score ?? summary.threats.average_score ?? 0).toFixed(2)}
                   </div>
                 </Card>
                 <Card bodyStyle={{ padding: 'var(--space-sm) var(--space-md)' }}>

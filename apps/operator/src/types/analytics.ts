@@ -22,18 +22,55 @@ export interface AlertMetrics {
 }
 
 export interface ThreatMetrics {
-  total_assessments: number;
-  threats_by_level: Record<string, number>;
-  average_score: number;
+  total_assessed?: number;
+  total_assessments?: number;
+  threats_by_level?: Record<string, number>;
+  by_level?: Record<string, number>;
+  average_score?: number;
+  avg_score?: number;
   max_score: number;
+}
+
+export interface ThreatTimeSeriesPoint {
+  timestamp: string;
+  peak_threat_score: number;
+  group_count: number;
+  formation_count: number;
+  active_track_count: number;
+}
+
+export interface CoordinationPeakPoint {
+  timestamp: string;
+  group_id: string;
+  member_count: number;
+  coordination_index: number;
+  formation_type: string;
+}
+
+export interface IntelligenceAnalyticsReport {
+  window_start?: string | null;
+  window_end?: string | null;
+  total_snapshots: number;
+  total_group_events: number;
+  total_behavior_transitions: number;
+  behavior_distribution: Record<string, number>;
+  group_state_distribution: Record<string, number>;
+  avg_group_size: number;
+  max_group_size: number;
+  avg_coordination_index: number;
+  peak_threat_score: number;
+  threat_score_time_series: ThreatTimeSeriesPoint[];
+  coordination_peaks: CoordinationPeakPoint[];
 }
 
 export interface AnalyticsSummaryResponse {
   window_start?: string | null;
   window_end?: string | null;
-  generated_at: string;
+  generated_at?: string;
   detections: DetectionMetrics;
   tracks: TrackMetrics;
   alerts: AlertMetrics;
   threats: ThreatMetrics;
+  intelligence?: IntelligenceAnalyticsReport | null;
+  geofence_breach_count?: number;
 }

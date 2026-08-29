@@ -1,10 +1,12 @@
 import { HistoricalAlertItem, HistoricalDetectionItem, HistoricalThreatItem } from './history';
+import { MultiTrackIntelligenceSummary, TrackGroup } from './intelligence';
 import { TrackState } from './track';
 
 export interface ReplayFilter {
   track_ids?: string[];
   sensor_ids?: string[];
   classifications?: string[];
+  include_intelligence?: boolean;
 }
 
 export interface ReplayRequest {
@@ -34,13 +36,17 @@ export interface ReplayTrackState {
 }
 
 export interface ReplaySnapshot {
-  replay_timestamp: string;
+  replay_time: string;
+  replay_timestamp?: string;
   step_index: number;
   is_complete: boolean;
   active_tracks: ReplayTrackState[];
   recent_detections: HistoricalDetectionItem[];
   active_alerts: HistoricalAlertItem[];
   active_threats: HistoricalThreatItem[];
+  intelligence?: MultiTrackIntelligenceSummary | null;
+  group_hulls?: TrackGroup[];
+  metrics?: Record<string, unknown>;
 }
 
 export interface ReplayDifference {

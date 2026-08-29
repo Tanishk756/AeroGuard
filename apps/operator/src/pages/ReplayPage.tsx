@@ -106,6 +106,7 @@ export const ReplayPage: React.FC = () => {
   // Map ReplayTrackState[] into Track[] for TacticalMap presentation
   const replayTracks = useMemo<Track[]>(() => {
     if (!snapshot) return [];
+    const ts = snapshot.replay_time || snapshot.replay_timestamp || new Date().toISOString();
     return snapshot.active_tracks.map((t) => ({
       id: t.track_id,
       state: t.state,
@@ -117,10 +118,10 @@ export const ReplayPage: React.FC = () => {
       confidence: t.confidence,
       classification: t.classification,
       source_count: t.source_count,
-      last_seen_at: snapshot.replay_timestamp,
-      first_seen_at: snapshot.replay_timestamp,
-      created_at: snapshot.replay_timestamp,
-      updated_at: snapshot.replay_timestamp,
+      last_seen_at: ts,
+      first_seen_at: ts,
+      created_at: ts,
+      updated_at: ts,
     }));
   }, [snapshot]);
 
@@ -247,15 +248,21 @@ export const ReplayPage: React.FC = () => {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                 <span className="font-mono text-sm">
-                  REPLAY VIRTUAL CLOCK: <strong style={{ color: 'var(--color-accent)' }}>{snapshot.replay_timestamp}</strong>
+                  REPLAY VIRTUAL CLOCK: <strong style={{ color: 'var(--color-accent)' }}>{snapshot.replay_time || snapshot.replay_timestamp}</strong>
                 </span>
                 <span className="font-mono text-xs text-muted">
                   STEP INDEX: {snapshot.step_index}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                <span className="font-mono text-xs text-muted">ACTIVE TRACKS: {snapshot.active_tracks.length}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                <span className="font-mono text-xs text-muted">TRACKS: {snapshot.active_tracks.length}</span>
+                <span className="font-mono text-xs text-muted">
+                  GROUPS: {snapshot.intelligence?.groups?.length ?? snapshot.group_hulls?.length ?? 0}
+                </span>
+                <span className="font-mono text-xs text-muted">
+                  FORMATIONS: {snapshot.intelligence?.formations?.length ?? 0}
+                </span>
                 <StatusBadge
                   status={snapshot.is_complete ? 'RESOLVED' : 'ACTIVE'}
                   label={snapshot.is_complete ? 'REPLAY COMPLETED' : 'REPLAY ACTIVE'}
@@ -273,6 +280,7 @@ export const ReplayPage: React.FC = () => {
               <div style={{ height: '100%', minHeight: '440px' }}>
                 <TacticalMap
                   tracks={replayTracks}
+                  multiTrackIntelligence={snapshot.intelligence || null}
                   sensors={sensors}
                   geofences={geofences}
                   selectedTrackId={selectedTrackId}
@@ -314,6 +322,43 @@ export const ReplayPage: React.FC = () => {
                           {selectedTrack.velocity != null ? `${selectedTrack.velocity.toFixed(1)} m/s` : 'N/A'}
                         </span>
                       </div>
+
+                      {/* AI Intelligence Overlays for Track */}
+                      {(() => {
+                        const beh = snapshot.intelligence?.behaviors?.find((b) => b.track_id === selectedTrack.id);
+                        const pri = snapshot.intelligence?.priorities?.find((p) => p.track_id === selectedTrack.id);
+                        const grp = (snapshot.intelligence?.groups || snapshot.group_hulls || []).find((g) =>
+                          g.member_track_ids.includes(selectedTrack.id)
+                        );
+                        return (
+                          <>
+                            {grp && (
+                              <div className="kv-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="kv-key">Swarm Group</span>
+                                <span className="kv-value font-mono text-xs" style={{ color: 'var(--color-accent)' }}>
+                                  {grp.group_id} ({grp.member_count} tracks)
+                                </span>
+                              </div>
+                            )}
+                            {beh && (
+                              <div className="kv-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="kv-key">AI Behavior</span>
+                                <span className="kv-value font-mono text-xs">
+                                  {beh.state} ({Math.round(beh.confidence * 100)}%)
+                                </span>
+                              </div>
+                            )}
+                            {pri && (
+                              <div className="kv-row" style={{ gridColumn: 'span 2' }}>
+                                <span className="kv-key">AI Priority</span>
+                                <span className="kv-value font-mono text-xs" style={{ fontWeight: 700, color: pri.priority_level === 'CRITICAL' ? 'var(--status-critical)' : 'var(--color-accent)' }}>
+                                  {pri.priority_score.toFixed(1)} ({pri.priority_level})
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </Card>
                 ) : (
@@ -321,6 +366,61 @@ export const ReplayPage: React.FC = () => {
                     <EmptyState title="No Track Selected" description="Click any track marker on the replay map or table to inspect historical kinematics." />
                   </Card>
                 )}
+
+                {/* Historical Swarm Groups at Timestamp T */}
+                <Card
+                  title="Historical Swarm Groups (T)"
+                  badge={
+                    <span className="font-mono text-xs text-muted">
+                      {(snapshot.intelligence?.groups || snapshot.group_hulls || []).length}
+                    </span>
+                  }
+                >
+                  {(snapshot.intelligence?.groups || snapshot.group_hulls || []).length === 0 ? (
+                    <p className="font-mono text-xs text-muted">Zero swarm groups detected at this virtual timestamp.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {(snapshot.intelligence?.groups || snapshot.group_hulls || []).map((grp) => {
+                        const fmt = snapshot.intelligence?.formations?.find((f) => f.group_id === grp.group_id);
+                        return (
+                          <div
+                            key={grp.group_id}
+                            style={{
+                              padding: '6px 8px',
+                              backgroundColor: 'var(--bg-canvas)',
+                              border: '1px solid var(--border-subtle)',
+                              borderRadius: 'var(--radius-sm)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '2px',
+                              fontSize: '11px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span className="font-mono" style={{ fontWeight: 600, color: 'var(--color-accent)' }}>
+                                {grp.group_id}
+                              </span>
+                              <span className="font-mono text-xs text-muted">
+                                {grp.member_count} tracks • {Math.round(grp.radius_meters)}m
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                              <span>State: {grp.behavioral_state}</span>
+                              {fmt && (
+                                <span className="font-mono text-xs" style={{ color: 'var(--color-accent)' }}>
+                                  Sync: {(fmt.synchronization_index * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                            <div className="font-mono text-xs text-muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              [{grp.member_track_ids.join(', ')}]
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
 
                 {/* Active Alerts at Timestamp T */}
                 <Card title="Active Alerts at Timestamp T" badge={<span className="font-mono text-xs text-muted">{snapshot.active_alerts.length}</span>}>

@@ -2,6 +2,7 @@ import {
   AlertMetrics,
   AnalyticsSummaryResponse,
   DetectionMetrics,
+  IntelligenceAnalyticsReport,
   ThreatMetrics,
   TrackMetrics,
 } from '../types';
@@ -48,6 +49,15 @@ export async function getThreatMetrics(params?: {
   window_end?: string;
 }): Promise<ThreatMetrics> {
   return request<ThreatMetrics>('/analytics/threats', {
+    params: params as Record<string, string | undefined>,
+  });
+}
+
+export async function getIntelligenceMetrics(params?: {
+  start_time?: string;
+  end_time?: string;
+}): Promise<IntelligenceAnalyticsReport> {
+  return request<IntelligenceAnalyticsReport>('/analytics/intelligence', {
     params: params as Record<string, string | undefined>,
   });
 }
