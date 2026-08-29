@@ -46,6 +46,7 @@ class IncidentEvent(Base):
 
     __tablename__ = "incident_events"
     __table_args__ = (
+        Index("ix_incident_events_incident_sequence", "incident_id", "sequence"),
         Index("ix_incident_events_incident_timestamp", "incident_id", "timestamp"),
         Index("ix_incident_events_actor_timestamp", "actor_user_id", "timestamp"),
         Index("ix_incident_events_event_type", "event_type"),
@@ -56,6 +57,7 @@ class IncidentEvent(Base):
         ForeignKey("incidents.id", ondelete="CASCADE"),
         nullable=False,
     )
+    sequence: Mapped[int] = mapped_column(nullable=False, default=1)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,

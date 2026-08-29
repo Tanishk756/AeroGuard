@@ -20,17 +20,35 @@ PERMISSIONS = [
     "sensors.read", "sensors.configure", "scenarios.read", "scenarios.create", "scenarios.update",
     "scenarios.delete", "scenarios.run", "tracks.read", "alerts.read", "threats.read",
     "models.read", "models.deploy", "audit.read",
+    "incidents.read", "incidents.create", "incidents.triage", "incidents.assign", "incidents.manage", "incidents.close",
 ]
 
 ROLE_PERMISSIONS = {
     "SUPER_ADMIN": PERMISSIONS,
     "SYSTEM_ADMIN": ["system.read", "system.configure", "users.read", "roles.read", "permissions.read", "sessions.read", "sessions.revoke"],
     "SECURITY_ADMIN": ["users.read", "users.create", "users.update", "users.disable", "roles.read", "roles.assign", "permissions.read", "sessions.read", "sessions.revoke"],
-    "OPERATIONS_ADMIN": ["system.read", "users.read", "sessions.read", "sensors.read", "sensors.configure", "scenarios.read", "scenarios.create", "scenarios.update", "scenarios.delete", "scenarios.run", "tracks.read", "alerts.read", "threats.read"],
-    "OPERATOR": ["system.read", "sensors.read", "scenarios.read", "scenarios.run", "tracks.read", "alerts.read", "threats.read"],
-    "ANALYST": ["system.read", "scenarios.read", "tracks.read", "alerts.read", "threats.read", "models.read"],
-    "RESEARCHER": ["system.read", "scenarios.read", "scenarios.create", "scenarios.update", "scenarios.run", "tracks.read", "models.read"],
-    "VIEWER": ["system.read", "tracks.read", "alerts.read", "threats.read"],
+    "OPERATIONS_ADMIN": [
+        "system.read", "users.read", "sessions.read", "sensors.read", "sensors.configure",
+        "scenarios.read", "scenarios.create", "scenarios.update", "scenarios.delete", "scenarios.run",
+        "tracks.read", "alerts.read", "threats.read",
+        "incidents.read", "incidents.create", "incidents.triage", "incidents.assign", "incidents.manage", "incidents.close",
+    ],
+    "OPERATOR": [
+        "system.read", "sensors.read", "scenarios.read", "scenarios.run", "tracks.read", "alerts.read", "threats.read",
+        "incidents.read", "incidents.create", "incidents.triage", "incidents.assign", "incidents.manage",
+    ],
+    "ANALYST": [
+        "system.read", "scenarios.read", "tracks.read", "alerts.read", "threats.read", "models.read",
+        "incidents.read", "incidents.triage",
+    ],
+    "RESEARCHER": [
+        "system.read", "scenarios.read", "scenarios.create", "scenarios.update", "scenarios.run", "tracks.read", "models.read",
+        "incidents.read",
+    ],
+    "VIEWER": [
+        "system.read", "tracks.read", "alerts.read", "threats.read",
+        "incidents.read",
+    ],
 }
 RESERVED_ROLE_NAMES = frozenset(ROLE_PERMISSIONS)
 

@@ -21,6 +21,9 @@ EVENT_TYPES = frozenset({
     "LOGIN_SUCCESS", "LOGIN_FAILURE", "LOGOUT", "SESSION_CREATED", "SESSION_REVOKED", "SESSION_EXPIRED",
     "AUTHORIZATION_DENIED", "ROLE_CREATED", "ROLE_UPDATED", "ROLE_DELETED", "ROLE_ASSIGNED", "ROLE_REVOKED",
     "PERMISSION_ASSIGNED", "PERMISSION_REVOKED", "SUPER_ADMIN_BOOTSTRAPPED", "SECURITY_POLICY_VIOLATION",
+    "INCIDENT_CREATED", "INCIDENT_ACKNOWLEDGED", "INCIDENT_ASSIGNED", "INCIDENT_REASSIGNED",
+    "INCIDENT_TRIAGED", "INCIDENT_ESCALATED", "INCIDENT_DE_ESCALATED", "INCIDENT_RESOLVED",
+    "INCIDENT_CLOSED", "INCIDENT_NOTE_ADDED", "INCIDENT_ACTION_LOGGED",
 })
 RESULTS = frozenset({"SUCCESS", "FAILURE", "DENIED"})
 MAX_METADATA_BYTES = 16_384
@@ -80,7 +83,8 @@ class AuditService:
         *,
         event_version: int = 1,
         correlation: str | None = None,
-        actor: User | None = None,
+        actor: User | str | None = None,
+        actor_user_id: str | None = None,
         session: AuthSession | None = None,
         target_type: str | None = None,
         target_id: str | None = None,
@@ -89,6 +93,7 @@ class AuditService:
         source_ip: str | None = None,
         user_agent: str | None = None,
         metadata: Any = None,
+        timestamp: datetime | None = None,
     ) -> AuditEvent:
         if event_type not in EVENT_TYPES:
             raise ValueError("Unsupported audit event type")
@@ -96,13 +101,18 @@ class AuditService:
             raise ValueError("Unsupported audit result")
         if event_version != 1:
             raise ValueError("Unsupported audit event version")
+        resolved_actor_user_id = actor_user_id or (actor.id if isinstance(actor, User) else (actor if isinstance(actor, str) else None))
+        ts = timestamp or datetime.now(UTC).replace(tzinfo=None)
+        if ts.tzinfo is not None:
+            ts = ts.astimezone(UTC).replace(tzinfo=None)
         event = AuditEvent(
             event_type=event_type, event_version=event_version, action=sanitize_string(action, 128), result=result,
-            correlation_id=correlation_id(correlation), actor_user_id=actor.id if actor else None,
+            correlation_id=correlation_id(correlation), actor_user_id=resolved_actor_user_id,
             actor_session_id=session.id if session else None, target_type=sanitize_string(target_type, 64) if target_type else None,
             target_id=sanitize_string(target_id, 128) if target_id else None, reason=sanitize_string(reason) if reason else None,
             permission=sanitize_string(permission, 128) if permission else None, source_ip=sanitize_string(source_ip, 45) if source_ip else None,
             user_agent=sanitize_string(user_agent, 512) if user_agent else None, event_metadata=normalize_metadata(metadata or {}),
+            timestamp=ts, created_at=ts,
         )
         self.db.add(event)
         return event

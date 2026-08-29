@@ -181,7 +181,7 @@ class Incident(Base):
         "IncidentEvent",
         back_populates="incident",
         cascade="all, delete-orphan",
-        order_by="IncidentEvent.timestamp.asc()",
+        order_by="IncidentEvent.sequence.asc()",
     )
     primary_track = relationship("Track", foreign_keys=[primary_track_id])
     originating_alert = relationship("Alert", foreign_keys=[originating_alert_id])

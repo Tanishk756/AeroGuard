@@ -93,6 +93,7 @@ def upgrade() -> None:
         "incident_events",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("incident_id", sa.String(36), sa.ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("sequence", sa.Integer, nullable=False, server_default="1"),
         sa.Column("timestamp", sa.DateTime, nullable=False),
         sa.Column("event_type", sa.String(32), nullable=False),
         sa.Column("actor_user_id", sa.String(36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
@@ -103,6 +104,7 @@ def upgrade() -> None:
         sa.Column("metadata", sa.JSON, nullable=False),
         sa.Column("created_at", sa.DateTime, nullable=False),
     )
+    op.create_index("ix_incident_events_incident_sequence", "incident_events", ["incident_id", "sequence"])
     op.create_index("ix_incident_events_incident_timestamp", "incident_events", ["incident_id", "timestamp"])
     op.create_index("ix_incident_events_actor_timestamp", "incident_events", ["actor_user_id", "timestamp"])
     op.create_index("ix_incident_events_event_type", "incident_events", ["event_type"])
@@ -170,6 +172,7 @@ def downgrade() -> None:
     op.drop_index("ix_incident_events_event_type", table_name="incident_events")
     op.drop_index("ix_incident_events_actor_timestamp", table_name="incident_events")
     op.drop_index("ix_incident_events_incident_timestamp", table_name="incident_events")
+    op.drop_index("ix_incident_events_incident_sequence", table_name="incident_events")
     op.drop_table("incident_events")
 
     # 4. Drop incidents table

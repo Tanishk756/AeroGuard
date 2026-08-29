@@ -14,6 +14,7 @@ from app.models.role import Role, role_permissions, user_roles
 from app.models.user import User, UserStatus
 from app.services.authorization import AuthorizationService
 from app.services.rbac import (
+    PERMISSIONS,
     ROLE_PERMISSIONS,
     assign_role,
     bootstrap_super_admin,
@@ -28,8 +29,8 @@ def test_seed_is_exact_and_idempotent(database):
     seed_rbac(database)
     seed_rbac(database)
 
-    assert database.query(Role).count() == 8
-    assert database.query(Permission).count() == 28
+    assert database.query(Role).count() == len(ROLE_PERMISSIONS)
+    assert database.query(Permission).count() == len(PERMISSIONS)
     assert set(database.scalars(select(Role.name)).all()) == set(ROLE_PERMISSIONS)
     assert all(role.is_system for role in database.scalars(select(Role)).all())
 
@@ -225,7 +226,7 @@ def test_rbac_management_api_requires_and_enforces_permissions(client, database,
     rbac_user.roles.append(super_admin)
     database.commit()
     assert client.get("/api/v1/roles").status_code == 200
-    assert len(client.get("/api/v1/permissions").json()) == 28
+    assert len(client.get("/api/v1/permissions").json()) == len(PERMISSIONS)
     created = client.post("/api/v1/roles", json={"name": "TEST_ROLE", "description": "Test role"})
     assert created.status_code == 201
     role_id = created.json()["id"]
