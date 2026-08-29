@@ -149,9 +149,25 @@ export const IncidentExportHistory: React.FC<IncidentExportHistoryProps> = ({
                         padding: '2px 6px',
                         borderRadius: '3px',
                         fontSize: '10px',
-                        backgroundColor: item.format === 'JSON' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(168, 85, 247, 0.2)',
-                        color: item.format === 'JSON' ? '#60a5fa' : '#c084fc',
-                        border: `1px solid ${item.format === 'JSON' ? '#3b82f6' : '#a855f7'}`,
+                        backgroundColor:
+                          item.format === 'JSON'
+                            ? 'rgba(59, 130, 246, 0.2)'
+                            : item.format === 'CSV'
+                            ? 'rgba(168, 85, 247, 0.2)'
+                            : 'rgba(236, 72, 153, 0.2)',
+                        color:
+                          item.format === 'JSON'
+                            ? '#60a5fa'
+                            : item.format === 'CSV'
+                            ? '#c084fc'
+                            : '#f472b6',
+                        border: `1px solid ${
+                          item.format === 'JSON'
+                            ? '#3b82f6'
+                            : item.format === 'CSV'
+                            ? '#a855f7'
+                            : '#ec4899'
+                        }`,
                       }}
                     >
                       {item.format}

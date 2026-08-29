@@ -8,3 +8,4 @@ alembic==1.14.0
 pytest==8.3.4
 pytest-asyncio==0.24.0
 httpx==0.28.1
+reportlab==5.0.1

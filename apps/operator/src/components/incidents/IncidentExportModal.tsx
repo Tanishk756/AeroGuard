@@ -326,7 +326,7 @@ export const IncidentExportModal: React.FC<IncidentExportModalProps> = ({
             {/* Format Selection */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label className="font-mono text-xs text-muted">EXPORT FORMAT</label>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                   <input
                     type="radio"
@@ -347,7 +347,18 @@ export const IncidentExportModal: React.FC<IncidentExportModalProps> = ({
                     onChange={() => setFormat('CSV')}
                     disabled={isGenerating}
                   />
-                  <span className="font-mono text-xs">CSV (RFC 4180 Flattened Table)</span>
+                  <span className="font-mono text-xs">CSV (RFC 4180 Table)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    value="PDF"
+                    checked={format === 'PDF'}
+                    onChange={() => setFormat('PDF')}
+                    disabled={isGenerating}
+                  />
+                  <span className="font-mono text-xs">PDF (Operational Report)</span>
                 </label>
               </div>
             </div>

@@ -23,6 +23,8 @@ export function getExportMimeType(format: IncidentExportFormat): string {
       return 'application/json';
     case 'CSV':
       return 'text/csv;charset=utf-8';
+    case 'PDF':
+      return 'application/pdf';
     default:
       return 'text/plain';
   }
@@ -38,7 +40,22 @@ export function downloadPayload(
   const mimeType = getExportMimeType(format);
   const filename = getExportFilename(exportNumber, format);
 
-  const blob = new Blob([payload], { type: mimeType });
+  let blob: Blob;
+  if (format === 'PDF') {
+    try {
+      const binaryStr = window.atob ? window.atob(payload) : Buffer.from(payload, 'base64').toString('binary');
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      blob = new Blob([bytes], { type: mimeType });
+    } catch {
+      blob = new Blob([payload], { type: mimeType });
+    }
+  } else {
+    blob = new Blob([payload], { type: mimeType });
+  }
+
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement('a');

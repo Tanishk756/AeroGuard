@@ -272,7 +272,7 @@ export interface IncidentAnalyticsFilterParams {
 // Incident Export Contracts (IM2-A / IM2-B)
 // ---------------------------------------------------------------------------
 
-export type IncidentExportFormat = 'JSON' | 'CSV';
+export type IncidentExportFormat = 'JSON' | 'CSV' | 'PDF';
 
 export type IncidentExportStatus = 'PENDING' | 'COMPLETED' | 'FAILED';
 

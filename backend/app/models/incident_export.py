@@ -13,6 +13,7 @@ from app.database.base import Base
 class IncidentExportFormat(StrEnum):
     JSON = "JSON"
     CSV = "CSV"
+    PDF = "PDF"
 
 
 class IncidentExportStatus(StrEnum):

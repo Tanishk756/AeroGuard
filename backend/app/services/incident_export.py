@@ -1,5 +1,6 @@
 """Incident export and compliance archival serialization service."""
 
+import base64
 import csv
 from datetime import UTC, datetime, timedelta
 import hashlib
@@ -17,6 +18,7 @@ from app.models.incident_event import DefensiveActionCategory, IncidentEvent, In
 from app.models.incident_export import IncidentExport, IncidentExportFormat, IncidentExportStatus
 from app.schemas.incidents import CreateIncidentExportRequest
 from app.services.audit import AuditService
+from app.services.pdf_generator import generate_incident_pdf_report
 
 
 def format_iso_timestamp(dt: datetime | None) -> str | None:
@@ -94,16 +96,27 @@ class IncidentExportService:
                 filter_params=filter_params_dict,
                 incidents=incidents,
             )
+            payload_bytes = payload_str.encode("utf-8")
         elif request.format == IncidentExportFormat.CSV:
             payload_str = self._generate_csv_payload(
                 export_number=export_number,
                 incidents=incidents,
             )
+            payload_bytes = payload_str.encode("utf-8")
+        elif request.format == IncidentExportFormat.PDF:
+            pdf_bytes = generate_incident_pdf_report(
+                export_number=export_number,
+                requested_by=actor_user_id,
+                generated_at=now,
+                filter_params=filter_params_dict,
+                incidents=incidents,
+            )
+            payload_bytes = pdf_bytes
+            payload_str = base64.b64encode(pdf_bytes).decode("ascii")
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported export format: {request.format}")
 
-        # 5. Compute exact payload size & SHA-256 checksum
-        payload_bytes = payload_str.encode("utf-8")
+        # 5. Compute exact payload size & SHA-256 checksum over exact document bytes
         sha256_checksum = hashlib.sha256(payload_bytes).hexdigest()
         file_size_bytes = len(payload_bytes)
 
