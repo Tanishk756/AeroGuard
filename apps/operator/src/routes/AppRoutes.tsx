@@ -9,6 +9,7 @@ import { DiagnosticsPage } from '../pages/DiagnosticsPage';
 import { GeofencesPage } from '../pages/GeofencesPage';
 import { HistoryPage } from '../pages/HistoryPage';
 import { IncidentsPage } from '../pages/IncidentsPage';
+import { IncidentAnalyticsPage } from '../pages/IncidentAnalyticsPage';
 import { IntelligencePage } from '../pages/IntelligencePage';
 import { LoginPage } from '../pages/LoginPage';
 import { OverviewPage } from '../pages/OverviewPage';
@@ -82,6 +83,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute requiredPermission="incidents.read">
               <IncidentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="incidents/analytics"
+          element={
+            <ProtectedRoute requiredPermission="incidents.read">
+              <IncidentAnalyticsPage />
             </ProtectedRoute>
           }
         />

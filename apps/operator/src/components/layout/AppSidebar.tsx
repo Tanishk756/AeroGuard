@@ -88,6 +88,12 @@ export const AppSidebar: React.FC = () => {
       icon: '📊',
       requiredAnyPermissions: ['sensors.read', 'tracks.read', 'alerts.read', 'threats.read'],
     },
+    {
+      path: '/app/incidents/analytics',
+      label: 'Incident Analytics',
+      icon: '📈',
+      requiredPermission: 'incidents.read',
+    },
   ];
 
   const governanceNavItems: NavItemConfig[] = [

@@ -180,3 +180,90 @@ export interface IncidentFilterParams {
   limit?: number;
   offset?: number;
 }
+
+export interface IncidentSummaryMetrics {
+  total_incidents: number;
+  active_incidents: number;
+  acknowledged_incidents: number;
+  assigned_incidents: number;
+  triaged_incidents: number;
+  escalated_incidents: number;
+  resolved_incidents: number;
+  closed_incidents: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+}
+
+export interface IncidentDistributionItem {
+  count: number;
+  percentage: number;
+}
+
+export interface IncidentTimeSeriesBucket {
+  bucket_start: string;
+  created_count: number;
+  resolved_count: number;
+  closed_count: number;
+  escalated_count: number;
+}
+
+export interface IncidentLifecycleTimingMetrics {
+  median_acknowledgement_seconds?: number | null;
+  p95_acknowledgement_seconds?: number | null;
+  median_assignment_seconds?: number | null;
+  p95_assignment_seconds?: number | null;
+  median_resolution_seconds?: number | null;
+  p95_resolution_seconds?: number | null;
+  median_closure_seconds?: number | null;
+  p95_closure_seconds?: number | null;
+  median_duration_seconds?: number | null;
+  p95_duration_seconds?: number | null;
+  sample_counts: Record<string, number>;
+}
+
+export interface IncidentProceduralActionMetrics {
+  by_category: Record<string, number>;
+  total_actions: number;
+}
+
+export interface IncidentCorrelationMetrics {
+  with_primary_track: number;
+  with_primary_group: number;
+  uncorrelated: number;
+  top_tracks: Array<{ track_id: string; incident_count: number }>;
+  top_groups: Array<{ group_id: string; incident_count: number }>;
+}
+
+export interface IncidentWorkflowEventMetrics {
+  by_event_type: Record<string, number>;
+  total_events: number;
+  total_notes: number;
+  total_actions: number;
+}
+
+export interface IncidentAnalyticsResponse {
+  window_start?: string | null;
+  window_end?: string | null;
+  bucket_size: string;
+  summary: IncidentSummaryMetrics;
+  timing: IncidentLifecycleTimingMetrics;
+  severity_distribution: Record<IncidentSeverity, IncidentDistributionItem>;
+  status_distribution: Record<IncidentStatus, IncidentDistributionItem>;
+  time_series: IncidentTimeSeriesBucket[];
+  procedural_actions: IncidentProceduralActionMetrics;
+  correlations: IncidentCorrelationMetrics;
+  workflow: IncidentWorkflowEventMetrics;
+}
+
+export interface IncidentAnalyticsFilterParams {
+  start?: string;
+  end?: string;
+  severity?: IncidentSeverity;
+  status?: IncidentStatus;
+  assigned_to?: string;
+  primary_track_id?: string;
+  primary_group_id?: string;
+  bucket_size?: 'hour' | 'day' | 'week';
+}

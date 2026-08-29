@@ -22,6 +22,7 @@ from app.schemas.incidents import (
     CreateIncidentRequest,
     DeEscalateIncidentRequest,
     EscalateIncidentRequest,
+    IncidentAnalyticsResponse,
     IncidentEventResponse,
     IncidentListResponse,
     IncidentResponse,
@@ -35,6 +36,7 @@ from app.services.incident import (
     IncidentService,
     InvalidIncidentActionError,
 )
+from app.services.incident_analytics import IncidentAnalyticsService
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -112,6 +114,39 @@ def list_incidents(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/analytics", response_model=IncidentAnalyticsResponse)
+def get_incident_analytics(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.read")),
+    start: datetime | None = Query(None, description="Start timestamp of analytics window"),
+    end: datetime | None = Query(None, description="End timestamp of analytics window"),
+    severity: IncidentSeverity | None = Query(None, description="Filter by severity"),
+    status: IncidentStatus | None = Query(None, description="Filter by status"),
+    assigned_to: str | None = Query(None, max_length=64, description="Filter by assignee user ID"),
+    primary_track_id: str | None = Query(None, max_length=64, description="Filter by primary track ID"),
+    primary_group_id: str | None = Query(None, max_length=64, description="Filter by primary group ID"),
+    bucket_size: str = Query("day", description="Time series bucket size (hour, day, week)"),
+):
+    """Retrieve descriptive operational analytics, lifecycle metrics, and trends for incidents."""
+    if start and end and start > end:
+        raise HTTPException(status_code=400, detail="start must not be after end")
+
+    service = IncidentAnalyticsService(db)
+    try:
+        return service.get_analytics(
+            start_time=start,
+            end_time=end,
+            severity=severity,
+            status=status,
+            assigned_to=assigned_to,
+            primary_track_id=primary_track_id,
+            primary_group_id=primary_group_id,
+            bucket_size=bucket_size,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{incident_id}", response_model=IncidentResponse)

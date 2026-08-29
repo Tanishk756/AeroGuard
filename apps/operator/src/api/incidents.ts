@@ -12,6 +12,8 @@ import {
   DeEscalateIncidentRequest,
   EscalateIncidentRequest,
   Incident,
+  IncidentAnalyticsFilterParams,
+  IncidentAnalyticsResponse,
   IncidentEvent,
   IncidentFilterParams,
   IncidentListResponse,
@@ -23,6 +25,15 @@ import { request } from './client';
 
 export async function getIncidents(params?: IncidentFilterParams): Promise<IncidentListResponse> {
   return request<IncidentListResponse>('incidents', {
+    method: 'GET',
+    params: params as Record<string, string | number | boolean | undefined | null>,
+  });
+}
+
+export async function getIncidentAnalytics(
+  params?: IncidentAnalyticsFilterParams
+): Promise<IncidentAnalyticsResponse> {
+  return request<IncidentAnalyticsResponse>('incidents/analytics', {
     method: 'GET',
     params: params as Record<string, string | number | boolean | undefined | null>,
   });

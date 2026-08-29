@@ -167,3 +167,88 @@ class IncidentTimelineResponse(BaseModel):
     incident_id: str
     events: list[IncidentEventResponse]
     total_count: int
+
+
+# ---------------------------------------------------------------------------
+# Analytics & Reporting Response Models (Stage IM1-G)
+# ---------------------------------------------------------------------------
+
+class IncidentSummaryMetrics(BaseModel):
+    total_incidents: int = 0
+    active_incidents: int = 0
+    acknowledged_incidents: int = 0
+    assigned_incidents: int = 0
+    triaged_incidents: int = 0
+    escalated_incidents: int = 0
+    resolved_incidents: int = 0
+    closed_incidents: int = 0
+    critical_count: int = 0
+    high_count: int = 0
+    medium_count: int = 0
+    low_count: int = 0
+
+
+class IncidentSeverityDistributionItem(BaseModel):
+    count: int = 0
+    percentage: float = 0.0
+
+
+class IncidentStatusDistributionItem(BaseModel):
+    count: int = 0
+    percentage: float = 0.0
+
+
+class IncidentTimeSeriesBucket(BaseModel):
+    bucket_start: str
+    created_count: int = 0
+    resolved_count: int = 0
+    closed_count: int = 0
+    escalated_count: int = 0
+
+
+class IncidentLifecycleTimingMetrics(BaseModel):
+    median_acknowledgement_seconds: float | None = None
+    p95_acknowledgement_seconds: float | None = None
+    median_assignment_seconds: float | None = None
+    p95_assignment_seconds: float | None = None
+    median_resolution_seconds: float | None = None
+    p95_resolution_seconds: float | None = None
+    median_closure_seconds: float | None = None
+    p95_closure_seconds: float | None = None
+    median_duration_seconds: float | None = None
+    p95_duration_seconds: float | None = None
+    sample_counts: dict[str, int] = Field(default_factory=dict)
+
+
+class IncidentProceduralActionMetrics(BaseModel):
+    by_category: dict[str, int] = Field(default_factory=dict)
+    total_actions: int = 0
+
+
+class IncidentCorrelationMetrics(BaseModel):
+    with_primary_track: int = 0
+    with_primary_group: int = 0
+    uncorrelated: int = 0
+    top_tracks: list[dict[str, Any]] = Field(default_factory=list)
+    top_groups: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class IncidentWorkflowEventMetrics(BaseModel):
+    by_event_type: dict[str, int] = Field(default_factory=dict)
+    total_events: int = 0
+    total_notes: int = 0
+    total_actions: int = 0
+
+
+class IncidentAnalyticsResponse(BaseModel):
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    bucket_size: str = "day"
+    summary: IncidentSummaryMetrics
+    timing: IncidentLifecycleTimingMetrics
+    severity_distribution: dict[IncidentSeverity, IncidentSeverityDistributionItem]
+    status_distribution: dict[IncidentStatus, IncidentStatusDistributionItem]
+    time_series: list[IncidentTimeSeriesBucket]
+    procedural_actions: IncidentProceduralActionMetrics
+    correlations: IncidentCorrelationMetrics
+    workflow: IncidentWorkflowEventMetrics
