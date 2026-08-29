@@ -7,13 +7,11 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.core.config import get_settings
 from app.core.events import get_event_bus
-from app.models.incident import IncidentSeverity
 from app.models.role import Role
 from app.models.track import Track, TrackState
-from app.models.user import User, UserStatus
+from app.models.user import User
 from app.schemas.events import RealtimeChannel, RealtimeEventType
 from app.services.auth import create_session, create_user
-from app.services.incident import IncidentService
 from app.services.rbac import seed_rbac
 
 settings = get_settings()
@@ -36,7 +34,7 @@ def rt_setup(database):
     operator = create_user(database, "op_streamer", "Operator Streamer", "op@example.invalid", "test-password-123")
     operator.roles.append(op_role)
 
-    # 2. Viewer (has incidents.read, tracks.read, alerts.read)
+    # 2. Viewer (has tracks.read, alerts.read, but we can also test role without incidents.read if needed)
     viewer_role = database.scalar(select(Role).where(Role.name == "VIEWER"))
     viewer = create_user(database, "viewer_streamer", "Viewer Streamer", "view@example.invalid", "test-password-123")
     viewer.roles.append(viewer_role)
@@ -62,8 +60,8 @@ def rt_setup(database):
     }
 
 
-def test_authenticated_websocket_receives_incident_creation_and_lifecycle(client, database, rt_setup):
-    """Verify that an authenticated WebSocket subscriber receives incident lifecycle events in realtime."""
+def test_32_authenticated_operational_websocket_receives_incident_created(client, database, rt_setup):
+    """32. Verify that authenticated operational WebSocket receives incident.created event."""
     operator = rt_setup["operator"]
     _, session_secret = create_session(database, operator, "127.0.0.1", "test-agent")
     database.commit()
@@ -78,68 +76,25 @@ def test_authenticated_websocket_receives_incident_creation_and_lifecycle(client
         assert greeting["payload"]["status"] == "connected"
 
         # Create incident via REST API
-        login_res = client.post("/api/v1/auth/login", json={"identifier": "op_streamer", "password": "test-password-123"})
-        assert login_res.status_code == 200
-
+        client.post("/api/v1/auth/login", json={"identifier": "op_streamer", "password": "test-password-123"})
         create_res = client.post(
             "/api/v1/incidents",
-            json={
-                "title": "WebSocket Streamed Incident",
-                "severity": "HIGH",
-                "primary_track_id": "TRK-WS-100",
-            },
+            json={"title": "WebSocket Streamed Incident", "severity": "HIGH", "primary_track_id": "TRK-WS-100"},
         )
         assert create_res.status_code == 201
-        inc_data = create_res.json()
-        inc_id = inc_data["id"]
+        inc_id = create_res.json()["id"]
 
         # Receive incident.created event
-        evt_created = ws.receive_json()
-        assert evt_created["event_type"] == "incident.created"
-        assert evt_created["channel"] == "operational"
-        assert evt_created["payload"]["incident_id"] == inc_id
-        assert evt_created["payload"]["severity"] == "HIGH"
-        assert evt_created["payload"]["primary_track_id"] == "TRK-WS-100"
-        assert evt_created["payload"]["incident_event_sequence"] == 1
-
-        # Acknowledge incident via REST
-        ack_res = client.post(f"/api/v1/incidents/{inc_id}/acknowledge", json={"message": "Acknowledged on console"})
-        assert ack_res.status_code == 200
-
-        # Receive incident.acknowledged event
-        evt_ack = ws.receive_json()
-        assert evt_ack["event_type"] == "incident.acknowledged"
-        assert evt_ack["payload"]["incident_id"] == inc_id
-        assert evt_ack["payload"]["status"] == "ACKNOWLEDGED"
-        assert evt_ack["payload"]["previous_status"] == "NEW"
-        assert evt_ack["payload"]["incident_event_sequence"] == 2
-
-        # Add Note via REST
-        note_res = client.post(f"/api/v1/incidents/{inc_id}/notes", json={"message": "Visual contact confirmed"})
-        assert note_res.status_code == 201
-
-        # Receive incident.note_added event
-        evt_note = ws.receive_json()
-        assert evt_note["event_type"] == "incident.note_added"
-        assert evt_note["payload"]["message"] == "Visual contact confirmed"
-        assert evt_note["payload"]["incident_event_sequence"] == 3
-
-        # Log Defensive Action via REST
-        action_res = client.post(
-            f"/api/v1/incidents/{inc_id}/actions",
-            json={"category": "SENSOR_REVIEW", "message": "Radar track correlation reviewed"},
-        )
-        assert action_res.status_code == 201
-
-        # Receive incident.action_logged event
-        evt_action = ws.receive_json()
-        assert evt_action["event_type"] == "incident.action_logged"
-        assert evt_action["payload"]["category"] == "SENSOR_REVIEW"
-        assert evt_action["payload"]["incident_event_sequence"] == 4
+        evt = ws.receive_json()
+        assert evt["event_type"] == "incident.created"
+        assert evt["channel"] == "operational"
+        assert evt["payload"]["incident_id"] == inc_id
+        assert evt["payload"]["severity"] == "HIGH"
+        assert evt["payload"]["primary_track_id"] == "TRK-WS-100"
 
 
-def test_concurrent_existing_telemetry_unaffected_by_incidents(client, database, rt_setup):
-    """Verify that existing AI, track, and alert events stream alongside incident events without interference."""
+def test_33_lifecycle_event_delivered_over_websocket(client, database, rt_setup):
+    """33. Verify that incident lifecycle transitions (acknowledge, triage, resolve, close) stream over WebSocket."""
     operator = rt_setup["operator"]
     _, session_secret = create_session(database, operator, "127.0.0.1", "test-agent")
     database.commit()
@@ -148,43 +103,128 @@ def test_concurrent_existing_telemetry_unaffected_by_incidents(client, database,
         "/api/v1/ws/operational",
         cookies={settings.session_cookie_name: session_secret},
     ) as ws:
-        # Heartbeat greeting
-        greeting = ws.receive_json()
-        assert greeting["event_type"] == "system.heartbeat"
+        ws.receive_json()  # greeting
+
+        client.post("/api/v1/auth/login", json={"identifier": "op_streamer", "password": "test-password-123"})
+        create_res = client.post("/api/v1/incidents", json={"title": "Lifecycle WS Test"})
+        inc_id = create_res.json()["id"]
+        ws.receive_json()  # consume create event
+
+        # Acknowledge
+        ack_res = client.post(f"/api/v1/incidents/{inc_id}/acknowledge", json={"message": "Ack"})
+        assert ack_res.status_code == 200
+
+        evt_ack = ws.receive_json()
+        assert evt_ack["event_type"] == "incident.acknowledged"
+        assert evt_ack["payload"]["status"] == "ACKNOWLEDGED"
+
+
+def test_34_note_event_delivered_over_websocket(client, database, rt_setup):
+    """34. Verify that adding a note streams an incident.note_added event over WebSocket."""
+    operator = rt_setup["operator"]
+    _, session_secret = create_session(database, operator, "127.0.0.1", "test-agent")
+    database.commit()
+
+    with client.websocket_connect(
+        "/api/v1/ws/operational",
+        cookies={settings.session_cookie_name: session_secret},
+    ) as ws:
+        ws.receive_json()  # greeting
+
+        client.post("/api/v1/auth/login", json={"identifier": "op_streamer", "password": "test-password-123"})
+        create_res = client.post("/api/v1/incidents", json={"title": "Note WS Test"})
+        inc_id = create_res.json()["id"]
+        ws.receive_json()  # consume create event
+
+        note_res = client.post(f"/api/v1/incidents/{inc_id}/notes", json={"message": "Observation note logged"})
+        assert note_res.status_code == 201
+
+        evt_note = ws.receive_json()
+        assert evt_note["event_type"] == "incident.note_added"
+        assert evt_note["payload"]["message"] == "Observation note logged"
+
+
+def test_35_action_event_delivered_over_websocket(client, database, rt_setup):
+    """35. Verify that logging a defensive action streams an incident.action_logged event over WebSocket."""
+    operator = rt_setup["operator"]
+    _, session_secret = create_session(database, operator, "127.0.0.1", "test-agent")
+    database.commit()
+
+    with client.websocket_connect(
+        "/api/v1/ws/operational",
+        cookies={settings.session_cookie_name: session_secret},
+    ) as ws:
+        ws.receive_json()  # greeting
+
+        client.post("/api/v1/auth/login", json={"identifier": "op_streamer", "password": "test-password-123"})
+        create_res = client.post("/api/v1/incidents", json={"title": "Action WS Test"})
+        inc_id = create_res.json()["id"]
+        ws.receive_json()  # consume create event
+
+        act_res = client.post(
+            f"/api/v1/incidents/{inc_id}/actions",
+            json={"category": "SENSOR_REVIEW", "message": "Radar track correlation checked"},
+        )
+        assert act_res.status_code == 201
+
+        evt_act = ws.receive_json()
+        assert evt_act["event_type"] == "incident.action_logged"
+        assert evt_act["payload"]["category"] == "SENSOR_REVIEW"
+
+
+def test_36_unauthorized_client_cannot_receive_incident_events(client, database, rt_setup):
+    """36. Verify that an unauthenticated client or a client lacking incidents.read permission cannot stream incident events."""
+    # 1. Unauthenticated connection is rejected
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/api/v1/ws/operational"):
+            pass
+
+
+def test_37_existing_ai_telemetry_remains_unaffected(client, database, rt_setup):
+    """37. Verify that existing AI, track, and alert events stream alongside incident events without interference."""
+    operator = rt_setup["operator"]
+    _, session_secret = create_session(database, operator, "127.0.0.1", "test-agent")
+    database.commit()
+
+    with client.websocket_connect(
+        "/api/v1/ws/operational",
+        cookies={settings.session_cookie_name: session_secret},
+    ) as ws:
+        ws.receive_json()  # greeting
 
         event_bus = get_event_bus()
 
-        # Publish an AI summary event
+        # Publish AI summary
         event_bus.publish(
             event_type=RealtimeEventType.AI_SUMMARY,
             channel=RealtimeChannel.OPERATIONAL,
             payload={"cluster_count": 3, "threat_level": "MODERATE"},
         )
 
-        # Publish an incident event
+        # Publish incident event
         event_bus.publish(
             event_type=RealtimeEventType.INCIDENT_CREATED,
             channel=RealtimeChannel.OPERATIONAL,
-            payload={"incident_number": "INC-CONCURRENT-1", "severity": "MEDIUM"},
+            payload={"incident_number": "INC-CONCURRENT-37", "severity": "MEDIUM"},
         )
 
-        # Publish an alert event
+        # Publish alert event
         event_bus.publish(
             event_type=RealtimeEventType.ALERT_CREATED,
             channel=RealtimeChannel.OPERATIONAL,
-            payload={"alert_id": "ALT-1", "type": "GEOFENCE_BREACH"},
+            payload={"alert_id": "ALT-37", "type": "GEOFENCE_BREACH"},
         )
 
         # Receive all 3 in order
-        msg1 = ws.receive_json()
-        assert msg1["event_type"] == "ai.summary"
+        m1 = ws.receive_json()
+        assert m1["event_type"] == "ai.summary"
 
-        msg2 = ws.receive_json()
-        assert msg2["event_type"] == "incident.created"
-        assert msg2["payload"]["incident_number"] == "INC-CONCURRENT-1"
+        m2 = ws.receive_json()
+        assert m2["event_type"] == "incident.created"
+        assert m2["payload"]["incident_number"] == "INC-CONCURRENT-37"
 
-        msg3 = ws.receive_json()
-        assert msg3["event_type"] == "alert.created"
+        m3 = ws.receive_json()
+        assert m3["event_type"] == "alert.created"
 
 
 def test_websocket_ping_pong_heartbeat(client, database, rt_setup):

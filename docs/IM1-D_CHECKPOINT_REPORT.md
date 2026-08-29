@@ -3,123 +3,149 @@
 
 ---
 
-## 1. Executive Summary
-
-Stage IM1 Checkpoint IM1-D connects AeroGuard's Incident Management domain to the platform's EventBus and WebSocket realtime broadcast infrastructure. Every incident lifecycle transition, assignment update, operator note, and logged defensive action is deterministically published as a typed realtime event over `/ws/operational` upon successful transaction commit.
-
-This implementation satisfies all defensive situational-awareness constraints:
-- Zero offensive, kinetic, interception, or fire-control countermeasures.
-- Strict transactional outbox semantics (`after_commit` / `after_rollback` listeners) guaranteeing zero premature or orphan event emissions on database rollbacks.
-- Event prioritization: All 11 incident realtime events are classified as `CRITICAL_EVENT_TYPES` to protect against subscriber queue backpressure drops.
-- Multi-entity correlation: Seamless preservation of track, swarm group, alert, and historical intelligence identifiers across REST, database, EventBus, and WebSocket channels.
-- Strict RBAC stream filtering: WebSocket clients streaming `/ws/operational` require `incidents.read` permission to receive incident events, preserving existing track and alert streams for other roles.
+**Date**: 2026-08-29
+**Dev Environment**: Windows 11 / Python 3.12 / TypeScript / Vite / Tauri / SQLite
+**Scope**: Defensive Situational Awareness & Operational Workflow Only
+**Starting Baseline Commit**: `a1eb86c` (`feat: expose incident REST API with RBAC (IM1-C)`)
+**IM1-D Implementation Commit**: `af58f37` (`feat: integrate incident events with realtime pipeline (IM1-D)`)
+**Final Checkpoint Commit**: `af58f37` + test expansion
 
 ---
 
-## 2. Realtime Event Contracts & Schema Extensions
+## 1. Executive Summary
 
-### 2.1 Event Types (`backend/app/schemas/events.py`)
-Eleven new event types were added to `RealtimeEventType`:
-1. `incident.created` (`RealtimeEventType.INCIDENT_CREATED`)
-2. `incident.acknowledged` (`RealtimeEventType.INCIDENT_ACKNOWLEDGED`)
-3. `incident.assigned` (`RealtimeEventType.INCIDENT_ASSIGNED`)
-4. `incident.reassigned` (`RealtimeEventType.INCIDENT_REASSIGNED`)
-5. `incident.triaged` (`RealtimeEventType.INCIDENT_TRIAGED`)
-6. `incident.escalated` (`RealtimeEventType.INCIDENT_ESCALATED`)
-7. `incident.de_escalated` (`RealtimeEventType.INCIDENT_DE_ESCALATED`)
-8. `incident.resolved` (`RealtimeEventType.INCIDENT_RESOLVED`)
-9. `incident.closed` (`RealtimeEventType.INCIDENT_CLOSED`)
-10. `incident.note_added` (`RealtimeEventType.INCIDENT_NOTE_ADDED`)
-11. `incident.action_logged` (`RealtimeEventType.INCIDENT_ACTION_LOGGED`)
+Checkpoint **IM1-D** connects AeroGuard's Incident Management domain to the platform's EventBus and WebSocket realtime broadcast infrastructure. Every incident lifecycle transition, assignment update, operator note, and logged defensive action is deterministically published as a typed realtime event over `/ws/operational` upon successful transaction commit.
 
-### 2.2 Payload Contract (`IncidentRealtimePayload`)
+This implementation satisfies all defensive situational-awareness constraints:
+- **Strictly Defensive**: Zero offensive, kinetic, interception, fire-control, or jamming countermeasures.
+- **Transactional Outbox Hooks**: SQLAlchemy session listeners (`@sa_event.listens_for(Session, "after_commit")` / `after_rollback`) guarantee zero premature or orphan event emissions on database rollbacks.
+- **Backpressure Protection**: All 11 incident realtime event types are classified as `CRITICAL_EVENT_TYPES` within `backend/app/core/events.py`, preventing eviction during high-density telemetry bursts.
+- **Multi-Entity Correlation**: Seamless preservation of track, swarm group, alert, and historical intelligence identifiers across REST, database, EventBus, and WebSocket channels.
+- **Strict RBAC Stream Filtering**: WebSocket clients streaming `/ws/operational` require `incidents.read` permission to receive incident events, preventing data leakage to unauthorized roles while preserving track and alert streams for other roles.
+
+---
+
+## 2. Incident Realtime Event Inventory
+
+Eleven deterministic event types are registered under `RealtimeEventType` in `backend/app/schemas/events.py`:
+
+| Event Enum Variant | Wire Value (`event_type`) | Triggering Service Method | Description |
+|---|---|---|---|
+| `INCIDENT_CREATED` | `incident.created` | `create_incident` | Initial incident creation (`NEW` status) |
+| `INCIDENT_ACKNOWLEDGED` | `incident.acknowledged` | `acknowledge_incident` | Operator acknowledgement (`ACKNOWLEDGED` status) |
+| `INCIDENT_ASSIGNED` | `incident.assigned` | `assign_incident` | Initial operator/analyst assignment |
+| `INCIDENT_REASSIGNED` | `incident.reassigned` | `assign_incident` | Reassignment from previous assignee to new assignee |
+| `INCIDENT_TRIAGED` | `incident.triaged` | `triage_incident` | Severity/assessment update (`TRIAGED` status) |
+| `INCIDENT_ESCALATED` | `incident.escalated` | `escalate_incident` | Escalation transition (`ESCALATED` status) |
+| `INCIDENT_DE_ESCALATED` | `incident.de_escalated` | `de_escalate_incident` | De-escalation transition |
+| `INCIDENT_RESOLVED` | `incident.resolved` | `resolve_incident` | Resolution summary logged (`RESOLVED` status) |
+| `INCIDENT_CLOSED` | `incident.closed` | `close_incident` | Administrative closure (`CLOSED` status) |
+| `INCIDENT_NOTE_ADDED` | `incident.note_added` | `add_note` | Operator observation or timeline note added |
+| `INCIDENT_ACTION_LOGGED` | `incident.action_logged` | `log_defensive_action` | Procedural defensive review action logged |
+
+---
+
+## 3. Realtime Event Envelope & Payload Schemas
+
+### 3.1 Event Envelope (`RealtimeEventEnvelope`)
+```python
+class RealtimeEventEnvelope(BaseModel):
+    event_id: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=1, max_length=64)
+    event_type: str = Field(min_length=1, max_length=64)
+    channel: str = Field(min_length=1, max_length=32)
+    sequence: int = Field(ge=1)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    resource_type: str | None = Field(default=None, max_length=64)
+    resource_id: str | None = Field(default=None, max_length=128)
+    correlation_id: str | None = Field(default=None, max_length=64)
+    payload: dict[str, Any] = Field(default_factory=dict)
+```
+
+### 3.2 Incident Payload Schema (`IncidentRealtimePayload`)
 ```python
 class IncidentRealtimePayload(BaseModel):
-    incident_id: str = Field(..., min_length=1, max_length=36)
-    incident_number: str = Field(..., min_length=1, max_length=64)
-    title: str = Field(..., min_length=1, max_length=200)
-    status: str = Field(..., min_length=1, max_length=32)
-    previous_status: str | None = Field(None, max_length=32)
-    severity: str = Field(..., min_length=1, max_length=32)
-    previous_severity: str | None = Field(None, max_length=32)
-    source: str = Field(..., min_length=1, max_length=32)
-    primary_track_id: str | None = Field(None, max_length=64)
-    primary_group_id: str | None = Field(None, max_length=64)
-    originating_alert_id: str | None = Field(None, max_length=64)
-    originating_intelligence_event_id: str | None = Field(None, max_length=64)
-    assigned_to: str | None = Field(None, max_length=36)
-    previous_assignee: str | None = Field(None, max_length=36)
-    actor_user_id: str | None = Field(None, max_length=36)
-    incident_event_id: str = Field(..., min_length=1, max_length=36)
-    incident_event_sequence: int = Field(..., ge=1)
-    incident_event_type: str = Field(..., min_length=1, max_length=64)
-    category: str | None = Field(None, max_length=64)
-    message: str | None = Field(None, max_length=2000)
+    incident_id: str = Field(min_length=1, max_length=64)
+    incident_number: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=256)
+    status: str = Field(min_length=1, max_length=32)
+    previous_status: str | None = Field(default=None, max_length=32)
+    severity: str = Field(min_length=1, max_length=32)
+    previous_severity: str | None = Field(default=None, max_length=32)
+    source: str = Field(min_length=1, max_length=32)
+    primary_track_id: str | None = Field(default=None, max_length=64)
+    primary_group_id: str | None = Field(default=None, max_length=64)
+    originating_alert_id: str | None = Field(default=None, max_length=64)
+    originating_intelligence_event_id: str | None = Field(default=None, max_length=64)
+    assigned_to: str | None = Field(default=None, max_length=64)
+    previous_assignee: str | None = Field(default=None, max_length=64)
+    actor_user_id: str | None = Field(default=None, max_length=64)
+    incident_event_id: str = Field(min_length=1, max_length=64)
+    incident_event_sequence: int = Field(ge=1)
+    incident_event_type: str = Field(min_length=1, max_length=32)
+    category: str | None = Field(default=None, max_length=64)
+    message: str | None = Field(default=None, max_length=2048)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 ```
 
 ---
 
-## 3. Transactional Outbox & EventBus Publishing Invariant
+## 4. Key Architectural Mechanisms
 
-To guarantee consistency between persistent SQLite state and realtime WebSocket streams:
-1. When any mutation method on `IncidentService` executes, it builds the typed `IncidentRealtimePayload` and queues it inside `session.info["_pending_incident_events"]`.
-2. SQLAlchemy event listeners `@sa_event.listens_for(Session, "after_commit")` and `@sa_event.listens_for(Session, "after_rollback")` handle transaction lifecycle:
-   - On `after_commit`: Pending events are popped and published to `EventBus.publish(...)` using `RealtimeChannel.OPERATIONAL`.
-   - On `after_rollback`: Pending events are immediately wiped, guaranteeing **zero phantom events**.
-3. All incident events are registered in `CRITICAL_EVENT_TYPES` within `backend/app/core/events.py` so high-frequency AI/track updates cannot evict critical operational incident notifications under subscriber queue saturation.
+### 4.1 Event Sequencing Model
+- **Realtime Transport Sequence**: The EventBus assigns an atomic monotonic `sequence` integer (`1, 2, 3...`) to every envelope dispatched over `RealtimeChannel.OPERATIONAL`.
+- **Incident Timeline Sequence**: The underlying `incident_event_sequence` (`1, 2, 3...`) tracks the exact chronological progression within that specific incident, allowing clients to reconstruct the timeline or detect gaps.
 
----
+### 4.2 Transactional Outbox Hooks (`after_commit` / `after_rollback`)
+1. During `IncidentService` mutation methods, validated payloads are buffered in `session.info["_pending_incident_events"]`.
+2. `@sa_event.listens_for(Session, "after_commit")` drains the pending buffer and publishes each event to `EventBus`.
+3. `@sa_event.listens_for(Session, "after_rollback")` clears the pending buffer, guaranteeing **zero phantom events** on database rollback.
+4. If a transient error occurs during event publication, the error is logged while the committed database state remains durable.
 
-## 4. Multi-Entity Correlation Architecture
+### 4.3 WebSocket Security & RBAC Stream Filtering
+- WebSocket clients connecting to `/api/v1/ws/operational` must present a valid HttpOnly session cookie during the connection handshake.
+- Handshake validates active status and permissions.
+- In `ws.py`, `_operational_filter` checks `AuthorizationService(db).has_permission(user, "incidents.read")`: clients lacking `incidents.read` continue streaming tracks and alerts but receive 0 incident events.
 
-Incidents correlate with other operational telemetry without implementing destructive or kinetic actions:
-- `primary_track_id` $\to$ Correlates incident with active fused or historical track state.
-- `primary_group_id` $\to$ Correlates incident with AI swarm/formation clusters.
-- `originating_alert_id` $\to$ Links incident to threshold/geofence alerts.
-- `originating_intelligence_event_id` $\to$ Links incident to historical intelligence snapshots.
-
----
-
-## 5. Verification Matrix & Test Summary
-
-### 5.1 Focused IM1-D Test Suites
-- `backend/tests/test_incident_eventbus.py`:
-  - Enums, contracts, payload serialization, and envelope round-trip.
-  - Lifecycle event emissions for all 11 operations.
-  - Transactional commit vs rollback outbox invariants.
-  - Illegal transition zero-event suppression.
-  - Critical event backpressure queue eviction.
-- `backend/tests/test_incident_realtime.py`:
-  - Live WebSocket `/ws/operational` streaming during REST mutations.
-  - Non-interference with concurrent AI, track, and alert telemetry.
-  - WebSocket ping-pong heartbeat verification.
-- `backend/tests/test_incident_correlation.py`:
-  - Full persistence and propagation of `primary_track_id`, `primary_group_id`, `originating_alert_id`, and `originating_intelligence_event_id`.
-  - Null serialization for standalone incidents.
-  - REST API correlation round-trip verification.
-
-### 5.2 Full System Verification Results
-| Suite / Check | Result |
-| :--- | :--- |
-| **Backend Incident Suites** (11 files) | **86 / 86 Passed (100%)** |
-| **Full Backend Pytest Suite** | **547 / 547 Passed (100%)** |
-| **Frontend Unit Tests (Vitest)** | **246 / 246 Passed (100%)** |
-| **TypeScript Typecheck** (`tsc --noEmit`) | **Clean (0 errors)** |
-| **Vite Production Build** | **Success** |
-| **Desktop Tauri Checks** (`cargo check`, `cargo test`) | **Clean (0 warnings, 0 errors)** |
-| **Git Diff Format Check** | **Clean** |
+### 4.4 Multi-Entity Correlation Model
+- `primary_track_id`: Links the incident to a specific fused track.
+- `primary_group_id`: Links the incident to an AI swarm cluster or formation.
+- `originating_alert_id`: Links the incident to a threshold or perimeter geofence alert.
+- `originating_intelligence_event_id`: Links the incident to an immutable historical intelligence snapshot.
+- Missing or standalone correlations cleanly serialize as `null`.
 
 ---
 
-## 6. Checkpoint Scope Boundaries
+## 5. Comprehensive Verification Evidence
 
-| Capability | IM1-D Status | Scheduled Stage |
+### 5.1 Focused IM1-D Test Matrix (31 Tests)
+- `backend/tests/test_incident_eventbus.py`: 19 tests covering contracts, creation, lifecycle (10 operations), invalid transition rejection, deduplication, rollback suppression, bus error recovery, monotonic sequencing, deterministic timeline ordering, and critical backpressure queue eviction.
+- `backend/tests/test_incident_realtime.py`: 7 tests verifying live `/ws/operational` streaming during REST mutations, non-interference with concurrent AI telemetry, unauthenticated disconnect rejection, and ping-pong heartbeat exchange.
+- `backend/tests/test_incident_correlation.py`: 5 tests verifying track, swarm group, alert, historical intelligence correlation round-trips, and null serialization for standalone incidents.
+
+### 5.2 Full System Regression Results
+| Suite / Verification Area | Command | Result |
 | :--- | :--- | :--- |
-| Incident EventBus Publishing | **Complete** | IM1-D |
-| Transactional Outbox Hooks | **Complete** | IM1-D |
-| Realtime Operational WebSocket Streaming | **Complete** | IM1-D |
-| Operational Entity Correlation | **Complete** | IM1-D |
-| Incident Operator UI Panel | Not Started | IM1-E |
-| Tactical Map Incident Overlays | Not Started | IM1-F |
-| Defensive Safety Boundary Maintenance | **Enforced** | All Stages |
+| **All Incident Subsystem Tests** | `pytest backend/tests/test_incident_*.py` | **102 / 102 Passed (100%)** |
+| **Full Backend Regression Suite** | `pytest -q` | **564 / 564 Passed (100%)** in 56.25s |
+| **Frontend Operator Unit Tests** | `npm test` | **246 / 246 Passed (100%)** across 101 suites |
+| **Frontend TypeScript Typecheck** | `npm --prefix apps/operator run typecheck` | **Clean (0 errors)** |
+| **Frontend Vite Production Build** | `npm --prefix apps/operator run build` | **Clean production bundle** |
+| **Desktop Tauri Checks** | `cargo test`, `cargo check` | **Clean (0 errors, 0 warnings)** |
+| **Git Diff Format & Whitespace** | `git diff --check` | **Clean** |
+| **Security Credential Scan** | `git grep -n -i -E ...` | **Clean (0 hardcoded credentials or token leaks)** |
+| **Defensive Safety Boundary Scan** | `git grep -n -i -E ...` | **Clean (0 offensive or kinetic capabilities)** |
+
+---
+
+## 6. Defensive Safety & Security Audit
+
+- **No Credential Persistence**: 0 usage of `localStorage`, `sessionStorage`, or `indexedDB` for auth tokens.
+- **Audit Logging**: All authorization denials and incident mutations record structured `AuditEvent` rows with correlation IDs.
+- **Defensive Boundary**: Incident management is strictly an operational workflow, review, and audit tool. All logged actions (`SENSOR_REVIEW`, `TRACK_CORRELATION_REVIEW`, `OPERATOR_CONTACT`, `SUPERVISOR_ESCALATION`, `PROCEDURE_REVIEW`, `SCENARIO_REVIEW`, `OTHER`) are analytical and procedural records without hardware kinetic execution.
+
+---
+
+## 7. Known Limitations & Deferred Work
+
+1. **Frontend Operator Incident UI**: Operator console incident triage workspace, incident details drawer, and timeline components are deferred to **IM1-E**.
+2. **Tactical Map Overlays**: Visual incident markers, bounding boxes, and correlation overlays on the MAP2 tactical map are deferred to **IM1-F**.

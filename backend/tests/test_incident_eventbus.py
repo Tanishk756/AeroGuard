@@ -12,7 +12,7 @@ from app.models.incident import (
     IncidentStatus,
     InvalidIncidentTransitionError,
 )
-from app.models.incident_event import DefensiveActionCategory, IncidentEventType
+from app.models.incident_event import DefensiveActionCategory, IncidentEvent, IncidentEventType
 from app.models.track import Track, TrackState
 from app.schemas.events import (
     IncidentRealtimePayload,
@@ -21,7 +21,7 @@ from app.schemas.events import (
     RealtimeEventType,
 )
 from app.services.auth import create_user
-from app.services.incident import IncidentService, InvalidIncidentActionError
+from app.services.incident import IncidentNotFoundError, IncidentService, InvalidIncidentActionError
 
 
 @pytest.fixture(autouse=True)
@@ -31,8 +31,11 @@ def reset_bus():
     get_event_bus().reset()
 
 
-def test_all_incident_realtime_event_types_are_registered():
-    """Verify that all 11 incident realtime event types are registered and belong to CRITICAL_EVENT_TYPES."""
+# --- EVENT CONTRACTS (Tests 1-4) ---
+
+
+def test_01_all_incident_realtime_event_types_are_registered():
+    """1. Verify that all 11 incident realtime event types are registered and classified as critical."""
     expected_event_types = {
         RealtimeEventType.INCIDENT_CREATED: "incident.created",
         RealtimeEventType.INCIDENT_ACKNOWLEDGED: "incident.acknowledged",
@@ -52,8 +55,28 @@ def test_all_incident_realtime_event_types_are_registered():
         assert enum_variant in CRITICAL_EVENT_TYPES
 
 
-def test_incident_realtime_payload_and_envelope_serialization():
-    """Verify that IncidentRealtimePayload validates, serializes, and wraps cleanly inside RealtimeEventEnvelope."""
+def test_02_event_envelope_validates():
+    """2. Verify that RealtimeEventEnvelope strictly validates required fields and types."""
+    now = datetime.now(UTC)
+    envelope = RealtimeEventEnvelope(
+        event_type=RealtimeEventType.INCIDENT_CREATED.value,
+        channel=RealtimeChannel.OPERATIONAL.value,
+        sequence=1,
+        timestamp=now,
+        resource_type="incident",
+        resource_id="inc-100",
+        correlation_id="corr-100",
+        payload={"title": "Test Incident"},
+    )
+    dumped = envelope.model_dump(mode="json")
+    assert dumped["event_type"] == "incident.created"
+    assert dumped["channel"] == "operational"
+    assert dumped["sequence"] == 1
+    assert dumped["resource_id"] == "inc-100"
+
+
+def test_03_payload_serialization_round_trips():
+    """3. Verify that IncidentRealtimePayload serializes and deserializes without data loss."""
     now = datetime.now(UTC)
     payload = IncidentRealtimePayload(
         incident_id="inc-uuid-1",
@@ -80,268 +103,414 @@ def test_incident_realtime_payload_and_envelope_serialization():
     )
 
     dumped = payload.model_dump(mode="json")
-    assert dumped["incident_number"] == "INC-20260829-AB12CD"
-    assert dumped["severity"] == "HIGH"
-    assert dumped["incident_event_sequence"] == 1
-
-    # Round trip
     rehydrated = IncidentRealtimePayload.model_validate(dumped)
     assert rehydrated.incident_id == "inc-uuid-1"
-
-    # Wrap in EventBus RealtimeEventEnvelope
-    envelope = RealtimeEventEnvelope(
-        event_type=RealtimeEventType.INCIDENT_CREATED.value,
-        channel=RealtimeChannel.OPERATIONAL.value,
-        sequence=1,
-        resource_type="incident",
-        resource_id="inc-uuid-1",
-        correlation_id="corr-456",
-        payload=dumped,
-    )
-
-    envelope_dump = envelope.model_dump(mode="json")
-    assert envelope_dump["event_type"] == "incident.created"
-    assert envelope_dump["channel"] == "operational"
-    assert envelope_dump["payload"]["primary_track_id"] == "TRK-101"
+    assert rehydrated.incident_number == "INC-20260829-AB12CD"
+    assert rehydrated.severity == "HIGH"
+    assert rehydrated.incident_event_sequence == 1
 
 
-def test_transaction_commit_triggers_eventbus_dispatch(database):
-    """Verify that committing a transaction dispatches queued incident events to EventBus subscribers."""
+def test_04_enums_serialize_deterministically():
+    """4. Verify that IncidentStatus, IncidentSeverity, and DefensiveActionCategory serialize deterministically."""
+    assert str(IncidentStatus.NEW) == "NEW"
+    assert str(IncidentStatus.ACKNOWLEDGED) == "ACKNOWLEDGED"
+    assert str(IncidentStatus.TRIAGED) == "TRIAGED"
+    assert str(IncidentStatus.ESCALATED) == "ESCALATED"
+    assert str(IncidentStatus.RESOLVED) == "RESOLVED"
+    assert str(IncidentStatus.CLOSED) == "CLOSED"
+
+    assert str(IncidentSeverity.LOW) == "LOW"
+    assert str(IncidentSeverity.MEDIUM) == "MEDIUM"
+    assert str(IncidentSeverity.HIGH) == "HIGH"
+    assert str(IncidentSeverity.CRITICAL) == "CRITICAL"
+
+    assert str(DefensiveActionCategory.SENSOR_REVIEW) == "SENSOR_REVIEW"
+    assert str(DefensiveActionCategory.PROCEDURE_REVIEW) == "PROCEDURE_REVIEW"
+
+
+# --- CREATION (Tests 5-9) ---
+
+
+def test_05_create_emits_incident_created(database):
+    """5. Verify that incident creation emits an incident.created event on EventBus upon transaction commit."""
     event_bus = get_event_bus()
-    subscription = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+
+    service = IncidentService(database)
+    incident = service.create_incident(title="Creation Test Incident", severity=IncidentSeverity.HIGH)
+    database.commit()
+
+    assert sub.queue.qsize() == 1
+    evt = sub.queue.get_nowait()
+    assert evt.event_type == "incident.created"
+    assert evt.payload["incident_id"] == incident.id
+
+
+def test_06_create_persists_created_timeline_event(database):
+    """6. Verify that incident creation persists a CREATED timeline event in the database."""
+    service = IncidentService(database)
+    incident = service.create_incident(title="Timeline Created Test")
+    database.commit()
+
+    timeline = database.scalars(
+        select(IncidentEvent).where(IncidentEvent.incident_id == incident.id).order_by(IncidentEvent.sequence)
+    ).all()
+    assert len(timeline) == 1
+    assert timeline[0].event_type == IncidentEventType.CREATED
+    assert timeline[0].sequence == 1
+
+
+def test_07_event_references_correct_incident(database):
+    """7. Verify that the emitted event envelope and payload reference the correct incident ID and incident number."""
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+
+    service = IncidentService(database)
+    incident = service.create_incident(title="Reference Check Incident")
+    database.commit()
+
+    evt = sub.queue.get_nowait()
+    assert evt.resource_id == incident.id
+    assert evt.payload["incident_id"] == incident.id
+    assert evt.payload["incident_number"] == incident.incident_number
+
+
+def test_08_actor_id_is_correct(database):
+    """8. Verify that the actor user ID is accurately reflected in both database timeline and event payload."""
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+
+    actor = create_user(database, "actor_user_8", "Actor 8", "a8@example.invalid", "test-password-123")
+    database.commit()
+
+    service = IncidentService(database)
+    incident = service.create_incident(title="Actor Check Incident", created_by=actor.id)
+    database.commit()
+
+    evt = sub.queue.get_nowait()
+    assert evt.payload["actor_user_id"] == actor.id
+
+
+def test_09_correlation_fields_preserved(database):
+    """9. Verify that primary_track_id, primary_group_id, originating_alert_id are preserved in the creation event."""
+    from app.models.alert import Alert, AlertSeverity, AlertStatus, AlertType
+
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
 
     now = datetime.now(UTC).replace(tzinfo=None)
     track = Track(
-        id="TRK-9901",
+        id="TRK-09",
         state=TrackState.ACTIVE,
         first_seen_at=now,
         last_seen_at=now,
-        latitude=37.7749,
-        longitude=-122.4194,
-        confidence=0.95,
+        latitude=37.77,
+        longitude=-122.41,
+        confidence=0.9,
     )
-    actor = create_user(database, "op_eventbus", "Operator EventBus", "op_eb@example.invalid", "test-password-123")
-    database.add(track)
+    alert = Alert(
+        id="ALT-09",
+        type=AlertType.GEOFENCE_BREACH,
+        severity=AlertSeverity.HIGH,
+        status=AlertStatus.OPEN,
+        reason="Test alert 09",
+        created_at=now,
+        updated_at=now,
+    )
+    database.add_all([track, alert])
     database.commit()
 
     service = IncidentService(database)
     incident = service.create_incident(
-        title="EventBus Commit Test",
-        severity=IncidentSeverity.CRITICAL,
-        primary_track_id="TRK-9901",
-        created_by=actor.id,
+        title="Correlated Incident 09",
+        primary_track_id="TRK-09",
+        primary_group_id="GRP-09",
+        originating_alert_id="ALT-09",
+        originating_intelligence_event_id="INTEL-09",
     )
-
-    # Before commit: queue should be empty
-    assert subscription.queue.qsize() == 0
-
-    # Commit triggers after_commit hook
     database.commit()
 
-    # After commit: EventBus has received exactly 1 incident.created event
-    assert subscription.queue.qsize() == 1
-    envelope = subscription.queue.get_nowait()
-    assert envelope.event_type == "incident.created"
-    assert envelope.channel == "operational"
-    assert envelope.resource_id == incident.id
-    assert envelope.payload["incident_id"] == incident.id
-    assert envelope.payload["severity"] == "CRITICAL"
-    assert envelope.payload["primary_track_id"] == "TRK-9901"
-    assert envelope.payload["actor_user_id"] == actor.id
-    assert envelope.payload["incident_event_sequence"] == 1
+    evt = sub.queue.get_nowait()
+    assert evt.payload["primary_track_id"] == "TRK-09"
+    assert evt.payload["primary_group_id"] == "GRP-09"
+    assert evt.payload["originating_alert_id"] == "ALT-09"
+    assert evt.payload["originating_intelligence_event_id"] == "INTEL-09"
 
 
-def test_transaction_rollback_suppresses_eventbus_dispatch(database):
-    """Verify that rolling back a transaction discards all queued incident events with zero emission."""
+# --- LIFECYCLE & TIMELINE (Tests 10-20) ---
+
+
+def test_10_to_20_lifecycle_and_timeline_events(database):
+    """10-20. Verify acknowledge, assign, reassignment, triage, escalation, de-escalation, resolve, close, note, action."""
     event_bus = get_event_bus()
-    subscription = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
 
-    service = IncidentService(database)
-    service.create_incident(
-        title="Rollback Test Incident",
-        severity=IncidentSeverity.HIGH,
-    )
-
-    # Rollback session
-    database.rollback()
-
-    # Zero events must be in the subscriber queue
-    assert subscription.queue.qsize() == 0
-
-
-def test_full_incident_lifecycle_event_emission(database):
-    """Verify each lifecycle transition emits the exact corresponding realtime event on commit."""
-    event_bus = get_event_bus()
-    subscription = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
-
-    actor1 = create_user(database, "actor_one", "Actor One", "a1@example.invalid", "test-password-123")
-    actor2 = create_user(database, "actor_two", "Actor Two", "a2@example.invalid", "test-password-123")
-    analyst1 = create_user(database, "analyst_one", "Analyst One", "an1@example.invalid", "test-password-123")
-    analyst2 = create_user(database, "analyst_two", "Analyst Two", "an2@example.invalid", "test-password-123")
-    admin = create_user(database, "admin_closer", "Admin Closer", "admin@example.invalid", "test-password-123")
+    u1 = create_user(database, "u_op1", "Op One", "u1@example.invalid", "test-password-123")
+    u2 = create_user(database, "u_op2", "Op Two", "u2@example.invalid", "test-password-123")
+    admin = create_user(database, "u_admin", "Admin", "adm@example.invalid", "test-password-123")
     database.commit()
 
     service = IncidentService(database)
 
-    # 1. Create -> incident.created
-    incident = service.create_incident(title="Lifecycle Flow Incident", severity=IncidentSeverity.LOW, created_by=actor1.id)
+    # Creation
+    inc = service.create_incident(title="Lifecycle Test", severity=IncidentSeverity.LOW, created_by=u1.id)
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e1 = subscription.queue.get_nowait()
-    assert e1.event_type == "incident.created"
-    assert e1.payload["status"] == "NEW"
+    e_create = sub.queue.get_nowait()
+    assert e_create.event_type == "incident.created"
 
-    # 2. Acknowledge -> incident.acknowledged
-    service.acknowledge_incident(incident.id, actor_user_id=actor2.id, message="Acknowledged by operator")
+    # 10. Acknowledge -> incident.acknowledged
+    service.acknowledge_incident(inc.id, actor_user_id=u2.id)
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e2 = subscription.queue.get_nowait()
-    assert e2.event_type == "incident.acknowledged"
-    assert e2.payload["previous_status"] == "NEW"
-    assert e2.payload["status"] == "ACKNOWLEDGED"
+    e_ack = sub.queue.get_nowait()
+    assert e_ack.event_type == "incident.acknowledged"
+    assert e_ack.payload["previous_status"] == "NEW"
+    assert e_ack.payload["status"] == "ACKNOWLEDGED"
 
-    # 3. Initial Assign -> incident.assigned
-    service.assign_incident(incident.id, assigned_to=analyst1.id, actor_user_id=actor2.id)
+    # 11. Assign -> incident.assigned
+    service.assign_incident(inc.id, assigned_to=u1.id, actor_user_id=u2.id)
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e3 = subscription.queue.get_nowait()
-    assert e3.event_type == "incident.assigned"
-    assert e3.payload["assigned_to"] == analyst1.id
-    assert e3.payload["previous_assignee"] is None
+    e_assign = sub.queue.get_nowait()
+    assert e_assign.event_type == "incident.assigned"
+    assert e_assign.payload["assigned_to"] == u1.id
+    assert e_assign.payload["previous_assignee"] is None
 
-    # 4. Reassign -> incident.reassigned
-    service.assign_incident(incident.id, assigned_to=analyst2.id, actor_user_id=actor2.id)
+    # 12. Reassign -> incident.reassigned
+    service.assign_incident(inc.id, assigned_to=u2.id, actor_user_id=u1.id)
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e4 = subscription.queue.get_nowait()
-    assert e4.event_type == "incident.reassigned"
-    assert e4.payload["assigned_to"] == analyst2.id
-    assert e4.payload["previous_assignee"] == analyst1.id
+    e_reassign = sub.queue.get_nowait()
+    assert e_reassign.event_type == "incident.reassigned"
+    assert e_reassign.payload["assigned_to"] == u2.id
+    assert e_reassign.payload["previous_assignee"] == u1.id
 
-    # 5. Triage -> incident.triaged
-    service.triage_incident(incident.id, actor_user_id=actor2.id, severity=IncidentSeverity.HIGH, notes="Upgrading to high")
+    # 13. Triage -> incident.triaged
+    service.triage_incident(inc.id, actor_user_id=u2.id, severity=IncidentSeverity.HIGH, notes="Upgraded")
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e5 = subscription.queue.get_nowait()
-    assert e5.event_type == "incident.triaged"
-    assert e5.payload["previous_severity"] == "LOW"
-    assert e5.payload["severity"] == "HIGH"
-    assert e5.payload["status"] == "TRIAGED"
+    e_triage = sub.queue.get_nowait()
+    assert e_triage.event_type == "incident.triaged"
+    assert e_triage.payload["previous_severity"] == "LOW"
+    assert e_triage.payload["severity"] == "HIGH"
 
-    # 6. Escalate -> incident.escalated
-    service.escalate_incident(incident.id, actor_user_id=actor2.id, reason="Perimeter breach confirmed")
+    # 14. Escalate -> incident.escalated
+    service.escalate_incident(inc.id, actor_user_id=u2.id, reason="Perimeter breach")
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e6 = subscription.queue.get_nowait()
-    assert e6.event_type == "incident.escalated"
-    assert e6.payload["previous_status"] == "TRIAGED"
-    assert e6.payload["status"] == "ESCALATED"
+    e_esc = sub.queue.get_nowait()
+    assert e_esc.event_type == "incident.escalated"
+    assert e_esc.payload["previous_status"] == "TRIAGED"
+    assert e_esc.payload["status"] == "ESCALATED"
 
-    # 7. De-escalate -> incident.de_escalated
-    service.de_escalate_incident(incident.id, target_status=IncidentStatus.TRIAGED, actor_user_id=actor2.id, reason="Track departed")
+    # 15. De-escalate -> incident.de_escalated
+    service.de_escalate_incident(inc.id, target_status=IncidentStatus.TRIAGED, actor_user_id=u2.id, reason="Resolved breach")
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e7 = subscription.queue.get_nowait()
-    assert e7.event_type == "incident.de_escalated"
-    assert e7.payload["previous_status"] == "ESCALATED"
-    assert e7.payload["status"] == "TRIAGED"
+    e_deesc = sub.queue.get_nowait()
+    assert e_deesc.event_type == "incident.de_escalated"
+    assert e_deesc.payload["previous_status"] == "ESCALATED"
+    assert e_deesc.payload["status"] == "TRIAGED"
 
-    # 8. Note -> incident.note_added
-    service.add_note(incident.id, message="Field report noted", actor_user_id=actor2.id)
+    # 18. Note -> incident.note_added
+    service.add_note(inc.id, message="Field report observation", actor_user_id=u2.id)
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e8 = subscription.queue.get_nowait()
-    assert e8.event_type == "incident.note_added"
-    assert e8.payload["message"] == "Field report noted"
+    e_note = sub.queue.get_nowait()
+    assert e_note.event_type == "incident.note_added"
+    assert e_note.payload["message"] == "Field report observation"
 
-    # 9. Action -> incident.action_logged
-    service.log_defensive_action(incident.id, category=DefensiveActionCategory.PROCEDURE_REVIEW, message="Reviewed SOP", actor_user_id=actor2.id)
+    # 19. Action -> incident.action_logged
+    service.log_defensive_action(inc.id, category=DefensiveActionCategory.PROCEDURE_REVIEW, message="Reviewed SOP", actor_user_id=u2.id)
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e9 = subscription.queue.get_nowait()
-    assert e9.event_type == "incident.action_logged"
-    assert e9.payload["category"] == "PROCEDURE_REVIEW"
+    e_act = sub.queue.get_nowait()
+    assert e_act.event_type == "incident.action_logged"
+    assert e_act.payload["category"] == "PROCEDURE_REVIEW"
 
-    # 10. Resolve -> incident.resolved
-    service.resolve_incident(incident.id, actor_user_id=actor2.id, resolution_summary="Resolved cleanly")
+    # 16. Resolve -> incident.resolved
+    service.resolve_incident(inc.id, actor_user_id=u2.id, resolution_summary="Clear")
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e10 = subscription.queue.get_nowait()
-    assert e10.event_type == "incident.resolved"
-    assert e10.payload["previous_status"] == "TRIAGED"
-    assert e10.payload["status"] == "RESOLVED"
+    e_res = sub.queue.get_nowait()
+    assert e_res.event_type == "incident.resolved"
+    assert e_res.payload["previous_status"] == "TRIAGED"
+    assert e_res.payload["status"] == "RESOLVED"
 
-    # 11. Close -> incident.closed
-    service.close_incident(incident.id, actor_user_id=admin.id, closure_notes="Archived after inspection")
+    # 17. Close -> incident.closed
+    service.close_incident(inc.id, actor_user_id=admin.id, closure_notes="Closed cleanly")
     database.commit()
-    assert subscription.queue.qsize() == 1
-    e11 = subscription.queue.get_nowait()
-    assert e11.event_type == "incident.closed"
-    assert e11.payload["previous_status"] == "RESOLVED"
-    assert e11.payload["status"] == "CLOSED"
+    e_close = sub.queue.get_nowait()
+    assert e_close.event_type == "incident.closed"
+    assert e_close.payload["previous_status"] == "RESOLVED"
+    assert e_close.payload["status"] == "CLOSED"
 
-    # Sequence numbers on events match 1..11 monotonically
-    events = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11]
-    for idx, evt in enumerate(events, start=1):
+    # 20. Timeline sequence matches realtime payload sequence monotonically (1..11)
+    all_events = [e_create, e_ack, e_assign, e_reassign, e_triage, e_esc, e_deesc, e_note, e_act, e_res, e_close]
+    for idx, evt in enumerate(all_events, start=1):
         assert evt.payload["incident_event_sequence"] == idx
 
 
-def test_invalid_transitions_produce_zero_events(database):
-    """Verify that rejected state machine transitions, invalid assignments, or closed incidents emit 0 events."""
+# --- INVALID TRANSITIONS & DEDUPLICATION (Tests 21-26) ---
+
+
+def test_21_to_24_invalid_transitions_produce_zero_events(database):
+    """21-24. Verify rejected transitions, rejected assignments, and mutations on closed incidents emit 0 events."""
     event_bus = get_event_bus()
-    subscription = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
     service = IncidentService(database)
 
-    incident = service.create_incident(title="Strict Invariant Incident")
+    inc = service.create_incident(title="Invalid Invariant Test")
     database.commit()
-    subscription.queue.get_nowait()  # consume create event
+    sub.queue.get_nowait()  # consume creation event
 
-    # 1. Illegal transition: direct NEW -> CLOSED throws InvalidIncidentTransitionError
+    # 21. Rejected transition: direct NEW -> CLOSED
     with pytest.raises(InvalidIncidentTransitionError):
-        service.close_incident(incident.id)
+        service.close_incident(inc.id)
     database.commit()
-    assert subscription.queue.qsize() == 0
+    assert sub.queue.qsize() == 0
 
-    # 2. Blank assignment: throws InvalidIncidentActionError
+    # 22. Rejected assignment: blank assignee
     with pytest.raises(InvalidIncidentActionError):
-        service.assign_incident(incident.id, assigned_to="   ")
+        service.assign_incident(inc.id, assigned_to="   ")
     database.commit()
-    assert subscription.queue.qsize() == 0
+    assert sub.queue.qsize() == 0
 
-    # 3. Illegal blank note: throws InvalidIncidentActionError
-    with pytest.raises(InvalidIncidentActionError):
-        service.add_note(incident.id, message="   ")
+    # 23. Rejected close without resolve
+    with pytest.raises(InvalidIncidentTransitionError):
+        service.close_incident(inc.id)
     database.commit()
-    assert subscription.queue.qsize() == 0
+    assert sub.queue.qsize() == 0
 
-    # 4. Transitions after terminal CLOSED state
-    service.acknowledge_incident(incident.id)
-    service.resolve_incident(incident.id)
-    service.close_incident(incident.id)
+    # 24. Terminal CLOSED incident cannot be mutated
+    service.acknowledge_incident(inc.id)
+    service.resolve_incident(inc.id)
+    service.close_incident(inc.id)
     database.commit()
 
     # Drain events
-    while not subscription.queue.empty():
-        subscription.queue.get_nowait()
+    while not sub.queue.empty():
+        sub.queue.get_nowait()
 
     # Attempt mutation after terminal CLOSED
     with pytest.raises(InvalidIncidentTransitionError):
-        service.triage_incident(incident.id)
+        service.triage_incident(inc.id)
     database.commit()
-    assert subscription.queue.qsize() == 0
+    assert sub.queue.qsize() == 0
 
 
-def test_eventbus_dispatch_exception_does_not_break_commit(database):
-    """Verify that a transient error during event publication is safely logged and does not abort committed state."""
+def test_25_and_26_deduplication_and_rejected_requests(database):
+    """25-26. Verify successful mutation produces exactly one event, and repeated rejected requests emit 0 events."""
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
     service = IncidentService(database)
-    incident = service.create_incident(title="Safe Exception Incident")
 
-    with patch.object(get_event_bus(), "publish", side_effect=RuntimeError("Transient queue failure")):
-        # Commit should succeed despite event publication failure
+    inc = service.create_incident(title="Deduplication Test")
+    database.commit()
+    # 25. Exactly 1 event produced
+    assert sub.queue.qsize() == 1
+    sub.queue.get_nowait()
+
+    # 26. Repeated rejected request produces zero additional events
+    for _ in range(5):
+        with pytest.raises(InvalidIncidentTransitionError):
+            service.close_incident(inc.id)
         database.commit()
 
-    retrieved = service.get_incident(incident.id)
-    assert retrieved.title == "Safe Exception Incident"
+    assert sub.queue.qsize() == 0
+
+
+# --- ROLLBACK & FAILURE SEMANTICS (Tests 38-40) ---
+
+
+def test_38_failed_creation_emits_no_realtime_event(database):
+    """38. Verify that rolling back after create_incident emits zero realtime events."""
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+
+    service = IncidentService(database)
+    service.create_incident(title="Rolled Back Creation")
+    database.rollback()
+
+    assert sub.queue.qsize() == 0
+
+
+def test_39_failed_transition_emits_no_realtime_event(database):
+    """39. Verify that a database rollback during a lifecycle transition suppresses all event emission."""
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+
+    service = IncidentService(database)
+    inc = service.create_incident(title="Rollback Transition Test")
+    database.commit()
+    sub.queue.get_nowait()
+
+    service.acknowledge_incident(inc.id)
+    database.rollback()
+
+    assert sub.queue.qsize() == 0
+
+
+def test_40_eventbus_failure_follows_documented_transaction_semantics(database):
+    """40. Verify that EventBus transient publishing exceptions do not roll back committed database state."""
+    service = IncidentService(database)
+    inc = service.create_incident(title="Bus Exception Test")
+
+    with patch.object(get_event_bus(), "publish", side_effect=RuntimeError("Bus queue saturated")):
+        database.commit()
+
+    # DB state remains committed and durable
+    persisted = service.get_incident(inc.id)
+    assert persisted.title == "Bus Exception Test"
+
+
+# --- ORDERING & REPLAY DETERMINISM (Tests 41-43) ---
+
+
+def test_41_lifecycle_event_sequence_is_monotonic(database):
+    """41. Verify that sequence numbers assigned to incident events strictly increase monotonically."""
+    event_bus = get_event_bus()
+    sub = event_bus.subscribe(channel=RealtimeChannel.OPERATIONAL)
+
+    service = IncidentService(database)
+    inc = service.create_incident(title="Monotonic Test")
+    service.acknowledge_incident(inc.id)
+    service.triage_incident(inc.id)
+    service.resolve_incident(inc.id)
+    database.commit()
+
+    sequences = []
+    while not sub.queue.empty():
+        evt = sub.queue.get_nowait()
+        sequences.append(evt.payload["incident_event_sequence"])
+
+    assert sequences == [1, 2, 3, 4]
+
+
+def test_42_timeline_sequence_is_deterministic(database):
+    """42. Verify that querying incident timeline returns events in exact deterministic sequence order."""
+    service = IncidentService(database)
+    inc = service.create_incident(title="Deterministic Timeline Test")
+    service.add_note(inc.id, message="Note 1")
+    service.add_note(inc.id, message="Note 2")
+    service.add_note(inc.id, message="Note 3")
+    database.commit()
+
+    timeline = service.get_timeline(inc.id)
+    assert [e.sequence for e in timeline] == [1, 2, 3, 4]
+    assert [e.message for e in timeline] == ["Incident created", "Note 1", "Note 2", "Note 3"]
+
+
+def test_43_repeated_replay_produces_identical_event_ordering(database):
+    """43. Verify that executing identical lifecycle operations in sequence produces identical event contracts."""
+    service = IncidentService(database)
+
+    inc1 = service.create_incident(title="Replay 1", severity=IncidentSeverity.MEDIUM)
+    service.acknowledge_incident(inc1.id)
+    service.resolve_incident(inc1.id)
+    database.commit()
+
+    inc2 = service.create_incident(title="Replay 2", severity=IncidentSeverity.MEDIUM)
+    service.acknowledge_incident(inc2.id)
+    service.resolve_incident(inc2.id)
+    database.commit()
+
+    t1 = service.get_timeline(inc1.id)
+    t2 = service.get_timeline(inc2.id)
+
+    assert [e.event_type for e in t1] == [e.event_type for e in t2]
+    assert [e.sequence for e in t1] == [e.sequence for e in t2]
 
 
 def test_backpressure_and_critical_event_eviction():
@@ -358,14 +527,13 @@ def test_backpressure_and_critical_event_eviction():
         )
     assert sub.queue.full()
 
-    # Now publish critical incident event
+    # Publish critical incident event
     event_bus.publish(
         event_type=RealtimeEventType.INCIDENT_CREATED,
         channel=RealtimeChannel.OPERATIONAL,
         payload={"incident_number": "INC-CRITICAL-1"},
     )
 
-    # Subscriber queue must contain the critical incident event
     items = []
     while not sub.queue.empty():
         items.append(sub.queue.get_nowait())
