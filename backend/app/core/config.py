@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     password_min_length: int = Field(default=12, ge=8, le=128)
     password_max_length: int = Field(default=128, ge=8, le=256)
 
+    # S3 / MinIO / S3-Compatible Cold Storage Configuration (IM3-A)
+    s3_endpoint_url: str | None = Field(default=None, validation_alias="AEROGUARD_S3_ENDPOINT")
+    s3_region: str = Field(default="us-east-1", validation_alias="AEROGUARD_S3_REGION")
+    s3_bucket: str = Field(default="aeroguard-archives", validation_alias="AEROGUARD_S3_BUCKET")
+    s3_access_key_id: str | None = Field(default=None, validation_alias="AEROGUARD_S3_ACCESS_KEY")
+    s3_secret_access_key: str | None = Field(default=None, validation_alias="AEROGUARD_S3_SECRET_KEY")
+    s3_sse_algorithm: str = Field(default="AES256", validation_alias="AEROGUARD_S3_SSE_ALGORITHM")
+    s3_sse_kms_key_id: str | None = Field(default=None, validation_alias="AEROGUARD_S3_SSE_KMS_KEY_ID")
+    retention_storage_provider: Literal["LOCAL", "S3"] = Field(default="LOCAL", validation_alias="AEROGUARD_RETENTION_STORAGE_PROVIDER")
+
     @field_validator("session_cookie_name")
     @classmethod
     def validate_cookie_name(cls, value: str) -> str:

@@ -90,5 +90,8 @@ class IncidentArchive(Base):
     )
     archived_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    storage_provider: Mapped[str] = mapped_column(String(32), nullable=False, default="LOCAL")
+    storage_location: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    presigned_url_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     incident = relationship("Incident", foreign_keys=[incident_id])
