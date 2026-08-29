@@ -85,6 +85,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       action: () => navigate('/app/threats'),
     },
     {
+      id: 'nav-incidents',
+      label: 'Go to Incident Management',
+      category: 'Navigation',
+      shortcut: 'g m',
+      icon: '📋',
+      action: () => navigate('/app/incidents'),
+    },
+    {
       id: 'nav-geofences',
       label: 'Go to Defense Zones Studio',
       category: 'Navigation',

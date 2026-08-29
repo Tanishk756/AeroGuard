@@ -50,6 +50,12 @@ export const AppSidebar: React.FC = () => {
       requiredPermission: 'threats.read',
     },
     {
+      path: '/app/incidents',
+      label: 'Incidents',
+      icon: '📋',
+      requiredPermission: 'incidents.read',
+    },
+    {
       path: '/app/geofences',
       label: 'Defense Zones',
       icon: '⛊',

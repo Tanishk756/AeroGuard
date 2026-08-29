@@ -14,3 +14,5 @@ export * from './audit';
 export * from './rbac';
 export * from './developer';
 export * from './desktop';
+export * from './intelligence';
+export * from './incidents';
