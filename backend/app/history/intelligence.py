@@ -107,7 +107,8 @@ class IntelligencePersistenceService:
         now: datetime | None = None,
     ) -> bool:
         """Enqueue a track group history record representing a group state or structural change."""
-        ts = normalize_timestamp(now or group.created_at or datetime.now(UTC))
+        group_ts = getattr(group, "updated_at", None) or getattr(group, "created_at", None)
+        ts = normalize_timestamp(now or group_ts or datetime.now(UTC))
 
         # Change detection signature: group_id + sorted members + state
         sorted_members = sorted(group.member_track_ids)

@@ -159,6 +159,40 @@ class IntelligencePipeline:
             elif prev_grp_id and prev_grp_id in self._last_group_members:
                 self._last_group_members.pop(prev_grp_id, None)
 
+            # Stage HI1: Record historical intelligence persistence
+            try:
+                from app.history.intelligence import get_intelligence_persistence
+
+                persistence = get_intelligence_persistence()
+                if group_changed and curr_grp:
+                    curr_fmt = self._store.get_formation(curr_grp.group_id)
+                    persistence.record_group_history(
+                        group=curr_grp,
+                        coordination_index=curr_fmt.synchronization_index if curr_fmt else None,
+                        formation_type=getattr(curr_fmt, "formation_type", None),
+                        now=now,
+                    )
+
+                if behavior_changed and curr_b:
+                    persistence.record_behavior_event(
+                        track_id=tid,
+                        new_state=curr_b.state.value,
+                        previous_state=prev_bstate,
+                        duration_seconds=curr_b.duration_seconds,
+                        confidence=curr_b.confidence,
+                        reasons=curr_b.contributing_factors or [curr_b.reason],
+                        now=now,
+                    )
+
+                if priority_changed or behavior_changed or group_changed:
+                    persistence.record_summary_snapshot(
+                        summary=self._store.get_summary_snapshot(),
+                        force=False,
+                        now=now,
+                    )
+            except Exception as persist_err:
+                logger.debug(f"[IntelligencePipeline] Non-blocking persistence enqueue skipped: {persist_err}")
+
             if publish_events:
                 bus = get_event_bus()
 
@@ -216,6 +250,18 @@ class IntelligencePipeline:
                 self._last_priority_scores.pop(tid, None)
                 self._last_priority_levels.pop(tid, None)
                 self._last_behavior_states.pop(tid, None)
+
+                # Stage HI1: Record historical summary snapshot on track removal
+                try:
+                    from app.history.intelligence import get_intelligence_persistence
+
+                    get_intelligence_persistence().record_summary_snapshot(
+                        summary=self._store.get_summary_snapshot(),
+                        force=False,
+                        now=now,
+                    )
+                except Exception as persist_err:
+                    logger.debug(f"[IntelligencePipeline] Removal persistence enqueue skipped: {persist_err}")
 
                 if publish_events:
                     bus = get_event_bus()
@@ -307,6 +353,13 @@ class IntelligencePipeline:
             self._last_priority_levels.clear()
             self._last_behavior_states.clear()
             self._last_group_members.clear()
+
+            try:
+                from app.history.intelligence import get_intelligence_persistence
+
+                get_intelligence_persistence().clear()
+            except Exception:
+                pass
 
 
 # Global pipeline singleton

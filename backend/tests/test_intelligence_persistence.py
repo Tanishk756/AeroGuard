@@ -201,3 +201,55 @@ def test_persistence_service_db_failure_isolation():
     result = service.flush(db=MockFailingSession())
     assert result == 0
     assert service.dropped_count == 1
+
+
+def test_pipeline_integrates_with_persistence_service(database: Session):
+    from ai.correlation.grouping import TrackObservation
+    from ai.incremental.pipeline import get_intelligence_pipeline, reset_intelligence_pipeline
+
+    reset_intelligence_pipeline()
+    pipeline = get_intelligence_pipeline()
+    persistence = get_intelligence_persistence()
+
+    now = datetime(2026, 8, 29, 12, 0, 0, tzinfo=UTC)
+
+    # 1. Update track 1
+    t1 = TrackObservation(
+        id="TRK-100",
+        latitude=37.7749,
+        longitude=-122.4194,
+        altitude=120.0,
+        velocity=18.0,
+        heading=45.0,
+        confidence=0.95,
+        timestamp=now,
+    )
+    pipeline.process_track_update(t1, instantaneous_anomaly_score=15.0, publish_events=True, now=now)
+
+    # 2. Update track 2 close to track 1 -> triggers group creation
+    t2 = TrackObservation(
+        id="TRK-101",
+        latitude=37.7752,
+        longitude=-122.4190,
+        altitude=120.0,
+        velocity=18.2,
+        heading=45.5,
+        confidence=0.95,
+        timestamp=now,
+    )
+    pipeline.process_track_update(t2, instantaneous_anomaly_score=15.0, publish_events=True, now=now)
+
+    # Verify records enqueued in persistence
+    assert not persistence.queue.empty()
+    committed = persistence.flush(db=database)
+    assert committed >= 2
+
+    # Verify tables populated
+    snapshots = list(database.scalars(select(IntelligenceSnapshot)).all())
+    assert len(snapshots) >= 1
+    groups = list(database.scalars(select(TrackGroupHistory)).all())
+    assert len(groups) >= 1
+    assert "TRK-100" in groups[0].member_track_ids
+    assert "TRK-101" in groups[0].member_track_ids
+
+    reset_intelligence_pipeline()
