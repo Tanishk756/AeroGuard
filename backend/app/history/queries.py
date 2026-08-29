@@ -1,7 +1,7 @@
 """Bounded historical queries over operational truth tables."""
 
-from datetime import UTC, datetime
-from typing import Sequence
+from datetime import UTC, datetime, timedelta
+from typing import Any, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -226,3 +226,63 @@ def query_historical_threats(
         ).all()
     )
     return items, total_count
+
+
+def get_intelligence_snapshot_at(
+    db: Session,
+    as_of_time: datetime,
+    max_age_seconds: float = 60.0,
+) -> tuple[dict | None, datetime | None]:
+    """Retrieve the closest historical intelligence snapshot JSON at or before as_of_time."""
+    from app.models.intelligence_history import IntelligenceSnapshot
+
+    norm_time = normalize_timestamp(as_of_time)
+    if norm_time is None:
+        return None, None
+
+    min_time = norm_time - timedelta(seconds=max_age_seconds)
+    statement = (
+        select(IntelligenceSnapshot)
+        .where(
+            IntelligenceSnapshot.timestamp <= norm_time,
+            IntelligenceSnapshot.timestamp >= min_time,
+        )
+        .order_by(IntelligenceSnapshot.timestamp.desc(), IntelligenceSnapshot.created_at.desc())
+        .limit(1)
+    )
+    row = db.scalar(statement)
+    if row is None:
+        return None, None
+    return row.summary_json, row.timestamp
+
+
+def query_historical_groups_at(
+    db: Session,
+    as_of_time: datetime,
+    max_age_seconds: float = 30.0,
+) -> list[Any]:
+    """Retrieve the latest known group states at or before as_of_time within a lookback window."""
+    from app.models.intelligence_history import TrackGroupHistory
+
+    norm_time = normalize_timestamp(as_of_time)
+    if norm_time is None:
+        return []
+
+    min_time = norm_time - timedelta(seconds=max_age_seconds)
+    statement = (
+        select(TrackGroupHistory)
+        .where(
+            TrackGroupHistory.timestamp <= norm_time,
+            TrackGroupHistory.timestamp >= min_time,
+        )
+        .order_by(TrackGroupHistory.group_id.asc(), TrackGroupHistory.timestamp.desc())
+    )
+    all_rows = list(db.scalars(statement).all())
+    # Deduplicate by group_id preserving the latest timestamp per group
+    seen_groups: set[str] = set()
+    latest_groups = []
+    for r in all_rows:
+        if r.group_id not in seen_groups:
+            seen_groups.add(r.group_id)
+            latest_groups.append(r)
+    return latest_groups

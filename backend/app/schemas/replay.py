@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, FiniteFloat
 
+from ai.schemas import MultiTrackIntelligenceSummary, TrackGroup
 from app.models.track import TrackState
 from app.schemas.history import (
     HistoricalAlertItem,
@@ -18,6 +19,7 @@ class ReplayFilter(BaseModel):
     sensor_ids: list[str] = Field(default_factory=list)
     classifications: list[str] = Field(default_factory=list)
     event_types: list[str] = Field(default_factory=list)
+    include_intelligence: bool = Field(default=True)
 
 
 class ReplayRequest(BaseModel):
@@ -48,6 +50,8 @@ class ReplaySnapshot(BaseModel):
     recent_detections: list[HistoricalDetectionItem] = Field(default_factory=list)
     active_alerts: list[HistoricalAlertItem] = Field(default_factory=list)
     active_threats: list[HistoricalThreatItem] = Field(default_factory=list)
+    intelligence: MultiTrackIntelligenceSummary | None = None
+    group_hulls: list[TrackGroup] = Field(default_factory=list)
     metrics: dict[str, Any] = Field(default_factory=dict)
 
 

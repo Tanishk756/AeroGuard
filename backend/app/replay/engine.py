@@ -189,11 +189,60 @@ class ReplayEngine:
                 for th in threats_orm
             ]
 
+        # 5. Historical Defensive Intelligence (Stage HI1)
+        intel_summary = None
+        group_hulls = []
+
+        if getattr(self.filters, "include_intelligence", True):
+            from ai.schemas import MultiTrackIntelligenceSummary, TrackGroup
+            from app.history.queries import get_intelligence_snapshot_at, query_historical_groups_at
+
+            lookback = max(60.0, float(self.config.step_interval_seconds) * 3.0)
+            summary_dict, _ = get_intelligence_snapshot_at(self.db, norm_time, max_age_seconds=lookback)
+
+            if summary_dict is not None:
+                try:
+                    intel_summary = MultiTrackIntelligenceSummary.model_validate(summary_dict)
+                    # Filter intelligence if specific tracks are requested
+                    if self.filters.track_ids:
+                        req_tids = set(self.filters.track_ids)
+                        intel_summary.groups = [g for g in intel_summary.groups if any(mid in req_tids for mid in g.member_track_ids)]
+                        intel_summary.formations = [f for f in intel_summary.formations if any(mid in req_tids for mid in f.member_track_ids)]
+                        intel_summary.behaviors = [b for b in intel_summary.behaviors if b.track_id in req_tids]
+                        intel_summary.priorities = [p for p in intel_summary.priorities if p.track_id in req_tids]
+
+                    group_hulls = list(intel_summary.groups)
+                except Exception:
+                    intel_summary = None
+
+            # Fallback: if no full snapshot, attempt to retrieve latest group states
+            if intel_summary is None:
+                grp_rows = query_historical_groups_at(self.db, norm_time, max_age_seconds=lookback)
+                for gr in grp_rows:
+                    if self.filters.track_ids and not any(mid in self.filters.track_ids for mid in gr.member_track_ids):
+                        continue
+                    try:
+                        g_obj = TrackGroup(
+                            group_id=gr.group_id,
+                            member_track_ids=gr.member_track_ids,
+                            centroid_lat=gr.centroid_lat,
+                            centroid_lon=gr.centroid_lon,
+                            radius_meters=gr.radius_meters,
+                            member_count=gr.member_count,
+                            behavioral_state=gr.behavioral_state,
+                            updated_at=gr.timestamp.replace(tzinfo=UTC),
+                        )
+                        group_hulls.append(g_obj)
+                    except Exception:
+                        pass
+
         metrics = {
             "active_tracks_count": len(active_tracks),
             "recent_detections_count": len(recent_detections),
             "active_alerts_count": len(active_alerts),
             "active_threats_count": len(active_threats),
+            "groups_count": len(group_hulls),
+            "formations_count": len(intel_summary.formations) if intel_summary else 0,
         }
 
         return ReplaySnapshot(
@@ -204,5 +253,7 @@ class ReplayEngine:
             recent_detections=recent_detections,
             active_alerts=active_alerts,
             active_threats=active_threats,
+            intelligence=intel_summary,
+            group_hulls=group_hulls,
             metrics=metrics,
         )
