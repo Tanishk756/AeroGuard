@@ -1,19 +1,21 @@
 /**
- * AeroGuard Operator Console — Stage IM2-D Incident Retention & Archival Governance Console
+ * AeroGuard Operator Console — Stage IM3-C Incident Retention, Archival & Presigned Download Governance Console
  */
 
 import React, { useEffect, useState } from 'react';
 import {
   ArchiveIncidentsResponse,
+  PresignedArchiveDownloadResponse,
   PurgeIncidentsResponse,
   RetentionEvaluationResponse,
-  RetentionHoldResponse,
   RetentionPolicyResponse,
+  StorageHealthResponse,
 } from '../../types/incident';
 
 export function IncidentRetentionGovernance() {
   const [policy, setPolicy] = useState<RetentionPolicyResponse | null>(null);
   const [evaluation, setEvaluation] = useState<RetentionEvaluationResponse | null>(null);
+  const [storageHealth, setStorageHealth] = useState<StorageHealthResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState<boolean>(false);
@@ -24,13 +26,19 @@ export function IncidentRetentionGovernance() {
   const [holdReason, setHoldReason] = useState<string>('');
   const [targetIncidentId, setTargetIncidentId] = useState<string>('');
 
+  // Presigned Download State
+  const [downloadingArchiveId, setDownloadingArchiveId] = useState<string | null>(null);
+  const [activePresignedUrl, setActivePresignedUrl] = useState<PresignedArchiveDownloadResponse | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [resPol, resEval] = await Promise.all([
+      const [resPol, resEval, resHealth] = await Promise.all([
         fetch('/api/v1/incidents/retention/policy'),
         fetch('/api/v1/incidents/retention/evaluate?dry_run=true'),
+        fetch('/api/v1/incidents/retention/storage/health'),
       ]);
 
       if (!resPol.ok || !resEval.ok) {
@@ -39,9 +47,11 @@ export function IncidentRetentionGovernance() {
 
       const polData: RetentionPolicyResponse = await resPol.json();
       const evalData: RetentionEvaluationResponse = await resEval.json();
+      const healthData: StorageHealthResponse = resHealth.ok ? await resHealth.json() : null;
 
       setPolicy(polData);
       setEvaluation(evalData);
+      setStorageHealth(healthData);
     } catch (err: any) {
       setError(err.message || 'Error fetching retention configuration');
     } finally {
@@ -112,6 +122,33 @@ export function IncidentRetentionGovernance() {
     }
   };
 
+  const handleRequestPresignedDownload = async (archiveId: string) => {
+    setDownloadingArchiveId(archiveId);
+    setDownloadError(null);
+    setActivePresignedUrl(null);
+    try {
+      const res = await fetch(`/api/v1/incidents/retention/archives/${archiveId}/download-url?expires_in_seconds=300`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || 'Failed to generate S3 presigned download URL');
+      }
+      const data: PresignedArchiveDownloadResponse = await res.json();
+      setActivePresignedUrl(data);
+
+      // Trigger direct browser download from presigned URL
+      const link = document.createElement('a');
+      link.href = data.url;
+      link.download = `${data.archive_number}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      setDownloadError(err.message || 'Download request failed');
+    } finally {
+      setDownloadingArchiveId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="font-mono text-xs text-muted" style={{ padding: '24px', textAlign: 'center' }}>
@@ -126,10 +163,10 @@ export function IncidentRetentionGovernance() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-medium, #334155)', paddingBottom: '12px' }}>
         <div>
           <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-            Incident Retention & Archival Governance
+            Incident Retention & Cold Storage Governance
           </h2>
           <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-            Data Lifecycle, Cold Storage Archival, Compliance Holds & Controlled Purge
+            Multi-Provider Storage Router, Presigned S3 Downloads & Retention Rules
           </span>
         </div>
         <button
@@ -149,9 +186,43 @@ export function IncidentRetentionGovernance() {
         </button>
       </div>
 
+      {/* Storage Health Telemetry Banner */}
+      {storageHealth && (
+        <div style={{ padding: '12px 16px', backgroundColor: '#0f172a', border: `1px solid ${storageHealth.status === 'HEALTHY' ? '#059669' : '#dc2626'}`, borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block' }}>COLD STORAGE PROVIDER HEALTH STATUS</span>
+            <strong style={{ fontSize: '14px', color: storageHealth.status === 'HEALTHY' ? '#34d399' : '#f87171' }}>
+              PROVIDER: {storageHealth.provider} ({storageHealth.status})
+            </strong>
+          </div>
+          <div style={{ fontSize: '11px', color: '#cbd5e1', textAlign: 'right' }}>
+            {storageHealth.provider === 'S3' ? (
+              <>
+                <div>Bucket: {storageHealth.bucket_name}</div>
+                <div>Region: {storageHealth.region}</div>
+              </>
+            ) : (
+              <div>Location: {storageHealth.location}</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {error && (
         <div style={{ padding: '10px 14px', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', borderRadius: '4px', fontSize: '12px' }}>
           ⚠ {error}
+        </div>
+      )}
+
+      {downloadError && (
+        <div style={{ padding: '10px 14px', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', borderRadius: '4px', fontSize: '12px' }}>
+          ⚠ Download Error: {downloadError}. Request a new download link.
+        </div>
+      )}
+
+      {activePresignedUrl && (
+        <div style={{ padding: '10px 14px', backgroundColor: 'rgba(59, 130, 246, 0.15)', border: '1px solid #3b82f6', color: '#93c5fd', borderRadius: '4px', fontSize: '12px' }}>
+          ✓ Secure download URL issued for {activePresignedUrl.archive_number}. Link expires in {Math.round(activePresignedUrl.expires_in_seconds / 60)} minutes.
         </div>
       )}
 
@@ -257,15 +328,52 @@ export function IncidentRetentionGovernance() {
         </button>
       </div>
 
-      {archiveResult && (
-        <div style={{ padding: '10px 14px', backgroundColor: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#86efac', borderRadius: '4px', fontSize: '12px' }}>
-          ✓ {archiveResult.message}
-        </div>
-      )}
-
-      {purgeResult && (
-        <div style={{ padding: '10px 14px', backgroundColor: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#86efac', borderRadius: '4px', fontSize: '12px' }}>
-          ✓ {purgeResult.message}
+      {/* Archive Records List & Download Triggers */}
+      {archiveResult && archiveResult.archives.length > 0 && (
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '6px', padding: '16px' }}>
+          <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', marginTop: 0, marginBottom: '12px' }}>
+            ARCHIVED INCIDENT PACKAGES ({archiveResult.archives.length})
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {archiveResult.archives.map((arc) => {
+              const isS3 = (arc.storage_provider || 'LOCAL').toUpperCase() === 'S3';
+              const isPending = downloadingArchiveId === arc.id;
+              return (
+                <div key={arc.id} style={{ padding: '10px 12px', backgroundColor: '#1e293b', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                  <div>
+                    <strong style={{ color: '#f8fafc', marginRight: '8px' }}>{arc.archive_number}</strong>
+                    <span style={{ color: '#94a3b8', marginRight: '8px' }}>({arc.archive_format})</span>
+                    <span style={{ color: '#64748b' }}>SHA-256: {arc.sha256_checksum.substring(0, 16)}…</span>
+                  </div>
+                  <div>
+                    {isS3 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRequestPresignedDownload(arc.id)}
+                        disabled={isPending}
+                        style={{
+                          padding: '4px 10px',
+                          backgroundColor: '#0284c7',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: isPending ? 'not-allowed' : 'pointer',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {isPending ? 'Requesting URL…' : '⬇️ Download (S3 Presigned)'}
+                      </button>
+                    ) : (
+                      <span style={{ padding: '4px 8px', backgroundColor: '#334155', color: '#94a3b8', borderRadius: '4px', fontSize: '10px' }}>
+                        Direct Cloud Download Unavailable (LOCAL Provider)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

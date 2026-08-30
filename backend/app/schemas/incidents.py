@@ -386,6 +386,8 @@ class ArchiveRecordMetadata(BaseModel):
     sha256_checksum: str
     file_size_bytes: int
     archive_format: str
+    storage_provider: str = "LOCAL"
+    storage_location: str | None = None
     archived_at: datetime
     archived_by: str
     verified_at: datetime | None = None
@@ -395,6 +397,15 @@ class ArchiveIncidentsResponse(BaseModel):
     message: str
     archived_count: int
     archives: list[ArchiveRecordMetadata] = Field(default_factory=list)
+
+
+class PresignedArchiveDownloadResponse(BaseModel):
+    url: str
+    expires_at: datetime
+    expires_in_seconds: int
+    archive_id: str
+    archive_number: str
+    storage_provider: str
 
 
 class PurgeIncidentsRequest(BaseModel):

@@ -22,7 +22,9 @@ import {
   IncidentFilterParams,
   IncidentListResponse,
   LogDefensiveActionRequest,
+  PresignedArchiveDownloadResponse,
   ResolveIncidentRequest,
+  StorageHealthResponse,
   TriageIncidentRequest,
 } from '../types';
 import { request } from './client';
@@ -173,5 +175,21 @@ export async function getIncidentExportHistory(
   return request<IncidentExportMetadata[]>('incidents/export', {
     method: 'GET',
     params: params as Record<string, string | number | boolean | undefined | null>,
+  });
+}
+
+export async function getIncidentArchiveDownloadUrl(
+  archiveId: string,
+  expiresInSeconds: number = 300
+): Promise<PresignedArchiveDownloadResponse> {
+  return request<PresignedArchiveDownloadResponse>(`incidents/retention/archives/${archiveId}/download-url`, {
+    method: 'GET',
+    params: { expires_in_seconds: expiresInSeconds },
+  });
+}
+
+export async function getIncidentStorageHealth(): Promise<StorageHealthResponse> {
+  return request<StorageHealthResponse>('incidents/retention/storage/health', {
+    method: 'GET',
   });
 }

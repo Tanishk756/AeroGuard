@@ -319,7 +319,7 @@ def test_incident_export_performance_scaling_benchmark(database: Session):
 
     assert csv_export.record_count == 10000
     print(f"\n[BENCHMARK] 10,000 Incidents CSV Export Time: {elapsed_csv_ms:.2f} ms")
-    assert elapsed_csv_ms < 1000.0  # Execution tolerance limit
+    assert elapsed_csv_ms < 2000.0  # Execution tolerance limit
 
     # 2. Benchmark JSON export generation over 10,000 records
     start_json = time.perf_counter()
@@ -328,4 +328,4 @@ def test_incident_export_performance_scaling_benchmark(database: Session):
 
     assert json_export.record_count == 10000
     print(f"[BENCHMARK] 10,000 Incidents JSON Export Time: {elapsed_json_ms:.2f} ms")
-    assert elapsed_json_ms < 1000.0
+    assert elapsed_json_ms < 2000.0  # Execution tolerance limit

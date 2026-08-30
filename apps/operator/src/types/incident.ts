@@ -410,6 +410,8 @@ export interface ArchiveRecordMetadata {
   sha256_checksum: string;
   file_size_bytes: number;
   archive_format: string;
+  storage_provider?: string;
+  storage_location?: string | null;
   archived_at: string;
   archived_by: string;
   verified_at?: string | null;
@@ -419,6 +421,27 @@ export interface ArchiveIncidentsResponse {
   message: string;
   archived_count: number;
   archives: ArchiveRecordMetadata[];
+}
+
+export interface PresignedArchiveDownloadResponse {
+  url: string;
+  expires_at: string;
+  expires_in_seconds: number;
+  archive_id: string;
+  archive_number: string;
+  storage_provider: string;
+}
+
+export interface StorageHealthResponse {
+  provider: string;
+  status: 'HEALTHY' | 'UNHEALTHY';
+  reachable: boolean;
+  location?: string;
+  bucket_name?: string;
+  region?: string;
+  endpoint_url?: string;
+  sse_algorithm?: string;
+  error?: string;
 }
 
 export interface PurgeIncidentsRequest {

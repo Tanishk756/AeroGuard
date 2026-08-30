@@ -1,8 +1,9 @@
 """Incident management REST API endpoints and RBAC enforcement."""
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -13,6 +14,7 @@ from app.models.incident import (
     IncidentStatus,
     InvalidIncidentTransitionError,
 )
+from app.models.incident_retention import IncidentArchive
 from app.models.user import User
 from app.schemas.incidents import (
     AcknowledgeIncidentRequest,
@@ -33,6 +35,7 @@ from app.schemas.incidents import (
     IncidentResponse,
     IncidentTimelineResponse,
     LogDefensiveActionRequest,
+    PresignedArchiveDownloadResponse,
     PurgeIncidentsRequest,
     PurgeIncidentsResponse,
     ResolveIncidentRequest,
@@ -43,12 +46,13 @@ from app.schemas.incidents import (
     RetentionPolicyUpdateRequest,
     TriageIncidentRequest,
 )
+from app.services.archive_store_factory import get_archive_store, get_archive_store_health
+from app.services.audit import AuditService
 from app.services.incident import (
     IncidentNotFoundError,
     IncidentService,
     InvalidIncidentActionError,
 )
-from app.services.archive_store_factory import get_archive_store_health
 from app.services.incident_analytics import IncidentAnalyticsService
 from app.services.incident_export import IncidentExportService
 from app.services.incident_retention import IncidentRetentionService
@@ -284,6 +288,60 @@ def archive_incidents(
     """Explicitly archive eligible incident records to cold storage."""
     service = IncidentRetentionService(db)
     return service.archive_incidents(actor.id, payload)
+
+
+@router.get("/retention/archives/{archive_id}/download-url", response_model=PresignedArchiveDownloadResponse)
+def get_archive_download_url(
+    archive_id: str,
+    expires_in_seconds: int = Query(300, ge=60, le=900, description="Expiration TTL in seconds (60s - 900s)"),
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Generate a short-lived presigned S3 download URL for an authorized incident archive."""
+    archive = db.scalar(select(IncidentArchive).where(IncidentArchive.id == archive_id))
+    if not archive:
+        raise HTTPException(status_code=404, detail="Incident archive record not found")
+
+    provider = (archive.storage_provider or "LOCAL").upper()
+    if provider != "S3":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Presigned download URLs are only available for S3-backed archives. Current storage provider is {provider}.",
+        )
+
+    store = get_archive_store("S3")
+    try:
+        url = store.generate_presigned_url(archive.archive_number, expires_in_seconds=expires_in_seconds)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to generate S3 presigned URL: {exc}") from exc
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    expires_at = now + timedelta(seconds=expires_in_seconds)
+    archive.presigned_url_expires_at = expires_at
+    db.commit()
+
+    AuditService(db).record_event(
+        event_type="INCIDENT_ARCHIVE_DOWNLOAD_URL_ISSUED",
+        action="GENERATE_DOWNLOAD_URL",
+        result="SUCCESS",
+        actor_user_id=actor.id,
+        target_type="incident_archive",
+        target_id=archive.id,
+        metadata={
+            "archive_number": archive.archive_number,
+            "storage_provider": provider,
+            "expires_in_seconds": expires_in_seconds,
+        },
+    )
+
+    return PresignedArchiveDownloadResponse(
+        url=url,
+        expires_at=expires_at,
+        expires_in_seconds=expires_in_seconds,
+        archive_id=archive.id,
+        archive_number=archive.archive_number,
+        storage_provider=provider,
+    )
 
 
 @router.post("/retention/purge", response_model=PurgeIncidentsResponse)
