@@ -444,6 +444,49 @@ export interface StorageHealthResponse {
   error?: string;
 }
 
+export type IntegrityStatusType =
+  | 'HEALTHY'
+  | 'OBJECT_MISSING'
+  | 'CHECKSUM_MISMATCH'
+  | 'METADATA_MISMATCH'
+  | 'ORPHAN_OBJECT'
+  | 'STORAGE_UNAVAILABLE'
+  | 'INVALID_ARCHIVE_METADATA';
+
+export interface IntegrityCheckResponse {
+  id: string;
+  archive_id?: string | null;
+  archive_number: string;
+  incident_id?: string | null;
+  storage_provider: string;
+  storage_location?: string | null;
+  status: IntegrityStatusType;
+  expected_checksum?: string | null;
+  observed_checksum?: string | null;
+  expected_size_bytes?: number | null;
+  observed_size_bytes?: number | null;
+  duration_ms: number;
+  error_code?: string | null;
+  error_message?: string | null;
+  checked_at: string;
+}
+
+export interface IntegritySummaryResponse {
+  total_checks: number;
+  healthy_count: number;
+  missing_count: number;
+  mismatch_count: number;
+  orphan_count: number;
+  unavailable_count: number;
+  last_checked_at?: string | null;
+}
+
+export interface IntegrityVerificationBatchResponse {
+  message: string;
+  verified_count: number;
+  checks: IntegrityCheckResponse[];
+}
+
 export interface PurgeIncidentsRequest {
   incident_ids?: string[];
   batch_all_eligible?: boolean;

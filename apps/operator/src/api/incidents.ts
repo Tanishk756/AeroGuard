@@ -21,6 +21,9 @@ import {
   IncidentExportResponse,
   IncidentFilterParams,
   IncidentListResponse,
+  IntegrityCheckResponse,
+  IntegritySummaryResponse,
+  IntegrityVerificationBatchResponse,
   LogDefensiveActionRequest,
   PresignedArchiveDownloadResponse,
   ResolveIncidentRequest,
@@ -191,5 +194,39 @@ export async function getIncidentArchiveDownloadUrl(
 export async function getIncidentStorageHealth(): Promise<StorageHealthResponse> {
   return request<StorageHealthResponse>('incidents/retention/storage/health', {
     method: 'GET',
+  });
+}
+
+export async function getIntegritySummary(): Promise<IntegritySummaryResponse> {
+  return request<IntegritySummaryResponse>('incidents/retention/integrity/summary', {
+    method: 'GET',
+  });
+}
+
+export async function getIntegrityChecks(params?: {
+  status?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<IntegrityCheckResponse[]> {
+  return request<IntegrityCheckResponse[]>('incidents/retention/integrity', {
+    method: 'GET',
+    params: params as Record<string, string | number | boolean | undefined | null>,
+  });
+}
+
+export async function triggerBatchIntegrityCheck(
+  limit: number = 100
+): Promise<IntegrityVerificationBatchResponse> {
+  return request<IntegrityVerificationBatchResponse>('incidents/retention/integrity/check', {
+    method: 'POST',
+    params: { limit },
+  });
+}
+
+export async function verifySingleArchiveIntegrity(
+  archiveId: string
+): Promise<IntegrityCheckResponse> {
+  return request<IntegrityCheckResponse>(`incidents/retention/archives/${archiveId}/verify`, {
+    method: 'POST',
   });
 }

@@ -408,6 +408,42 @@ class PresignedArchiveDownloadResponse(BaseModel):
     storage_provider: str
 
 
+class IntegrityCheckResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    archive_id: str | None = None
+    archive_number: str
+    incident_id: str | None = None
+    storage_provider: str = "LOCAL"
+    storage_location: str | None = None
+    status: str
+    expected_checksum: str | None = None
+    observed_checksum: str | None = None
+    expected_size_bytes: int | None = None
+    observed_size_bytes: int | None = None
+    duration_ms: float = 0.0
+    error_code: str | None = None
+    error_message: str | None = None
+    checked_at: datetime
+
+
+class IntegritySummaryResponse(BaseModel):
+    total_checks: int = 0
+    healthy_count: int = 0
+    missing_count: int = 0
+    mismatch_count: int = 0
+    orphan_count: int = 0
+    unavailable_count: int = 0
+    last_checked_at: datetime | None = None
+
+
+class IntegrityVerificationBatchResponse(BaseModel):
+    message: str
+    verified_count: int
+    checks: list[IntegrityCheckResponse] = Field(default_factory=list)
+
+
 class PurgeIncidentsRequest(BaseModel):
     incident_ids: list[str] | None = Field(default=None, description="Specific incident IDs to purge")
     batch_all_eligible: bool = Field(default=False, description="Purge all eligible incidents matching policy")

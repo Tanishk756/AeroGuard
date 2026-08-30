@@ -1,10 +1,13 @@
 /**
- * AeroGuard Operator Console — Stage IM3-C Incident Retention, Archival & Presigned Download Governance Console
+ * AeroGuard Operator Console — Stage IM3-D Incident Retention, Archival & Cold Storage Integrity Governance Console
  */
 
 import React, { useEffect, useState } from 'react';
 import {
   ArchiveIncidentsResponse,
+  IntegrityCheckResponse,
+  IntegritySummaryResponse,
+  IntegrityVerificationBatchResponse,
   PresignedArchiveDownloadResponse,
   PurgeIncidentsResponse,
   RetentionEvaluationResponse,
@@ -16,12 +19,16 @@ export function IncidentRetentionGovernance() {
   const [policy, setPolicy] = useState<RetentionPolicyResponse | null>(null);
   const [evaluation, setEvaluation] = useState<RetentionEvaluationResponse | null>(null);
   const [storageHealth, setStorageHealth] = useState<StorageHealthResponse | null>(null);
+  const [integritySummary, setIntegritySummary] = useState<IntegritySummaryResponse | null>(null);
+  const [integrityChecks, setIntegrityChecks] = useState<IntegrityCheckResponse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isArchiving, setIsArchiving] = useState<boolean>(false);
   const [archiveResult, setArchiveResult] = useState<ArchiveIncidentsResponse | null>(null);
   const [isPurging, setIsPurging] = useState<boolean>(false);
   const [purgeResult, setPurgeResult] = useState<PurgeIncidentsResponse | null>(null);
+  const [isVerifyingIntegrity, setIsVerifyingIntegrity] = useState<boolean>(false);
+  const [integrityBatchResult, setIntegrityBatchResult] = useState<IntegrityVerificationBatchResponse | null>(null);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState<boolean>(false);
   const [holdReason, setHoldReason] = useState<string>('');
   const [targetIncidentId, setTargetIncidentId] = useState<string>('');
@@ -35,10 +42,12 @@ export function IncidentRetentionGovernance() {
     setIsLoading(true);
     setError(null);
     try {
-      const [resPol, resEval, resHealth] = await Promise.all([
+      const [resPol, resEval, resHealth, resIntSummary, resIntChecks] = await Promise.all([
         fetch('/api/v1/incidents/retention/policy'),
         fetch('/api/v1/incidents/retention/evaluate?dry_run=true'),
         fetch('/api/v1/incidents/retention/storage/health'),
+        fetch('/api/v1/incidents/retention/integrity/summary'),
+        fetch('/api/v1/incidents/retention/integrity?limit=50'),
       ]);
 
       if (!resPol.ok || !resEval.ok) {
@@ -48,10 +57,14 @@ export function IncidentRetentionGovernance() {
       const polData: RetentionPolicyResponse = await resPol.json();
       const evalData: RetentionEvaluationResponse = await resEval.json();
       const healthData: StorageHealthResponse = resHealth.ok ? await resHealth.json() : null;
+      const intSummaryData: IntegritySummaryResponse = resIntSummary.ok ? await resIntSummary.json() : null;
+      const intChecksData: IntegrityCheckResponse[] = resIntChecks.ok ? await resIntChecks.json() : [];
 
       setPolicy(polData);
       setEvaluation(evalData);
       setStorageHealth(healthData);
+      setIntegritySummary(intSummaryData);
+      setIntegrityChecks(intChecksData);
     } catch (err: any) {
       setError(err.message || 'Error fetching retention configuration');
     } finally {
@@ -104,6 +117,24 @@ export function IncidentRetentionGovernance() {
     }
   };
 
+  const handleRunIntegrityCheck = async () => {
+    setIsVerifyingIntegrity(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/v1/incidents/retention/integrity/check?limit=100', {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Integrity verification execution failed');
+      const data: IntegrityVerificationBatchResponse = await res.json();
+      setIntegrityBatchResult(data);
+      await fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Integrity check failed');
+    } finally {
+      setIsVerifyingIntegrity(false);
+    }
+  };
+
   const handlePlaceHold = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetIncidentId || !holdReason) return;
@@ -135,7 +166,6 @@ export function IncidentRetentionGovernance() {
       const data: PresignedArchiveDownloadResponse = await res.json();
       setActivePresignedUrl(data);
 
-      // Trigger direct browser download from presigned URL
       const link = document.createElement('a');
       link.href = data.url;
       link.download = `${data.archive_number}.json`;
@@ -163,10 +193,10 @@ export function IncidentRetentionGovernance() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-medium, #334155)', paddingBottom: '12px' }}>
         <div>
           <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-            Incident Retention & Cold Storage Governance
+            Incident Retention, Archival & Cold Storage Integrity
           </h2>
           <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-            Multi-Provider Storage Router, Presigned S3 Downloads & Retention Rules
+            Multi-Provider Storage Router, Presigned S3 Downloads & Cloud Integrity Reconciliation
           </span>
         </div>
         <button
@@ -226,64 +256,38 @@ export function IncidentRetentionGovernance() {
         </div>
       )}
 
-      {/* Policy Configuration Grid */}
-      {policy && (
-        <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '6px', padding: '16px' }}>
-          <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#60a5fa', marginBottom: '12px', marginTop: 0 }}>
-            ACTIVE RETENTION POLICY: {policy.policy_name}
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', fontSize: '12px' }}>
-            <div>
-              <span className="text-muted">Incident Retention:</span> <strong style={{ color: '#f8fafc' }}>{policy.incident_retention_days} days</strong>
-            </div>
-            <div>
-              <span className="text-muted">Minimum Archive Age:</span> <strong style={{ color: '#f8fafc' }}>{policy.minimum_archive_age_days} days</strong>
-            </div>
-            <div>
-              <span className="text-muted">Minimum Purge Age:</span> <strong style={{ color: '#f8fafc' }}>{policy.minimum_purge_age_days} days</strong>
-            </div>
-            <div>
-              <span className="text-muted">Require Archive Before Purge:</span>{' '}
-              <strong style={{ color: policy.require_archive_before_purge ? '#4ade80' : '#f87171' }}>
-                {policy.require_archive_before_purge ? 'YES' : 'NO'}
-              </strong>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Evaluation Dashboard Summary */}
-      {evaluation && (
+      {/* Cold Storage Integrity Summary Dashboard */}
+      {integritySummary && (
         <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '6px', padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', margin: 0 }}>
-              DRY-RUN EVALUATION METRICS (ZERO MUTATIONS)
+            <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#34d399', margin: 0 }}>
+              🛡️ COLD STORAGE ARCHIVE INTEGRITY SUMMARY
             </h3>
             <span style={{ fontSize: '10px', color: '#64748b' }}>
-              Evaluated at: {new Date(evaluation.evaluated_at).toLocaleString()}
+              Last Verified: {integritySummary.last_checked_at ? new Date(integritySummary.last_checked_at).toLocaleString() : 'Never'}
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', textAlign: 'center' }}>
-            <div style={{ backgroundColor: '#1e293b', padding: '12px', borderRadius: '4px' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#f8fafc' }}>{evaluation.total_evaluated}</div>
-              <div style={{ fontSize: '10px', color: '#94a3b8' }}>TOTAL EVALUATED</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', textAlign: 'center' }}>
+            <div style={{ backgroundColor: '#1e293b', padding: '10px', borderRadius: '4px' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#f8fafc' }}>{integritySummary.total_checks}</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8' }}>TOTAL CHECKS</div>
             </div>
-            <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#60a5fa' }}>{evaluation.eligible_for_archive}</div>
-              <div style={{ fontSize: '10px', color: '#93c5fd' }}>ELIGIBLE ARCHIVE</div>
+            <div style={{ backgroundColor: 'rgba(34, 197, 94, 0.15)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#4ade80' }}>{integritySummary.healthy_count}</div>
+              <div style={{ fontSize: '10px', color: '#86efac' }}>HEALTHY</div>
             </div>
-            <div style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#c084fc' }}>{evaluation.already_archived}</div>
-              <div style={{ fontSize: '10px', color: '#e9d5ff' }}>ALREADY ARCHIVED</div>
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#f87171' }}>{integritySummary.missing_count}</div>
+              <div style={{ fontSize: '10px', color: '#fca5a5' }}>MISSING</div>
             </div>
-            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#f87171' }}>{evaluation.eligible_for_purge}</div>
-              <div style={{ fontSize: '10px', color: '#fca5a5' }}>ELIGIBLE PURGE</div>
+            <div style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#fde047' }}>{integritySummary.mismatch_count}</div>
+              <div style={{ fontSize: '10px', color: '#fef08a' }}>MISMATCHES</div>
             </div>
-            <div style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: '#fde047' }}>{evaluation.blocked_by_hold}</div>
-              <div style={{ fontSize: '10px', color: '#fef08a' }}>BLOCKED BY HOLD</div>
+            <div style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#c084fc' }}>{integritySummary.orphan_count}</div>
+              <div style={{ fontSize: '10px', color: '#e9d5ff' }}>ORPHANS</div>
             </div>
           </div>
         </div>
@@ -311,6 +315,24 @@ export function IncidentRetentionGovernance() {
 
         <button
           type="button"
+          onClick={handleRunIntegrityCheck}
+          disabled={isVerifyingIntegrity}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#059669',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: isVerifyingIntegrity ? 'not-allowed' : 'pointer',
+            fontSize: '12px',
+            fontWeight: 600,
+          }}
+        >
+          {isVerifyingIntegrity ? 'Verifying Integrity…' : '🔍 Run Bounded Integrity Check'}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setShowPurgeConfirm(true)}
           disabled={isPurging}
           style={{
@@ -328,51 +350,60 @@ export function IncidentRetentionGovernance() {
         </button>
       </div>
 
-      {/* Archive Records List & Download Triggers */}
-      {archiveResult && archiveResult.archives.length > 0 && (
+      {integrityBatchResult && (
+        <div style={{ padding: '10px 14px', backgroundColor: 'rgba(34, 197, 94, 0.15)', border: '1px solid #22c55e', color: '#86efac', borderRadius: '4px', fontSize: '12px' }}>
+          ✓ {integrityBatchResult.message}
+        </div>
+      )}
+
+      {/* Integrity Verification History Table */}
+      {integrityChecks.length > 0 && (
         <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '6px', padding: '16px' }}>
           <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', marginTop: 0, marginBottom: '12px' }}>
-            ARCHIVED INCIDENT PACKAGES ({archiveResult.archives.length})
+            INTEGRITY VERIFICATION AUDIT TRAIL ({integrityChecks.length} CHECKS)
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {archiveResult.archives.map((arc) => {
-              const isS3 = (arc.storage_provider || 'LOCAL').toUpperCase() === 'S3';
-              const isPending = downloadingArchiveId === arc.id;
-              return (
-                <div key={arc.id} style={{ padding: '10px 12px', backgroundColor: '#1e293b', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
-                  <div>
-                    <strong style={{ color: '#f8fafc', marginRight: '8px' }}>{arc.archive_number}</strong>
-                    <span style={{ color: '#94a3b8', marginRight: '8px' }}>({arc.archive_format})</span>
-                    <span style={{ color: '#64748b' }}>SHA-256: {arc.sha256_checksum.substring(0, 16)}…</span>
-                  </div>
-                  <div>
-                    {isS3 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRequestPresignedDownload(arc.id)}
-                        disabled={isPending}
-                        style={{
-                          padding: '4px 10px',
-                          backgroundColor: '#0284c7',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: isPending ? 'not-allowed' : 'pointer',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {isPending ? 'Requesting URL…' : '⬇️ Download (S3 Presigned)'}
-                      </button>
-                    ) : (
-                      <span style={{ padding: '4px 8px', backgroundColor: '#334155', color: '#94a3b8', borderRadius: '4px', fontSize: '10px' }}>
-                        Direct Cloud Download Unavailable (LOCAL Provider)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
+                  <th style={{ padding: '6px 8px' }}>Archive Number</th>
+                  <th style={{ padding: '6px 8px' }}>Provider</th>
+                  <th style={{ padding: '6px 8px' }}>Status</th>
+                  <th style={{ padding: '6px 8px' }}>Expected Checksum</th>
+                  <th style={{ padding: '6px 8px' }}>Observed Checksum</th>
+                  <th style={{ padding: '6px 8px' }}>Checked At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {integrityChecks.map((chk) => {
+                  const isHealthy = chk.status === 'HEALTHY';
+                  const isMissing = chk.status === 'OBJECT_MISSING';
+                  const isMismatch = chk.status === 'CHECKSUM_MISMATCH' || chk.status === 'METADATA_MISMATCH';
+                  const isOrphan = chk.status === 'ORPHAN_OBJECT';
+
+                  let statusColor = '#94a3b8';
+                  if (isHealthy) statusColor = '#4ade80';
+                  else if (isMissing) statusColor = '#f87171';
+                  else if (isMismatch) statusColor = '#fde047';
+                  else if (isOrphan) statusColor = '#c084fc';
+
+                  return (
+                    <tr key={chk.id} style={{ borderBottom: '1px solid #1e293b', color: '#f8fafc' }}>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{chk.archive_number}</td>
+                      <td style={{ padding: '6px 8px', color: '#cbd5e1' }}>{chk.storage_provider}</td>
+                      <td style={{ padding: '6px 8px', color: statusColor, fontWeight: 700 }}>{chk.status}</td>
+                      <td style={{ padding: '6px 8px', color: '#64748b' }}>
+                        {chk.expected_checksum ? `${chk.expected_checksum.substring(0, 12)}…` : 'N/A'}
+                      </td>
+                      <td style={{ padding: '6px 8px', color: '#64748b' }}>
+                        {chk.observed_checksum ? `${chk.observed_checksum.substring(0, 12)}…` : 'N/A'}
+                      </td>
+                      <td style={{ padding: '6px 8px', color: '#94a3b8' }}>{new Date(chk.checked_at).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

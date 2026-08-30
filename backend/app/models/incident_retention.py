@@ -95,3 +95,41 @@ class IncidentArchive(Base):
     presigned_url_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     incident = relationship("Incident", foreign_keys=[incident_id])
+
+
+class IntegrityStatus(StrEnum):
+    HEALTHY = "HEALTHY"
+    OBJECT_MISSING = "OBJECT_MISSING"
+    CHECKSUM_MISMATCH = "CHECKSUM_MISMATCH"
+    METADATA_MISMATCH = "METADATA_MISMATCH"
+    ORPHAN_OBJECT = "ORPHAN_OBJECT"
+    STORAGE_UNAVAILABLE = "STORAGE_UNAVAILABLE"
+    INVALID_ARCHIVE_METADATA = "INVALID_ARCHIVE_METADATA"
+
+
+class IncidentArchiveIntegrityCheck(Base):
+    __tablename__ = "incident_archive_integrity_checks"
+    __table_args__ = (
+        Index("ix_archive_integrity_checks_archive_id", "archive_id"),
+        Index("ix_archive_integrity_checks_status", "status"),
+        Index("ix_archive_integrity_checks_checked_at", "checked_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    archive_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    archive_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    incident_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    storage_provider: Mapped[str] = mapped_column(String(32), nullable=False, default="LOCAL")
+    storage_location: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="HEALTHY")
+    expected_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    observed_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expected_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    observed_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_ms: Mapped[float] = mapped_column(Integer, nullable=False, default=0.0)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None)
+    )
+

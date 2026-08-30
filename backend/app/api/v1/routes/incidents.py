@@ -14,7 +14,7 @@ from app.models.incident import (
     IncidentStatus,
     InvalidIncidentTransitionError,
 )
-from app.models.incident_retention import IncidentArchive
+from app.models.incident_retention import IncidentArchive, IncidentArchiveIntegrityCheck
 from app.models.user import User
 from app.schemas.incidents import (
     AcknowledgeIncidentRequest,
@@ -34,6 +34,9 @@ from app.schemas.incidents import (
     IncidentListResponse,
     IncidentResponse,
     IncidentTimelineResponse,
+    IntegrityCheckResponse,
+    IntegritySummaryResponse,
+    IntegrityVerificationBatchResponse,
     LogDefensiveActionRequest,
     PresignedArchiveDownloadResponse,
     PurgeIncidentsRequest,
@@ -54,6 +57,7 @@ from app.services.incident import (
     InvalidIncidentActionError,
 )
 from app.services.incident_analytics import IncidentAnalyticsService
+from app.services.incident_archive_integrity import IncidentArchiveIntegrityService
 from app.services.incident_export import IncidentExportService
 from app.services.incident_retention import IncidentRetentionService
 
@@ -342,6 +346,64 @@ def get_archive_download_url(
         archive_number=archive.archive_number,
         storage_provider=provider,
     )
+
+
+@router.get("/retention/integrity/summary", response_model=IntegritySummaryResponse)
+def get_integrity_summary(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Retrieve aggregated cold storage archive integrity summary statistics."""
+    service = IncidentArchiveIntegrityService(db)
+    return service.summarize_results()
+
+
+@router.get("/retention/integrity", response_model=list[IntegrityCheckResponse])
+def get_integrity_checks(
+    status: str | None = Query(None, description="Filter by status (HEALTHY, OBJECT_MISSING, CHECKSUM_MISMATCH, etc.)"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Retrieve paginated audit history of archive integrity verification checks."""
+    query = select(IncidentArchiveIntegrityCheck).order_by(IncidentArchiveIntegrityCheck.checked_at.desc())
+    if status:
+        query = query.where(IncidentArchiveIntegrityCheck.status == status.upper())
+    return list(db.scalars(query.offset(offset).limit(limit)))
+
+
+@router.post("/retention/integrity/check", response_model=IntegrityVerificationBatchResponse)
+def trigger_batch_integrity_check(
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of archive records to verify"),
+    detect_local_orphans: bool = Query(True, description="Detect orphaned files in local storage directory"),
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Execute bounded batch integrity verification across cold storage archives."""
+    service = IncidentArchiveIntegrityService(db)
+    checks = service.verify_archives(limit=limit, actor_id=actor.id)
+    if detect_local_orphans:
+        orphan_checks = service.detect_orphans(storage_provider="LOCAL", actor_id=actor.id)
+        checks.extend(orphan_checks)
+
+    return IntegrityVerificationBatchResponse(
+        message=f"Verified {len(checks)} archive storage records successfully",
+        verified_count=len(checks),
+        checks=[IntegrityCheckResponse.model_validate(c) for c in checks],
+    )
+
+
+@router.post("/retention/archives/{archive_id}/verify", response_model=IntegrityCheckResponse)
+def verify_single_archive_integrity(
+    archive_id: str,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.retention.read")),
+):
+    """Verify integrity of a single archived incident record explicitly."""
+    service = IncidentArchiveIntegrityService(db)
+    check = service.verify_archive(archive_id, actor_id=actor.id)
+    return check
 
 
 @router.post("/retention/purge", response_model=PurgeIncidentsResponse)
