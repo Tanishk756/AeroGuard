@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     application_name: str = "AeroGuard"
     environment: str = "development"
     debug: bool = False
-    database_url: str = "sqlite:///./aeroguard.db"
+    database_url: str = Field(default="sqlite:///./aeroguard.db", validation_alias="AEROGUARD_DATABASE_URL")
+    db_pool_size: int = Field(default=10, ge=1, le=100, validation_alias="AEROGUARD_DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, ge=0, le=100, validation_alias="AEROGUARD_DB_MAX_OVERFLOW")
+    db_pool_timeout: float = Field(default=30.0, ge=1.0, le=300.0, validation_alias="AEROGUARD_DB_POOL_TIMEOUT")
+    db_pool_recycle: int = Field(default=1800, ge=60, le=7200, validation_alias="AEROGUARD_DB_POOL_RECYCLE")
+    db_pool_pre_ping: bool = Field(default=True, validation_alias="AEROGUARD_DB_POOL_PRE_PING")
     api_prefix: str = "/api/v1"
     log_level: str = "INFO"
     version: str = Field(default="0.1.0", validation_alias="AEROGUARD_VERSION")
@@ -44,6 +49,38 @@ class Settings(BaseSettings):
             raise ValueError("session_cookie_name must be non-empty and contain no whitespace")
         return value
 
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        clean_url = value.strip()
+        if not clean_url:
+            raise ValueError("database_url must not be empty")
+        valid_schemes = ("sqlite://", "sqlite+pysqlite://", "postgresql://", "postgresql+psycopg2://", "postgres://")
+        if not any(clean_url.startswith(scheme) for scheme in valid_schemes):
+            raise ValueError(f"Unsupported database scheme in URL: '{clean_url[:15]}...'. Supported dialects: SQLite and PostgreSQL.")
+        return clean_url
+
+    @field_validator("db_pool_size")
+    @classmethod
+    def validate_pool_size(cls, value: int) -> int:
+        if value < 1 or value > 100:
+            raise ValueError("db_pool_size must be between 1 and 100")
+        return value
+
+    @field_validator("db_max_overflow")
+    @classmethod
+    def validate_max_overflow(cls, value: int) -> int:
+        if value < 0 or value > 100:
+            raise ValueError("db_max_overflow must be between 0 and 100")
+        return value
+
+    @field_validator("db_pool_timeout")
+    @classmethod
+    def validate_pool_timeout(cls, value: float) -> float:
+        if value <= 0 or value > 300.0:
+            raise ValueError("db_pool_timeout must be greater than 0 and at most 300 seconds")
+        return value
+
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
         if self.password_min_length > self.password_max_length:
@@ -61,6 +98,7 @@ class Settings(BaseSettings):
         env_prefix="AEROGUARD_",
         env_file=".env",
         extra="ignore",
+        populate_by_name=True,
     )
 
 
