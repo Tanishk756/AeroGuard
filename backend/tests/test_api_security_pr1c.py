@@ -349,8 +349,9 @@ def test_migration_0016_upgrade_downgrade_reupgrade(tmp_path):
 
     def run_migration(revision: str):
         env = {**os.environ, "AEROGUARD_DATABASE_URL": database_url, "PYTHONPATH": str(repo_root / "backend")}
+        alembic_config = str(repo_root / "backend" / "alembic.ini")
         subprocess.run(
-            [sys.executable, "-m", "alembic", "-c", ".\\backend\\alembic.ini", *revision.split()],
+            [sys.executable, "-m", "alembic", "-c", alembic_config, *revision.split()],
             cwd=repo_root,
             env=env,
             capture_output=True,

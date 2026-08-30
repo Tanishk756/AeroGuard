@@ -10,7 +10,8 @@ from pathlib import Path
 def run_migration(database_url: str, revision: str, repo_root):
     environment = os.environ.copy()
     environment["AEROGUARD_DATABASE_URL"] = database_url
-    return subprocess.run([sys.executable, "-m", "alembic", "-c", ".\\backend\\alembic.ini", *revision.split()], cwd=repo_root, env=environment, capture_output=True, text=True, check=True)
+    alembic_config = str(repo_root / "backend" / "alembic.ini")
+    return subprocess.run([sys.executable, "-m", "alembic", "-c", alembic_config, *revision.split()], cwd=repo_root, env=environment, capture_output=True, text=True, check=True)
 
 
 def test_operational_migration_upgrade_downgrade_reupgrade(tmp_path):
