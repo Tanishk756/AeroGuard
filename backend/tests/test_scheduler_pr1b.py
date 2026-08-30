@@ -281,7 +281,7 @@ def test_stale_lock_recovery(database):
 
 def test_concurrent_lock_acquisition():
     """VERIFIED: Concurrent threads attempting to acquire lock result in exactly one winner."""
-    engine = create_database_engine("sqlite://", poolclass=StaticPool)
+    engine = create_database_engine("sqlite://", poolclass=StaticPool, connect_args={"timeout": 15.0})
     from app.database.base import Base
     Base.metadata.create_all(engine)
     SessionMaker = sessionmaker(bind=engine, autoflush=False, autocommit=False)
