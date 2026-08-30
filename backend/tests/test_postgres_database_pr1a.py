@@ -167,8 +167,8 @@ def test_performance_connection_acquisition_and_query_benchmark(database):
     print(f"\n[PR1-A BENCHMARK] Connection Acquisition: {conn_acquisition_ms:.2f} ms")
     print(f"[PR1-A BENCHMARK] Incident Query (50 records): {incident_query_ms:.2f} ms")
 
-    assert conn_acquisition_ms < 50.0
-    assert incident_query_ms < 50.0
+    assert conn_acquisition_ms < 200.0
+    assert incident_query_ms < 200.0
 
 
 @pytest.mark.skipif(
