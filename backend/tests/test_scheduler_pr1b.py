@@ -279,9 +279,11 @@ def test_stale_lock_recovery(database):
     assert lock.locked_by == worker2
 
 
-def test_concurrent_lock_acquisition():
+def test_concurrent_lock_acquisition(tmp_path):
     """VERIFIED: Concurrent threads attempting to acquire lock result in exactly one winner."""
-    engine = create_database_engine("sqlite://", poolclass=StaticPool, connect_args={"timeout": 15.0})
+    db_path = tmp_path / "test_concurrent_locks.db"
+    db_url = f"sqlite:///{db_path.as_posix()}"
+    engine = create_database_engine(db_url, connect_args={"timeout": 15.0})
     from app.database.base import Base
     Base.metadata.create_all(engine)
     SessionMaker = sessionmaker(bind=engine, autoflush=False, autocommit=False)
