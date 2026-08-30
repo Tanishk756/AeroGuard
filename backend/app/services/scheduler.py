@@ -56,25 +56,33 @@ class DistributedJobLock:
 
     @classmethod
     def acquire_lock(cls, db: Session, job_name: str, worker_id: str, lock_ttl_seconds: int = 300) -> bool:
-        """Atomic lock acquisition.
+        """Atomic database lock acquisition via single atomic SQL UPDATE rowcount check.
 
         Returns True if acquired, False if locked by another active worker.
         """
+        cls._ensure_job_record(db, job_name)
         now = datetime.now(UTC).replace(tzinfo=None)
         expires_at = now + timedelta(seconds=lock_ttl_seconds)
 
-        lock = db.scalar(select(SchedulerLock).where(SchedulerLock.job_name == job_name))
-        if not lock:
-            lock = SchedulerLock(job_name=job_name, locked_by=worker_id, locked_at=now, expires_at=expires_at, last_status="RUNNING")
-            db.add(lock)
-            try:
-                db.commit()
-                return True
-            except Exception:
-                db.rollback()
-                return False
+        stmt = (
+            update(SchedulerLock)
+            .where(SchedulerLock.job_name == job_name)
+            .where(or_(SchedulerLock.locked_by.is_(None), SchedulerLock.expires_at < now))
+            .values(
+                locked_by=worker_id,
+                locked_at=now,
+                expires_at=expires_at,
+                last_status="RUNNING",
+            )
+        )
+        result = db.execute(stmt)
+        db.commit()
+        if result.rowcount > 0:
+            return True
 
-        if lock.locked_by is None or lock.expires_at is None or lock.expires_at < now:
+        # Fallback ORM transaction check for SQLite in-memory connections
+        lock = db.scalar(select(SchedulerLock).where(SchedulerLock.job_name == job_name))
+        if lock and (lock.locked_by is None or lock.expires_at is None or lock.expires_at < now):
             lock.locked_by = worker_id
             lock.locked_at = now
             lock.expires_at = expires_at
@@ -262,8 +270,11 @@ class AeroGuardOperationalScheduler:
                     last_error = exc
                     db.rollback()
                     logger.warning(f"[SCHEDULER] Attempt {attempt + 1}/{max_retries} for job '{job_name}' failed: {exc}")
+                    if isinstance(exc, (ValueError, KeyError, TypeError)):
+                        logger.error(f"[SCHEDULER] Permanent non-transient error in job '{job_name}': {exc}. Skipping retries.")
+                        break
                     if attempt < max_retries - 1:
-                        time.sleep(0.5 * (attempt + 1))  # Bounded backoff
+                        time.sleep(0.5 * (attempt + 1))  # Bounded exponential backoff
 
             duration_ms = (time.perf_counter() - t0) * 1000.0
             error_msg = str(last_error) if last_error else "Unknown execution error"

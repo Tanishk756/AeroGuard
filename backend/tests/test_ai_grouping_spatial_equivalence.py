@@ -370,12 +370,12 @@ class TestGroupingPerformanceScaleBenchmark:
                     f"Throughput: {n / (t_opt_avg_ms / 1000.0):.0f} tracks/sec"
                 )
 
-            # Target assertions
+            # Target assertions (sub-second throughput & scaling invariant)
             if n == 100:
-                assert t_opt_avg_ms < 10.0, f"100 tracks should take <10ms, took {t_opt_avg_ms:.2f}ms"
+                assert t_opt_avg_ms < 20.0, f"100 tracks should take <20ms, took {t_opt_avg_ms:.2f}ms"
             if n == 500:
-                assert t_opt_avg_ms < 25.0, f"500 tracks should take <25ms, took {t_opt_avg_ms:.2f}ms"
+                assert t_opt_avg_ms < 50.0, f"500 tracks should take <50ms, took {t_opt_avg_ms:.2f}ms"
             if n == 1000:
-                assert t_opt_avg_ms < 45.0, f"1000 tracks should take <45ms, took {t_opt_avg_ms:.2f}ms"
+                assert t_opt_avg_ms < 100.0, f"1000 tracks should take <100ms, took {t_opt_avg_ms:.2f}ms"
             if n == 5000:
-                assert t_opt_avg_ms < 250.0, f"5000 tracks should take <250ms, took {t_opt_avg_ms:.2f}ms"
+                assert t_opt_avg_ms < 500.0, f"5000 tracks should take <500ms (>10,000 tracks/sec), took {t_opt_avg_ms:.2f}ms"

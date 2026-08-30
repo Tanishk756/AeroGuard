@@ -1,17 +1,19 @@
 """Add scheduler_locks table for Stage PR1-B distributed background scheduler.
 
-Revision ID: 0015
-Revises: 0014
+Revision ID: 0015_scheduler_locks
+Revises: 0014_incident_archive_integrity
 Create Date: 2026-08-30
 """
+
+from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0015"
-down_revision = "0014"
-branch_labels = None
-depends_on = None
+revision: str = "0015_scheduler_locks"
+down_revision: Union[str, None] = "0014_incident_archive_integrity"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:

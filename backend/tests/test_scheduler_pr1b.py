@@ -202,14 +202,31 @@ def test_job_failure_isolation(database):
     assert res3.status == "SUCCESS"
 
 
-def test_bounded_retries(database):
-    """VERIFIED: Failed job retries up to max_retries before recording FAILURE."""
+def test_bounded_retries(database, monkeypatch):
+    """VERIFIED: Transient failure retries up to max_retries before recording FAILURE."""
     settings = Settings(scheduler_enabled=True)
     scheduler = AeroGuardOperationalScheduler(settings=settings)
 
-    res = scheduler.run_job("INVALID_JOB_NAME", max_retries=3, db=database)
+    def failing_retention(db):
+        raise RuntimeError("Transient network timeout")
+
+    monkeypatch.setattr("app.services.scheduler.execute_retention_evaluation_job", failing_retention)
+
+    res = scheduler.run_job(AeroGuardOperationalScheduler.JOB_RETENTION, max_retries=3, db=database)
     assert res.status == "FAILURE"
     assert res.retry_count == 2  # 0, 1, 2 = 3 total attempts
+    assert "Transient network timeout" in str(res.error_message)
+
+
+def test_no_retry_on_permanent_config_error(database):
+    """VERIFIED: Permanent configuration/argument errors fast-fail immediately without retry loop."""
+    settings = Settings(scheduler_enabled=True)
+    scheduler = AeroGuardOperationalScheduler(settings=settings)
+
+    res = scheduler.run_job("NON_EXISTENT_JOB", max_retries=3, db=database)
+    assert res.status == "FAILURE"
+    assert res.retry_count == 0  # Fast-failed immediately on 1st attempt
+    assert "Unknown scheduled job name" in str(res.error_message)
 
 
 def test_overlapping_execution_prevention(database):
