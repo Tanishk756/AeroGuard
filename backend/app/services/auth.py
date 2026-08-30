@@ -2,8 +2,11 @@
 
 import hashlib
 import hmac
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
@@ -49,11 +52,55 @@ def _find_user(db: Session, identifier: str) -> User | None:
     return db.scalar(select(User).where(or_(User.username == normalized, User.email == normalized)))
 
 
-def verify_credentials(db: Session, identifier: str, password: str) -> User:
+def verify_credentials(db: Session, identifier: str, password: str, settings: Settings | None = None) -> User:
+    """Verify user login credentials with account lockout protection and user enumeration resistance."""
+    if settings is None:
+        settings = get_settings()
+
+    now = datetime.now(UTC).replace(tzinfo=None)
     user = _find_user(db, identifier)
-    valid = user is not None and verify_password(password, user.password_hash)
-    if not valid or user.status != UserStatus.ACTIVE:
+
+    if user is None:
+        # Uniform authentication response for invalid user / password (no user enumeration)
         raise AuthError(INVALID_CREDENTIALS, "Invalid username or password.")
+
+    # 1. Active Account Lockout Check
+    if user.locked_until is not None:
+        if user.locked_until > now:
+            logger.warning(f"[AUTH_SECURITY] Login attempt for locked user '{user.id}' rejected.")
+            raise AuthError(INVALID_CREDENTIALS, "Invalid username or password.")
+        else:
+            # Lockout period has expired - clear expired lock state
+            user.locked_until = None
+
+    # 2. Verify Password
+    valid = verify_password(password, user.password_hash)
+
+    if not valid or user.status != UserStatus.ACTIVE:
+        # Increment failed login attempts atomically
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= settings.login_max_failed_attempts:
+            user.locked_until = now + timedelta(minutes=settings.login_lockout_duration_minutes)
+            logger.warning(
+                f"[AUTH_SECURITY] Account '{user.id}' locked for {settings.login_lockout_duration_minutes}m "
+                f"after {user.failed_login_attempts} failed login attempts."
+            )
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
+        raise AuthError(INVALID_CREDENTIALS, "Invalid username or password.")
+
+    # 3. Successful Authentication - Clear failed counters and set last login timestamp
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    user.last_login_at = now
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
     return user
 
 

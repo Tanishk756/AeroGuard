@@ -75,12 +75,17 @@ async def csrf_origin_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+from app.middleware.csrf import CSRFMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
+
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Correlation-ID"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Correlation-ID", "X-CSRF-Token", "Authorization"],
 )
 
 

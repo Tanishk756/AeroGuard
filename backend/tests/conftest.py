@@ -14,6 +14,14 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiter_fixture():
+    from app.core.rate_limiter import reset_rate_limiter
+    reset_rate_limiter()
+    yield
+    reset_rate_limiter()
+
+
 @pytest.fixture
 def database():
     from app.database.base import Base
@@ -31,6 +39,20 @@ def database():
         engine.dispose()
 
 
+class CSRFAwareTestClient(TestClient):
+    def request(self, method: str, url: str, **kwargs):
+        headers = kwargs.get("headers")
+        if headers is None:
+            headers = {}
+        if isinstance(headers, dict) and "X-CSRF-Token" not in headers:
+            csrf_cookie = self.cookies.get("aeroguard_csrf")
+            if csrf_cookie:
+                headers = dict(headers)
+                headers["X-CSRF-Token"] = csrf_cookie
+                kwargs["headers"] = headers
+        return super().request(method, url, **kwargs)
+
+
 @pytest.fixture
 def client(database):
     from app.main import app
@@ -42,7 +64,7 @@ def client(database):
     app.dependency_overrides[get_db] = override_get_db
 
     try:
-        with TestClient(app) as test_client:
+        with CSRFAwareTestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.clear()

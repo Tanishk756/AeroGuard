@@ -18,7 +18,7 @@ class AuthError(Exception):
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    correlation_id = request.state.correlation_id
+    correlation_id = getattr(request.state, "correlation_id", new_correlation_id())
     logger.exception("Unhandled application error", extra={"correlation_id": correlation_id})
     return JSONResponse(
         status_code=500,
@@ -58,7 +58,11 @@ async def auth_exception_handler(request: Request, exc: AuthError) -> JSONRespon
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     message = exc.detail if isinstance(exc.detail, str) else "The request could not be completed."
-    return _error_response(request, exc.status_code, "http_error", message)
+    response = _error_response(request, exc.status_code, "http_error", message)
+    if exc.headers:
+        for key, val in exc.headers.items():
+            response.headers[key] = val
+    return response
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

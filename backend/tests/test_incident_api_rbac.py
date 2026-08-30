@@ -20,6 +20,8 @@ def _create_user_with_role(database, username: str, role_name: str) -> User:
 
 
 def _login_as(client, username: str):
+    from app.core.rate_limiter import reset_rate_limiter
+    reset_rate_limiter()
     login = client.post("/api/v1/auth/login", json={"identifier": username, "password": "test-password-123"})
     assert login.status_code == 200
 

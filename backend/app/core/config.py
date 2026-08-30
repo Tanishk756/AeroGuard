@@ -50,6 +50,19 @@ class Settings(BaseSettings):
     session_cleanup_grace_period_days: int = Field(default=7, ge=1, le=90, validation_alias="AEROGUARD_SESSION_CLEANUP_GRACE_PERIOD_DAYS")
     scheduler_lock_timeout_seconds: int = Field(default=300, ge=10, le=3600, validation_alias="AEROGUARD_SCHEDULER_LOCK_TIMEOUT_SECONDS")
 
+    # API Security, Rate Limiting & Account Lockout Settings (PR1-C)
+    rate_limiting_enabled: bool = Field(default=True, validation_alias="AEROGUARD_RATE_LIMITING_ENABLED")
+    rate_limit_login: str = Field(default="5/minute", validation_alias="AEROGUARD_RATE_LIMIT_LOGIN")
+    rate_limit_default: str = Field(default="100/minute", validation_alias="AEROGUARD_RATE_LIMIT_DEFAULT")
+    rate_limit_storage_url: str | None = Field(default=None, validation_alias="AEROGUARD_RATE_LIMIT_STORAGE_URL")
+    rate_limit_fail_open: bool = Field(default=False, validation_alias="AEROGUARD_RATE_LIMIT_FAIL_OPEN")
+    trusted_proxies: list[str] = Field(default_factory=list, validation_alias="AEROGUARD_TRUSTED_PROXIES")
+    login_max_failed_attempts: int = Field(default=5, ge=1, le=20, validation_alias="AEROGUARD_LOGIN_MAX_FAILED_ATTEMPTS")
+    login_lockout_duration_minutes: int = Field(default=15, ge=1, le=1440, validation_alias="AEROGUARD_LOGIN_LOCKOUT_DURATION_MINUTES")
+    csrf_protection_enabled: bool = Field(default=True, validation_alias="AEROGUARD_CSRF_PROTECTION_ENABLED")
+    csrf_cookie_name: str = Field(default="aeroguard_csrf", validation_alias="AEROGUARD_CSRF_COOKIE_NAME")
+    security_headers_enabled: bool = Field(default=True, validation_alias="AEROGUARD_SECURITY_HEADERS_ENABLED")
+
     @field_validator("session_cookie_name")
     @classmethod
     def validate_cookie_name(cls, value: str) -> str:
