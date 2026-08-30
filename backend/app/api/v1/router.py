@@ -15,6 +15,7 @@ from app.api.v1.routes.intelligence import router as intelligence_router
 from app.api.v1.routes.rbac import router as rbac_router
 from app.api.v1.routes.replay import router as replay_router
 from app.api.v1.routes.scenarios import router as scenarios_router
+from app.api.v1.routes.scheduler import router as scheduler_router
 from app.api.v1.routes.sensors import router as sensors_router
 from app.api.v1.routes.system import router as system_router
 from app.api.v1.routes.threats import router as threats_router
@@ -27,6 +28,7 @@ router.include_router(system_router, tags=["system"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(rbac_router, tags=["rbac"])
 router.include_router(audit_router, tags=["audit"])
+router.include_router(scheduler_router, tags=["scheduler"])
 router.include_router(sensors_router, tags=["sensors"])
 router.include_router(detections_router, tags=["detections"])
 router.include_router(tracks_router, tags=["tracks"])

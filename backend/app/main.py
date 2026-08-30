@@ -18,13 +18,27 @@ from app.core.errors import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from contextlib import asynccontextmanager
+
 from app.core.logging import configure_logging
+from app.services.scheduler import get_scheduler
 
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.application_name, version=settings.version, debug=settings.debug)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = get_scheduler()
+    if settings.scheduler_enabled:
+        await scheduler.start()
+    yield
+    if settings.scheduler_enabled:
+        await scheduler.stop()
+
+
+app = FastAPI(title=settings.application_name, version=settings.version, debug=settings.debug, lifespan=lifespan)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_exception_handler(AuthError, auth_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)

@@ -32,6 +32,7 @@ from app.models.scenario import Scenario, ScenarioStatus
 from app.models.sensor import Sensor, SensorSourceClass, SensorStatus
 from app.models.threat import ThreatAssessment, ThreatLevel
 from app.models.track import Track, TrackHistory, TrackState
+from app.models.scheduler import SchedulerLock
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,
@@ -44,7 +45,7 @@ __all__ = [
     "IncidentEventType", "IncidentExport", "IncidentExportFormat", "IncidentExportStatus",
     "IncidentSeverity", "IncidentSource", "IncidentStatus",
     "IntelligenceSnapshot", "InvalidIncidentTransitionError", "Permission", "Role", "Scenario",
-    "ScenarioStatus", "Sensor", "SensorSourceClass", "SensorStatus", "Session",
+    "ScenarioStatus", "SchedulerLock", "Sensor", "SensorSourceClass", "SensorStatus", "Session",
     "ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
     "TrackGroupHistory", "TrackHistory", "TrackState", "User", "UserStatus",
     "VALID_INCIDENT_TRANSITIONS", "can_transition", "validate_transition",

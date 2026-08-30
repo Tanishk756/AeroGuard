@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     s3_sse_kms_key_id: str | None = Field(default=None, validation_alias="AEROGUARD_S3_SSE_KMS_KEY_ID")
     retention_storage_provider: Literal["LOCAL", "S3"] = Field(default="LOCAL", validation_alias="AEROGUARD_RETENTION_STORAGE_PROVIDER")
 
+    # Automated Operational Scheduler Settings (PR1-B)
+    scheduler_enabled: bool = Field(default=True, validation_alias="AEROGUARD_SCHEDULER_ENABLED")
+    retention_job_interval_seconds: int = Field(default=3600, ge=5, le=86400, validation_alias="AEROGUARD_RETENTION_JOB_INTERVAL_SECONDS")
+    integrity_job_interval_seconds: int = Field(default=1800, ge=5, le=86400, validation_alias="AEROGUARD_INTEGRITY_JOB_INTERVAL_SECONDS")
+    session_cleanup_interval_seconds: int = Field(default=7200, ge=5, le=86400, validation_alias="AEROGUARD_SESSION_CLEANUP_INTERVAL_SECONDS")
+    session_cleanup_grace_period_days: int = Field(default=7, ge=1, le=90, validation_alias="AEROGUARD_SESSION_CLEANUP_GRACE_PERIOD_DAYS")
+    scheduler_lock_timeout_seconds: int = Field(default=300, ge=10, le=3600, validation_alias="AEROGUARD_SCHEDULER_LOCK_TIMEOUT_SECONDS")
+
     @field_validator("session_cookie_name")
     @classmethod
     def validate_cookie_name(cls, value: str) -> str:
