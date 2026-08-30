@@ -195,6 +195,13 @@ class RateLimiterEngine:
                 return RateLimitResult(allowed=True, limit=max_requests, remaining=max_requests, reset_seconds=0)
 
         if not result.allowed:
+            scope = "login" if is_login or key.startswith("login_") else ("auth" if key.startswith("auth_") else ("health" if key.startswith("health_") else "default"))
+            try:
+                from app.core.telemetry import RATE_LIMIT_TRIGGERED_TOTAL
+                RATE_LIMIT_TRIGGERED_TOTAL.labels(scope=scope).inc()
+            except Exception as exc:
+                logger.warning(f"[RATE_LIMITER] Failed to record rate limit telemetry: {exc}")
+
             raise HTTPException(
                 status_code=429,
                 detail="Too Many Requests. Please slow down.",

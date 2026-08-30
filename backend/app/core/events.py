@@ -133,6 +133,12 @@ class EventBus:
         )
 
         self._dispatch(envelope)
+        try:
+            from app.core.telemetry import WEBSOCKET_MESSAGES_TOTAL
+            cat = "operational" if channel_str == "OPERATIONAL" else ("simulation" if channel_str == "SIMULATION" else "system")
+            WEBSOCKET_MESSAGES_TOTAL.labels(category=cat).inc()
+        except Exception:
+            pass
         return envelope
 
     def _dispatch(self, envelope: RealtimeEventEnvelope) -> None:

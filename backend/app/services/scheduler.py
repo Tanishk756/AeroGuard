@@ -246,7 +246,8 @@ class AeroGuardOperationalScheduler:
                     else:
                         raise ValueError(f"Unknown scheduled job name: '{job_name}'")
 
-                    duration_ms = (time.perf_counter() - t0) * 1000.0
+                    duration_sec = time.perf_counter() - t0
+                    duration_ms = duration_sec * 1000.0
                     DistributedJobLock.release_lock(
                         db=db,
                         job_name=job_name,
@@ -256,6 +257,15 @@ class AeroGuardOperationalScheduler:
                         records_processed=records_processed,
                         retry_count=retry_count,
                     )
+                    from app.core.telemetry import (
+                        SCHEDULER_JOB_DURATION_SECONDS,
+                        SCHEDULER_JOB_LAST_SUCCESS,
+                        SCHEDULER_JOB_RUNS_TOTAL,
+                    )
+                    SCHEDULER_JOB_RUNS_TOTAL.labels(job_name=job_name, status="SUCCESS").inc()
+                    SCHEDULER_JOB_DURATION_SECONDS.labels(job_name=job_name).observe(duration_sec)
+                    SCHEDULER_JOB_LAST_SUCCESS.labels(job_name=job_name).set(time.time())
+
                     logger.info(f"[SCHEDULER] Job '{job_name}' completed successfully in {duration_ms:.1f}ms ({records_processed} records).")
                     return JobResult(
                         job_name=job_name,
@@ -276,8 +286,17 @@ class AeroGuardOperationalScheduler:
                     if attempt < max_retries - 1:
                         time.sleep(0.5 * (attempt + 1))  # Bounded exponential backoff
 
-            duration_ms = (time.perf_counter() - t0) * 1000.0
+            duration_sec = time.perf_counter() - t0
+            duration_ms = duration_sec * 1000.0
             error_msg = str(last_error) if last_error else "Unknown execution error"
+            from app.core.telemetry import (
+                SCHEDULER_JOB_DURATION_SECONDS,
+                SCHEDULER_JOB_FAILURES_TOTAL,
+                SCHEDULER_JOB_RUNS_TOTAL,
+            )
+            SCHEDULER_JOB_RUNS_TOTAL.labels(job_name=job_name, status="FAILURE").inc()
+            SCHEDULER_JOB_FAILURES_TOTAL.labels(job_name=job_name).inc()
+            SCHEDULER_JOB_DURATION_SECONDS.labels(job_name=job_name).observe(duration_sec)
             DistributedJobLock.release_lock(
                 db=db,
                 job_name=job_name,
@@ -332,6 +351,8 @@ class AeroGuardOperationalScheduler:
         self.running = True
         self._stop_event.clear()
         self._task = asyncio.create_task(self._scheduler_loop())
+        from app.core.telemetry import SCHEDULER_RUNNING
+        SCHEDULER_RUNNING.set(1)
 
     async def stop(self) -> None:
         """Stop background scheduler task gracefully."""
@@ -339,12 +360,14 @@ class AeroGuardOperationalScheduler:
             return
         self.running = False
         self._stop_event.set()
-        if self._task:
+        if self._task and not self._task.done():
             self._task.cancel()
             try:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        from app.core.telemetry import SCHEDULER_RUNNING
+        SCHEDULER_RUNNING.set(0)
 
 
 # Global singleton instance

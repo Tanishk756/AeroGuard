@@ -60,14 +60,23 @@ def verify_credentials(db: Session, identifier: str, password: str, settings: Se
     now = datetime.now(UTC).replace(tzinfo=None)
     user = _find_user(db, identifier)
 
+    from app.core.telemetry import (
+        AUTH_LOGIN_ATTEMPTS_TOTAL,
+        AUTH_LOGIN_FAILURES_TOTAL,
+        AUTH_LOGIN_LOCKOUTS_TOTAL,
+    )
+
     if user is None:
-        # Uniform authentication response for invalid user / password (no user enumeration)
+        AUTH_LOGIN_ATTEMPTS_TOTAL.labels(result="invalid_credentials").inc()
+        AUTH_LOGIN_FAILURES_TOTAL.labels(result="invalid_credentials").inc()
         raise AuthError(INVALID_CREDENTIALS, "Invalid username or password.")
 
     # 1. Active Account Lockout Check
     if user.locked_until is not None:
         if user.locked_until > now:
             logger.warning(f"[AUTH_SECURITY] Login attempt for locked user '{user.id}' rejected.")
+            AUTH_LOGIN_ATTEMPTS_TOTAL.labels(result="locked").inc()
+            AUTH_LOGIN_FAILURES_TOTAL.labels(result="locked").inc()
             raise AuthError(INVALID_CREDENTIALS, "Invalid username or password.")
         else:
             # Lockout period has expired - clear expired lock state
@@ -77,10 +86,13 @@ def verify_credentials(db: Session, identifier: str, password: str, settings: Se
     valid = verify_password(password, user.password_hash)
 
     if not valid or user.status != UserStatus.ACTIVE:
-        # Increment failed login attempts atomically
         user.failed_login_attempts += 1
+        AUTH_LOGIN_ATTEMPTS_TOTAL.labels(result="invalid_credentials").inc()
+        AUTH_LOGIN_FAILURES_TOTAL.labels(result="invalid_credentials").inc()
+
         if user.failed_login_attempts >= settings.login_max_failed_attempts:
             user.locked_until = now + timedelta(minutes=settings.login_lockout_duration_minutes)
+            AUTH_LOGIN_LOCKOUTS_TOTAL.inc()
             logger.warning(
                 f"[AUTH_SECURITY] Account '{user.id}' locked for {settings.login_lockout_duration_minutes}m "
                 f"after {user.failed_login_attempts} failed login attempts."
@@ -96,6 +108,7 @@ def verify_credentials(db: Session, identifier: str, password: str, settings: Se
     user.failed_login_attempts = 0
     user.locked_until = None
     user.last_login_at = now
+    AUTH_LOGIN_ATTEMPTS_TOTAL.labels(result="success").inc()
     try:
         db.commit()
     except Exception:

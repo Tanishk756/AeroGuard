@@ -77,7 +77,9 @@ async def csrf_origin_middleware(request: Request, call_next):
 
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.middleware.telemetry import TelemetryMiddleware
 
+app.add_middleware(TelemetryMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
@@ -85,8 +87,13 @@ app.add_middleware(
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Correlation-ID", "X-CSRF-Token", "Authorization"],
+    allow_headers=["Content-Type", "X-Correlation-ID", "X-Request-ID", "X-CSRF-Token", "Authorization"],
 )
 
 
+from app.api.v1.routes.health import router as health_router
+from app.api.v1.routes.metrics import router as metrics_router
+
+app.include_router(health_router)
+app.include_router(metrics_router)
 app.include_router(api_router, prefix=settings.api_prefix)

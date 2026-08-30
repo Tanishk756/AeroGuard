@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     csrf_cookie_name: str = Field(default="aeroguard_csrf", validation_alias="AEROGUARD_CSRF_COOKIE_NAME")
     security_headers_enabled: bool = Field(default=True, validation_alias="AEROGUARD_SECURITY_HEADERS_ENABLED")
 
+    # Observability & Health Telemetry Settings (PR1-D)
+    metrics_enabled: bool = Field(default=True, validation_alias="AEROGUARD_METRICS_ENABLED")
+    health_enabled: bool = Field(default=True, validation_alias="AEROGUARD_HEALTH_ENABLED")
+    log_level: str = Field(default="INFO", validation_alias="AEROGUARD_LOG_LEVEL")
+    request_id_enabled: bool = Field(default=True, validation_alias="AEROGUARD_REQUEST_ID_ENABLED")
+
     @field_validator("session_cookie_name")
     @classmethod
     def validate_cookie_name(cls, value: str) -> str:

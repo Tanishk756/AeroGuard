@@ -145,6 +145,17 @@ class IncidentArchiveIntegrityService:
             checked_at=now,
         )
         self.db.add(check)
+        try:
+            from app.core.telemetry import (
+                ARCHIVE_INTEGRITY_CHECKS_TOTAL,
+                ARCHIVE_INTEGRITY_FAILURES_TOTAL,
+            )
+            status_str = "PASS" if status == IntegrityStatus.HEALTHY else "FAIL"
+            ARCHIVE_INTEGRITY_CHECKS_TOTAL.labels(provider=provider_name, status=status_str).inc()
+            if status != IntegrityStatus.HEALTHY:
+                ARCHIVE_INTEGRITY_FAILURES_TOTAL.labels(provider=provider_name).inc()
+        except Exception:
+            pass
         self.db.commit()
 
         audit_event_type = (

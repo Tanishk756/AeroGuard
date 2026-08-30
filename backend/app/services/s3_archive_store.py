@@ -93,8 +93,19 @@ class S3ObjectArchiveStore:
 
         try:
             self.s3_client.put_object(**put_kwargs)
+            try:
+                from app.core.telemetry import ARCHIVE_OPERATIONS_TOTAL
+                ARCHIVE_OPERATIONS_TOTAL.labels(provider="S3", operation="archive", status="SUCCESS").inc()
+            except Exception:
+                pass
             return f"s3://{self.bucket_name}/{object_key}"
         except (BotoCoreError, ClientError) as exc:
+            try:
+                from app.core.telemetry import ARCHIVE_OPERATION_ERRORS_TOTAL, ARCHIVE_OPERATIONS_TOTAL
+                ARCHIVE_OPERATIONS_TOTAL.labels(provider="S3", operation="archive", status="FAILURE").inc()
+                ARCHIVE_OPERATION_ERRORS_TOTAL.labels(provider="S3", operation="archive").inc()
+            except Exception:
+                pass
             logger.error(f"S3 archive upload failed for key {object_key}: {exc}")
             raise S3ArchiveStoreError(f"Failed to upload archive object to S3: {exc}") from exc
 
@@ -103,13 +114,31 @@ class S3ObjectArchiveStore:
             object_key = f"archives/{archive_number.strip()}.{ext}"
             try:
                 res = self.s3_client.get_object(Bucket=self.bucket_name, Key=object_key)
-                return res["Body"].read()
+                data = res["Body"].read()
+                try:
+                    from app.core.telemetry import ARCHIVE_OPERATIONS_TOTAL
+                    ARCHIVE_OPERATIONS_TOTAL.labels(provider="S3", operation="retrieve", status="SUCCESS").inc()
+                except Exception:
+                    pass
+                return data
             except ClientError as exc:
                 error_code = exc.response.get("Error", {}).get("Code")
                 if error_code in ("NoSuchKey", "404", "NotFound"):
                     continue
+                try:
+                    from app.core.telemetry import ARCHIVE_OPERATION_ERRORS_TOTAL, ARCHIVE_OPERATIONS_TOTAL
+                    ARCHIVE_OPERATIONS_TOTAL.labels(provider="S3", operation="retrieve", status="FAILURE").inc()
+                    ARCHIVE_OPERATION_ERRORS_TOTAL.labels(provider="S3", operation="retrieve").inc()
+                except Exception:
+                    pass
                 raise S3ArchiveStoreError(f"Failed to retrieve S3 object {object_key}: {exc}") from exc
             except BotoCoreError as exc:
+                try:
+                    from app.core.telemetry import ARCHIVE_OPERATION_ERRORS_TOTAL, ARCHIVE_OPERATIONS_TOTAL
+                    ARCHIVE_OPERATIONS_TOTAL.labels(provider="S3", operation="retrieve", status="FAILURE").inc()
+                    ARCHIVE_OPERATION_ERRORS_TOTAL.labels(provider="S3", operation="retrieve").inc()
+                except Exception:
+                    pass
                 raise S3ArchiveStoreError(f"S3 client error retrieving {object_key}: {exc}") from exc
 
         raise S3ObjectNotFoundError(f"Archive payload for {archive_number} not found in S3 bucket {self.bucket_name}")
@@ -118,8 +147,23 @@ class S3ObjectArchiveStore:
         try:
             payload_bytes = self.retrieve(archive_number)
             computed_sha = hashlib.sha256(payload_bytes).hexdigest()
-            return computed_sha.lower() == expected_sha256.lower()
+            is_valid = computed_sha.lower() == expected_sha256.lower()
+            try:
+                from app.core.telemetry import ARCHIVE_INTEGRITY_CHECKS_TOTAL, ARCHIVE_INTEGRITY_FAILURES_TOTAL
+                status_str = "PASS" if is_valid else "FAIL"
+                ARCHIVE_INTEGRITY_CHECKS_TOTAL.labels(provider="S3", status=status_str).inc()
+                if not is_valid:
+                    ARCHIVE_INTEGRITY_FAILURES_TOTAL.labels(provider="S3").inc()
+            except Exception:
+                pass
+            return is_valid
         except Exception as exc:
+            try:
+                from app.core.telemetry import ARCHIVE_INTEGRITY_CHECKS_TOTAL, ARCHIVE_INTEGRITY_FAILURES_TOTAL
+                ARCHIVE_INTEGRITY_CHECKS_TOTAL.labels(provider="S3", status="FAIL").inc()
+                ARCHIVE_INTEGRITY_FAILURES_TOTAL.labels(provider="S3").inc()
+            except Exception:
+                pass
             logger.warning(f"S3 archive verification failed for {archive_number}: {exc}")
             return False
 

@@ -1,0 +1,190 @@
+"""Centralized Prometheus metrics registry and low-cardinality telemetry definitions."""
+
+import logging
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+
+logger = logging.getLogger(__name__)
+
+# Single custom Prometheus registry to avoid global default registry pollution in tests
+REGISTRY = CollectorRegistry(auto_describe=True)
+
+# 1. HTTP / API Metrics
+HTTP_REQUESTS_TOTAL = Counter(
+    "aeroguard_http_requests_total",
+    "Total HTTP requests served.",
+    ["method", "route", "status_class"],
+    registry=REGISTRY,
+)
+
+HTTP_REQUEST_DURATION_SECONDS = Histogram(
+    "aeroguard_http_request_duration_seconds",
+    "HTTP request latency duration in seconds.",
+    ["method", "route"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+    registry=REGISTRY,
+)
+
+HTTP_ERRORS_TOTAL = Counter(
+    "aeroguard_http_errors_total",
+    "Total HTTP error responses returned.",
+    ["method", "route", "error_type"],
+    registry=REGISTRY,
+)
+
+# 2. Database Metrics
+DB_HEALTH = Gauge(
+    "aeroguard_db_health",
+    "Database connection health status (1 = healthy, 0 = unhealthy).",
+    registry=REGISTRY,
+)
+
+DB_POOL_CHECKED_OUT = Gauge(
+    "aeroguard_db_pool_checked_out",
+    "Number of currently checked out database connections.",
+    registry=REGISTRY,
+)
+
+DB_POOL_SIZE = Gauge(
+    "aeroguard_db_pool_size",
+    "Current database connection pool size.",
+    registry=REGISTRY,
+)
+
+DB_POOL_OVERFLOW = Gauge(
+    "aeroguard_db_pool_overflow",
+    "Current database connection pool overflow count.",
+    registry=REGISTRY,
+)
+
+DB_QUERY_ERRORS_TOTAL = Counter(
+    "aeroguard_db_query_errors_total",
+    "Total database query execution errors.",
+    registry=REGISTRY,
+)
+
+# 3. Scheduler Metrics
+SCHEDULER_JOB_RUNS_TOTAL = Counter(
+    "aeroguard_scheduler_job_runs_total",
+    "Total background scheduler job runs.",
+    ["job_name", "status"],
+    registry=REGISTRY,
+)
+
+SCHEDULER_JOB_FAILURES_TOTAL = Counter(
+    "aeroguard_scheduler_job_failures_total",
+    "Total background scheduler job failures.",
+    ["job_name"],
+    registry=REGISTRY,
+)
+
+SCHEDULER_JOB_DURATION_SECONDS = Histogram(
+    "aeroguard_scheduler_job_duration_seconds",
+    "Background scheduler job execution duration in seconds.",
+    ["job_name"],
+    buckets=(0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+    registry=REGISTRY,
+)
+
+SCHEDULER_JOB_LAST_SUCCESS = Gauge(
+    "aeroguard_scheduler_job_last_success_timestamp",
+    "Unix timestamp of last successful background scheduler job run.",
+    ["job_name"],
+    registry=REGISTRY,
+)
+
+SCHEDULER_RUNNING = Gauge(
+    "aeroguard_scheduler_running",
+    "Background scheduler execution state (1 = running, 0 = stopped).",
+    registry=REGISTRY,
+)
+
+# 4. Rate Limiting Metrics
+RATE_LIMIT_TRIGGERED_TOTAL = Counter(
+    "aeroguard_rate_limit_triggered_total",
+    "Total rate limit enforcement triggers.",
+    ["scope"],
+    registry=REGISTRY,
+)
+
+# 5. Authentication Security Metrics
+AUTH_LOGIN_ATTEMPTS_TOTAL = Counter(
+    "aeroguard_auth_login_attempts_total",
+    "Total authentication login attempts.",
+    ["result"],
+    registry=REGISTRY,
+)
+
+AUTH_LOGIN_FAILURES_TOTAL = Counter(
+    "aeroguard_auth_login_failures_total",
+    "Total authentication login failures.",
+    ["result"],
+    registry=REGISTRY,
+)
+
+AUTH_LOGIN_LOCKOUTS_TOTAL = Counter(
+    "aeroguard_auth_login_lockouts_total",
+    "Total account brute-force lockout events.",
+    registry=REGISTRY,
+)
+
+# 6. WebSocket / Realtime Metrics
+WEBSOCKET_CONNECTIONS = Gauge(
+    "aeroguard_websocket_connections",
+    "Current active WebSocket client connections.",
+    registry=REGISTRY,
+)
+
+WEBSOCKET_MESSAGES_TOTAL = Counter(
+    "aeroguard_websocket_messages_total",
+    "Total WebSocket messages processed.",
+    ["category"],
+    registry=REGISTRY,
+)
+
+WEBSOCKET_ERRORS_TOTAL = Counter(
+    "aeroguard_websocket_errors_total",
+    "Total WebSocket communication errors.",
+    ["category"],
+    registry=REGISTRY,
+)
+
+# 7. Archive / Storage Metrics
+ARCHIVE_STORAGE_HEALTH = Gauge(
+    "aeroguard_archive_storage_health",
+    "Archive storage health status (1 = healthy, 0 = unhealthy).",
+    ["provider"],
+    registry=REGISTRY,
+)
+
+ARCHIVE_OPERATIONS_TOTAL = Counter(
+    "aeroguard_archive_operations_total",
+    "Total archive storage operations.",
+    ["provider", "operation", "status"],
+    registry=REGISTRY,
+)
+
+ARCHIVE_OPERATION_ERRORS_TOTAL = Counter(
+    "aeroguard_archive_operation_errors_total",
+    "Total archive storage operation errors.",
+    ["provider", "operation"],
+    registry=REGISTRY,
+)
+
+ARCHIVE_INTEGRITY_CHECKS_TOTAL = Counter(
+    "aeroguard_archive_integrity_checks_total",
+    "Total archive integrity verification checks.",
+    ["provider", "status"],
+    registry=REGISTRY,
+)
+
+ARCHIVE_INTEGRITY_FAILURES_TOTAL = Counter(
+    "aeroguard_archive_integrity_failures_total",
+    "Total archive integrity verification failures.",
+    ["provider"],
+    registry=REGISTRY,
+)
+
+
+def get_metrics_exposition() -> bytes:
+    """Generate Prometheus exposition text format bytes."""
+    return generate_latest(REGISTRY)

@@ -12,6 +12,7 @@ from app.api.v1.routes.health import router as health_router
 from app.api.v1.routes.history import router as history_router
 from app.api.v1.routes.incidents import router as incidents_router
 from app.api.v1.routes.intelligence import router as intelligence_router
+from app.api.v1.routes.metrics import router as metrics_router
 from app.api.v1.routes.rbac import router as rbac_router
 from app.api.v1.routes.replay import router as replay_router
 from app.api.v1.routes.scenarios import router as scenarios_router
@@ -24,6 +25,7 @@ from app.api.v1.routes.ws import router as ws_router
 
 router = APIRouter()
 router.include_router(health_router, tags=["health"])
+router.include_router(metrics_router, tags=["metrics"])
 router.include_router(system_router, tags=["system"])
 router.include_router(auth_router, tags=["auth"])
 router.include_router(rbac_router, tags=["rbac"])

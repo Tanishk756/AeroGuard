@@ -169,6 +169,9 @@ async def _handle_stream(
     pump_task = asyncio.create_task(_event_pump())
     recv_task = asyncio.create_task(_message_receiver())
 
+    from app.core.telemetry import WEBSOCKET_CONNECTIONS
+    WEBSOCKET_CONNECTIONS.inc()
+
     try:
         done, pending = await asyncio.wait(
             [pump_task, recv_task],
@@ -177,6 +180,7 @@ async def _handle_stream(
         for task in pending:
             task.cancel()
     finally:
+        WEBSOCKET_CONNECTIONS.dec()
         event_bus.unsubscribe(subscription)
         for task in [pump_task, recv_task]:
             if not task.done():
