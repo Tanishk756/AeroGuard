@@ -1,0 +1,126 @@
+# ==============================================================================
+# AeroGuard Production Hardened Docker Compose Deployment Manifest
+# Multi-container topology with network isolation & non-root container users
+# ==============================================================================
+
+name: aeroguard-prod
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Reverse Proxy & Frontend Static Asset Web Server
+  # ----------------------------------------------------------------------------
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - aeroguard_net
+
+  # ----------------------------------------------------------------------------
+  # 2. Database Schema Migration Init Worker (Ephemeral)
+  # ----------------------------------------------------------------------------
+  migration:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aeroguard_net
+
+  # ----------------------------------------------------------------------------
+  # 3. Application API Service Process
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aeroguard_net
+
+  # ----------------------------------------------------------------------------
+  # 4. PostgreSQL Relational Database (Internal Only - No Public Port Export)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-aeroguard_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-CHANGE_ME_SECRET_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-aeroguard_prod}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-aeroguard_user} -d $${POSTGRES_DB:-aeroguard_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aeroguard_net
+
+  # ----------------------------------------------------------------------------
+  # 5. Distributed Redis State & Rate Limiter Store (Internal Only)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aeroguard_net
+
+  # ----------------------------------------------------------------------------
+  # 6. S3-Compatible Cold Storage Object Archive Service (Internal Only)
+  # ----------------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2024-08-03T04-33-08Z
+    restart: always
+    command: server /data
+    environment:
+      - MINIO_ROOT_USER=${AEROGUARD_S3_ACCESS_KEY:-CHANGE_ME_MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${AEROGUARD_S3_SECRET_KEY:-CHANGE_ME_MINIO_SECRET_KEY}
+    volumes:
+      - minio_prod_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aeroguard_net
+
+networks:
+  aeroguard_net:
+    driver: bridge
+    internal: false
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  minio_prod_data:

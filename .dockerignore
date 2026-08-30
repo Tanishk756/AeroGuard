@@ -1,0 +1,40 @@
+# Docker Build Context Ignored Files & Directories
+.git
+.github
+.vscode
+.idea
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov
+*.db
+*.sqlite
+*.sqlite3
+aeroguard.db
+data/
+archives/
+tmp/
+scratch/
+
+# Node & Frontend Build Artifacts
+node_modules/
+apps/operator/node_modules/
+apps/operator/dist/
+apps/admin/node_modules/
+apps/developer/node_modules/
+packages/*/node_modules/
+
+# Rust / Tauri Build Artifacts
+src-tauri/target/
+src-tauri/gen/
+
+# Logs & Temporary Data
+*.log
+*.tmp
+*.bak

@@ -1,0 +1,129 @@
+name: AeroGuard CI/CD & Build Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # 1. Backend Pytest & Code Hygiene Verification
+  # ----------------------------------------------------------------------------
+  backend-test:
+    name: Backend Test Suite & Code Hygiene
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run Backend Pytest Suite
+        run: |
+          pytest backend/tests tests -v
+
+      - name: Verify Git Diff Formatting
+        run: |
+          git diff --check
+
+  # ----------------------------------------------------------------------------
+  # 2. Frontend Operator Console Tests & Typecheck
+  # ----------------------------------------------------------------------------
+  frontend-test:
+    name: Frontend Operator Console Tests & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: |
+          npm ci
+
+      - name: Run Operator Unit Tests
+        run: |
+          npm --prefix apps/operator test
+
+      - name: Run TypeScript Typecheck
+        run: |
+          npm --prefix apps/operator run typecheck
+
+      - name: Run Vite Production Build
+        run: |
+          npm --prefix apps/operator run build
+
+  # ----------------------------------------------------------------------------
+  # 3. Desktop Tauri Subsystem Verification
+  # ----------------------------------------------------------------------------
+  tauri-test:
+    name: Desktop Tauri Cargo Check & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust Toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cargo Check
+        run: |
+          cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Cargo Test
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml
+
+  # ----------------------------------------------------------------------------
+  # 4. Container Compilation & Multi-Stage Image Validation
+  # ----------------------------------------------------------------------------
+  docker-build:
+    name: Production Container Image Build Validation
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.backend
+          push: false
+          tags: aeroguard-backend:test
+
+      - name: Build Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.frontend
+          push: false
+          tags: aeroguard-frontend:test
