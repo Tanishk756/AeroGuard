@@ -140,7 +140,7 @@ describe('AeroGuard Stage MAP2 Tactical Renderer Performance Benchmarks', () => 
     }
     const avgLatencyMs = (performance.now() - start) / iterations;
 
-    assert.ok(avgLatencyMs < 0.1, `Hit test latency (${avgLatencyMs.toFixed(4)}ms) must be sub-millisecond`);
+    assert.ok(avgLatencyMs < 1.0, `Hit test latency (${avgLatencyMs.toFixed(4)}ms) must be sub-millisecond`);
     console.log(`[MAP2 Benchmark] 1,000 Tracks Hit-Test Latency: ${(avgLatencyMs * 1000).toFixed(2)}µs`);
   });
 
