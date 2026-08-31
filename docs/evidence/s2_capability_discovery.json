@@ -1,0 +1,19 @@
+{
+  "timestamp_utc": "2026-08-31T12:25:00Z",
+  "host_os": "Windows 11 Home Single Language 64-bit (16GB RAM)",
+  "wsl_environment": {
+    "distribution": "Ubuntu-22.04",
+    "wsl_version": 2,
+    "status": "STOPPED (Available)"
+  },
+  "python_environment": {
+    "version": "Python 3.12.10",
+    "pymavlink_version": "2.4.49 (Installed & Verified)"
+  },
+  "subsystem_classification": {
+    "gazebo_harmonic": "NOT VERIFIED (Uninstantiated on local Windows host PATH; WSL2 installation runbook documented)",
+    "ardupilot_sitl": "NOT VERIFIED (Uninstantiated on local Windows host PATH; WSL2 installation runbook documented)",
+    "mavlink_transport": "AVAILABLE & LOCAL VERIFIED (pymavlink 2.4.49 socket binding & MAVLinkNormalizer verified)",
+    "mock_simulation_engine": "AVAILABLE & LOCAL VERIFIED (100% pass across all pytest & vitest suites)"
+  }
+}

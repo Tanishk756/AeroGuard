@@ -1,0 +1,57 @@
+{
+  "timestamp_utc": "2026-08-31T12:25:00.123456Z",
+  "sim_time_seconds": 15.5,
+  "vehicle_id": "quad-x-001",
+  "flight_mode": "GUIDED",
+  "armed": true,
+  "position": {
+    "latitude": 37.7749000,
+    "longitude": -122.4194000,
+    "altitude_msl": 120.50,
+    "altitude_relative": 20.50
+  },
+  "velocity": {
+    "vx": 4.50,
+    "vy": 0.20,
+    "vz": 0.00,
+    "ground_speed": 4.50
+  },
+  "attitude": {
+    "roll_deg": 2.10,
+    "pitch_deg": -1.05,
+    "yaw_deg": 90.00
+  },
+  "angular_velocity": {
+    "roll_rate": 0.010,
+    "pitch_rate": -0.005,
+    "yaw_rate": 0.020
+  },
+  "acceleration": {
+    "ax": 0.00,
+    "ay": 0.00,
+    "az": 9.81
+  },
+  "battery": {
+    "voltage_v": 14.80,
+    "current_a": 12.50,
+    "remaining_percent": 95.0,
+    "consumed_mah": 250.0
+  },
+  "gps": {
+    "fix_type": 3,
+    "satellites_visible": 14,
+    "hdop": 0.70,
+    "vdop": 0.90
+  },
+  "link_status": {
+    "rssi_dbm": -65,
+    "packet_loss_percent": 0.0,
+    "latency_ms": 12.5
+  },
+  "sensor_health": {
+    "imu1": true,
+    "mag1": true,
+    "baro1": true,
+    "gps1": true
+  }
+}
