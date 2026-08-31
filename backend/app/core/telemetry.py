@@ -250,6 +250,31 @@ SIMULATION_PROCESS_FAILURES_TOTAL = Counter(
     registry=REGISTRY,
 )
 
+# 12. Stage S4 Hardware & Vehicle Metrics
+HARDWARE_VALIDATION_FAILURES = Counter(
+    "aeroguard_hardware_validation_failures_total",
+    "Total hardware compatibility validation failures",
+    registry=REGISTRY,
+)
+
+VEHICLE_CREATION_TOTAL = Counter(
+    "aeroguard_vehicle_creation_total",
+    "Total vehicles created",
+    registry=REGISTRY,
+)
+
+VEHICLE_VALIDATION_TOTAL = Counter(
+    "aeroguard_vehicle_validation_total",
+    "Total vehicle validation requests",
+    registry=REGISTRY,
+)
+
+SIMULATION_VEHICLE_MAPPING_FAILURES = Counter(
+    "aeroguard_simulation_vehicle_mapping_failures_total",
+    "Total simulation vehicle mapping failures",
+    registry=REGISTRY,
+)
+
 
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""

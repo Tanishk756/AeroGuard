@@ -37,6 +37,10 @@ from app.models.simulation_platform import (
     PersistentSimulationScenario,
     PersistentSimulationRun,
 )
+from app.models.hardware_registry import (
+    PersistentHardwareComponent,
+    PersistentVehicle,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,
