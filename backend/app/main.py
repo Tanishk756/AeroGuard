@@ -77,9 +77,11 @@ async def csrf_origin_middleware(request: Request, call_next):
 
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.core.telemetry import setup_opentelemetry
 from app.middleware.telemetry import TelemetryMiddleware
 
 app.add_middleware(TelemetryMiddleware)
+setup_opentelemetry(app)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(

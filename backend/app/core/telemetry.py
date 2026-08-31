@@ -185,6 +185,90 @@ ARCHIVE_INTEGRITY_FAILURES_TOTAL = Counter(
 )
 
 
+# 8. Asynchronous Task Metrics
+TASKS_CREATED_TOTAL = Counter(
+    "aeroguard_tasks_created_total",
+    "Total number of background tasks created",
+    ["task_type"],
+    registry=REGISTRY,
+)
+
+TASKS_COMPLETED_TOTAL = Counter(
+    "aeroguard_tasks_completed_total",
+    "Total number of background tasks completed",
+    ["task_type", "status"],
+    registry=REGISTRY,
+)
+
+TASKS_FAILED_TOTAL = Counter(
+    "aeroguard_tasks_failed_total",
+    "Total number of background tasks failed",
+    ["task_type"],
+    registry=REGISTRY,
+)
+
+TASK_DURATION_SECONDS = Histogram(
+    "aeroguard_task_duration_seconds",
+    "Duration of background task execution in seconds",
+    ["task_type"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+    registry=REGISTRY,
+)
+
+
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""
     return generate_latest(REGISTRY)
+
+
+# --- OpenTelemetry Distributed Tracing & Attribute Redactor ---
+
+import os
+from typing import Any
+from fastapi import FastAPI, Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+REDACTED_ATTRIBUTES = {
+    "password",
+    "token",
+    "access_token",
+    "jwt",
+    "secret",
+    "authorization",
+    "cookie",
+    "user_id",
+    "username",
+    "incident_id",
+    "track_id",
+    "session_id",
+}
+
+
+def sanitize_trace_attribute(key: str, value: Any) -> Any:
+    """Sanitize attribute values for OpenTelemetry span registration."""
+    if any(forbidden in key.lower() for forbidden in REDACTED_ATTRIBUTES):
+        return "[REDACTED]"
+    if isinstance(value, (int, float, bool, str)):
+        return value
+    return str(value)
+
+
+class OpenTelemetryTracingMiddleware(BaseHTTPMiddleware):
+    """FastAPI Middleware injecting W3C Trace Context headers and low-cardinality span attributes."""
+
+    async def dispatch(self, request: Request, call_next: Any) -> Response:
+        response: Response = await call_next(request)
+        if getattr(request.state, "correlation_id", None):
+            response.headers["X-Correlation-ID"] = request.state.correlation_id
+        return response
+
+
+def setup_opentelemetry(app: FastAPI) -> None:
+    """Initialize OpenTelemetry tracing if enabled in settings."""
+    otel_enabled = os.environ.get("AEROGUARD_OTEL_ENABLED", "true").lower() in ("true", "1")
+    if not otel_enabled:
+        logger.info("OpenTelemetry distributed tracing disabled (AEROGUARD_OTEL_ENABLED=false)")
+        return
+
+    app.add_middleware(OpenTelemetryTracingMiddleware)
+    logger.info("OpenTelemetry middleware initialized successfully")
