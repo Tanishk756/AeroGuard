@@ -349,6 +349,55 @@ SCENARIO_RUNS_TOTAL = Counter(
     registry=REGISTRY,
 )
 
+# 15. Stage S7 Mission & Execution Telemetry Metrics
+MISSIONS_CREATED_TOTAL = Counter(
+    "aeroguard_missions_created_total",
+    "Total flight missions created",
+    registry=REGISTRY,
+)
+
+MISSIONS_VALIDATED_TOTAL = Counter(
+    "aeroguard_missions_validated_total",
+    "Total mission validation evaluations",
+    registry=REGISTRY,
+)
+
+MISSION_VALIDATION_FAILURES_TOTAL = Counter(
+    "aeroguard_mission_validation_failures_total",
+    "Total mission validation failures",
+    registry=REGISTRY,
+)
+
+MISSION_UPLOADS_TOTAL = Counter(
+    "aeroguard_mission_uploads_total",
+    "Total SITL mission upload attempts",
+    registry=REGISTRY,
+)
+
+MISSION_UPLOAD_FAILURES_TOTAL = Counter(
+    "aeroguard_mission_upload_failures_total",
+    "Total SITL mission upload failures",
+    registry=REGISTRY,
+)
+
+MISSION_EXECUTIONS_TOTAL = Counter(
+    "aeroguard_mission_executions_total",
+    "Total mission execution starts",
+    registry=REGISTRY,
+)
+
+MISSION_FAILURES_TOTAL = Counter(
+    "aeroguard_mission_failures_total",
+    "Total mission execution failures",
+    registry=REGISTRY,
+)
+
+MISSION_COMPLETIONS_TOTAL = Counter(
+    "aeroguard_mission_completions_total",
+    "Total successful mission completions",
+    registry=REGISTRY,
+)
+
 
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""

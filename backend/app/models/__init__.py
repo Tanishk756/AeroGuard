@@ -48,6 +48,11 @@ from app.models.scenario_world import (
     PersistentWorldObject,
     PersistentScenarioEntity,
 )
+from app.models.mission import (
+    PersistentMission,
+    PersistentMissionItem,
+    PersistentMissionRunSnapshot,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,
