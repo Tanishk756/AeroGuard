@@ -275,6 +275,43 @@ SIMULATION_VEHICLE_MAPPING_FAILURES = Counter(
     registry=REGISTRY,
 )
 
+# 13. Stage S5 Physics & Digital Twin Telemetry Metrics
+VEHICLE_COMPILE_TOTAL = Counter(
+    "aeroguard_vehicle_compile_total",
+    "Total vehicle compilation requests",
+    registry=REGISTRY,
+)
+
+VEHICLE_COMPILE_FAILURES_TOTAL = Counter(
+    "aeroguard_vehicle_compile_failures_total",
+    "Total vehicle compilation failures",
+    registry=REGISTRY,
+)
+
+GAZEBO_MODEL_GENERATION_TOTAL = Counter(
+    "aeroguard_gazebo_model_generation_total",
+    "Total Gazebo SDF model generation requests",
+    registry=REGISTRY,
+)
+
+GAZEBO_MODEL_GENERATION_FAILURES_TOTAL = Counter(
+    "aeroguard_gazebo_model_generation_failures_total",
+    "Total Gazebo SDF model generation failures",
+    registry=REGISTRY,
+)
+
+SIMULATION_SNAPSHOT_TOTAL = Counter(
+    "aeroguard_simulation_snapshot_total",
+    "Total simulation run snapshots frozen",
+    registry=REGISTRY,
+)
+
+SIMULATION_FAILURE_INJECTION_TOTAL = Counter(
+    "aeroguard_simulation_failure_injection_total",
+    "Total failure injection events dispatched",
+    registry=REGISTRY,
+)
+
 
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""

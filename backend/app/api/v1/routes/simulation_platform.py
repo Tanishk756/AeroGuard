@@ -172,6 +172,13 @@ def get_run_replay(run_id: str) -> dict:
     }
 
 
+@router.post("/runs/{run_id}/fail-motor")
+def inject_motor_failure(run_id: str, motor_index: int = 1, severity: float = 1.0) -> dict:
+    """POST /api/v1/simulation/runs/{run_id}/fail-motor - Inject motor failure event."""
+    from app.simulation.core.failure_injection import SimulationFailureInjector
+    return SimulationFailureInjector.inject_motor_failure(run_id, motor_index, severity)
+
+
 @router.websocket("/runs/{run_id}/telemetry")
 async def websocket_run_telemetry(websocket: WebSocket, run_id: str) -> None:
     """WebSocket stream broadcasting real-time normalized VehicleState vectors."""

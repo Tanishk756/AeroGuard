@@ -87,6 +87,7 @@ class BenchmarkStats:
         )
 
 
+@pytest.mark.benchmark
 class TestAI2PerformanceBenchmarks:
     """Performance benchmarks across multiple scale factors."""
 

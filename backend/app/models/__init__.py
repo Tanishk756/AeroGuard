@@ -28,6 +28,7 @@ from app.models.intelligence_history import (
 )
 from app.models.permission import Permission
 from app.models.role import Role
+from app.models.user import User, UserStatus
 from app.models.scenario import Scenario, ScenarioStatus
 from app.models.sensor import Sensor, SensorSourceClass, SensorStatus
 from app.models.threat import ThreatAssessment, ThreatLevel
@@ -41,6 +42,7 @@ from app.models.hardware_registry import (
     PersistentHardwareComponent,
     PersistentVehicle,
 )
+from app.models.snapshot import PersistentSimulationRunSnapshot
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,

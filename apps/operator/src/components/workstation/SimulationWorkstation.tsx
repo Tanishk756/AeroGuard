@@ -222,6 +222,19 @@ export const SimulationWorkstation: React.FC = () => {
               <button onClick={handleCreateAndStartScenario} disabled={runStatus === 'RUNNING'}>Start Simulation</button>
               <button onClick={handleStopSimulation} disabled={runStatus !== 'RUNNING'}>Stop Simulation</button>
             </div>
+            {runStatus === 'RUNNING' && runId && (
+              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #334155' }}>
+                <button
+                  onClick={async () => {
+                    await fetch(`/api/v1/simulation/runs/${runId}/fail-motor?motor_index=1`, { method: 'POST' });
+                    alert('Motor 1 Failure Injection Event Dispatched!');
+                  }}
+                  style={{ background: '#ef4444', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  ⚡ Inject Motor 1 Failure
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

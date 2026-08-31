@@ -150,6 +150,7 @@ def generate_scale_population(
 # Benchmark Test Suite
 # ─────────────────────────────────────────────────────────────────────────────
 
+@pytest.mark.benchmark
 class TestAI3ScaleStressBenchmarks:
     """Rigorous scale and telemetry benchmark suite for Stage AI3-E."""
 

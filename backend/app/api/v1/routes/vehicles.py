@@ -21,7 +21,13 @@ from app.schemas.hardware_registry import (
 from app.schemas.simulation_platform import SimulationScenarioResponse
 from app.simulation.core.compatibility import HardwareCompatibilityEngine
 from app.simulation.core.vehicle_calculator import VehicleCalculator
-from app.core.telemetry import VEHICLE_CREATION_TOTAL
+from app.simulation.core.vehicle_compiler import VehicleAssemblyCompiler, CompiledVehicleModel
+from app.simulation.core.sdf_generator import GazeboVehicleGenerator
+from app.core.telemetry import (
+    VEHICLE_CREATION_TOTAL,
+    VEHICLE_COMPILE_TOTAL,
+    VEHICLE_COMPILE_FAILURES_TOTAL,
+)
 
 router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
@@ -146,6 +152,36 @@ def validate_vehicle(vehicle_id: str, db: Session = Depends(get_db)):
     return HardwareCompatibilityEngine.validate_vehicle_assembly(
         vehicle.frame, vehicle.motor, vehicle.esc, vehicle.propeller, vehicle.battery, vehicle.flight_controller, vehicle.gps, vehicle_id=vehicle.id
     )
+
+
+@router.post("/{vehicle_id}/compile", response_model=CompiledVehicleModel)
+def compile_vehicle(vehicle_id: str, db: Session = Depends(get_db)):
+    """POST /api/v1/vehicles/{id}/compile - Compile persistent vehicle into deterministic physical model."""
+    VEHICLE_COMPILE_TOTAL.inc()
+    vehicle = db.get(PersistentVehicle, vehicle_id)
+    if not vehicle:
+        VEHICLE_COMPILE_FAILURES_TOTAL.inc()
+        raise HTTPException(status_code=404, detail=f"Vehicle '{vehicle_id}' not found")
+
+    return VehicleAssemblyCompiler.compile_vehicle(vehicle)
+
+
+@router.post("/{vehicle_id}/sdf")
+def generate_vehicle_sdf(vehicle_id: str, db: Session = Depends(get_db)):
+    """POST /api/v1/vehicles/{id}/sdf - Generate Gazebo Harmonic SDF XML model."""
+    vehicle = db.get(PersistentVehicle, vehicle_id)
+    if not vehicle:
+        raise HTTPException(status_code=404, detail=f"Vehicle '{vehicle_id}' not found")
+
+    compiled = VehicleAssemblyCompiler.compile_vehicle(vehicle)
+    sdf_xml, sdf_hash = GazeboVehicleGenerator.generate_sdf(compiled)
+
+    return {
+        "vehicle_id": vehicle_id,
+        "compiled_model_hash": compiled.compiled_model_hash,
+        "artifact_hash": sdf_hash,
+        "sdf_xml": sdf_xml,
+    }
 
 
 @router.post("/{vehicle_id}/simulate", response_model=SimulationScenarioResponse)
