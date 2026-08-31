@@ -33,6 +33,10 @@ from app.models.sensor import Sensor, SensorSourceClass, SensorStatus
 from app.models.threat import ThreatAssessment, ThreatLevel
 from app.models.track import Track, TrackHistory, TrackState
 from app.models.scheduler import SchedulerLock
+from app.models.simulation_platform import (
+    PersistentSimulationScenario,
+    PersistentSimulationRun,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,

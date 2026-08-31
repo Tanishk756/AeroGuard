@@ -21,6 +21,7 @@ from app.api.v1.routes.sensors import router as sensors_router
 from app.api.v1.routes.system import router as system_router
 from app.api.v1.routes.threats import router as threats_router
 from app.api.v1.routes.tracks import router as tracks_router
+from app.api.v1.routes.simulation_platform import router as simulation_platform_router
 from app.api.v1.routes.ws import router as ws_router
 
 router = APIRouter()
@@ -40,6 +41,7 @@ router.include_router(alerts_router, tags=["alerts"])
 router.include_router(threats_router, tags=["threats"])
 router.include_router(geofences_router, tags=["geofences"])
 router.include_router(scenarios_router, tags=["scenarios"])
+router.include_router(simulation_platform_router, tags=["simulation_platform"])
 router.include_router(history_router, tags=["history"])
 router.include_router(analytics_router, tags=["analytics"])
 router.include_router(replay_router, tags=["replay"])

@@ -215,6 +215,41 @@ TASK_DURATION_SECONDS = Histogram(
     registry=REGISTRY,
 )
 
+# 9. Stage S1 Simulation Platform Metrics
+SIMULATION_RUNS_TOTAL = Counter(
+    "aeroguard_simulation_runs_total",
+    "Total simulation runs created or started",
+    ["simulator", "status"],
+    registry=REGISTRY,
+)
+
+SIMULATION_FAILURES_TOTAL = Counter(
+    "aeroguard_simulation_failures_total",
+    "Total simulation run failures",
+    ["simulator"],
+    registry=REGISTRY,
+)
+
+SIMULATION_ACTIVE_RUNS = Gauge(
+    "aeroguard_simulation_active_runs",
+    "Current active running simulation runs",
+    registry=REGISTRY,
+)
+
+SIMULATION_TELEMETRY_MESSAGES_TOTAL = Counter(
+    "aeroguard_simulation_telemetry_messages_total",
+    "Total telemetry messages processed by source",
+    ["source"],
+    registry=REGISTRY,
+)
+
+SIMULATION_PROCESS_FAILURES_TOTAL = Counter(
+    "aeroguard_simulation_process_failures_total",
+    "Total simulation process failures",
+    ["process_type"],
+    registry=REGISTRY,
+)
+
 
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""
