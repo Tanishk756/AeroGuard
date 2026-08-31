@@ -1,7 +1,7 @@
-"""MAVLink Message Normalizer and Telemetry Transport Engine.
+"""MAVLink Message Normalizer and UDP Telemetry Transport Engine.
 
 Parses incoming MAVLink packets (ATTITUDE, GLOBAL_POSITION_INT, VFR_HUD, SYS_STATUS, GPS_RAW_INT, HEARTBEAT)
-into normalized simulator-neutral VehicleState vectors.
+into normalized simulator-neutral VehicleState vectors with numerical sanity checks.
 """
 
 import math
@@ -25,7 +25,7 @@ logger = logging.getLogger("aeroguard.telemetry.mavlink")
 
 
 class MAVLinkNormalizer:
-    """Normalizes raw MAVLink message fields into a unified VehicleState instance."""
+    """Normalizes raw MAVLink message fields into a unified VehicleState instance with numerical validation."""
 
     def __init__(self, vehicle_id: str = "quad-x-001"):
         self.vehicle_id = vehicle_id
@@ -34,24 +34,39 @@ class MAVLinkNormalizer:
             sim_time_seconds=0.0,
             vehicle_id=vehicle_id,
         )
+        self.packet_counts: Dict[str, int] = {
+            "HEARTBEAT": 0,
+            "ATTITUDE": 0,
+            "GLOBAL_POSITION_INT": 0,
+            "SYS_STATUS": 0,
+            "GPS_RAW_INT": 0,
+        }
 
-    def process_message(self, msg_type: str, msg_data: Dict[str, Any], sim_time: float = 0.0) -> VehicleState:
-        """Update internal state snapshot from received MAVLink message fields."""
+    def process_message(self, msg_type: str, msg_data: Dict[str, Any], sim_time: float = 0.0) -> Optional[VehicleState]:
+        """Update internal state snapshot from received MAVLink message fields after sanity checking."""
+        if msg_type in self.packet_counts:
+            self.packet_counts[msg_type] += 1
+
         now_str = datetime.now(timezone.utc).isoformat()
         self._current_state.timestamp_utc = now_str
         self._current_state.sim_time_seconds = sim_time
 
         if msg_type == "HEARTBEAT":
-            # Map custom flight mode & armed state
             custom_mode = msg_data.get("custom_mode", 0)
             base_mode = msg_data.get("base_mode", 0)
-            self._current_state.armed = bool(base_mode & 128)  # MAV_MODE_FLAG_SAFETY_ARMED
+            self._current_state.armed = bool(base_mode & 128)
             self._current_state.flight_mode = f"MODE_{custom_mode}"
 
         elif msg_type == "ATTITUDE":
             roll = msg_data.get("roll", 0.0) * (180.0 / math.pi)
             pitch = msg_data.get("pitch", 0.0) * (180.0 / math.pi)
             yaw = msg_data.get("yaw", 0.0) * (180.0 / math.pi)
+
+            # Numerical Sanity Verification
+            if not (math.isfinite(roll) and math.isfinite(pitch) and math.isfinite(yaw)):
+                logger.warning("Rejected malformed ATTITUDE packet containing non-finite values")
+                return None
+
             self._current_state.attitude = AttitudeVector(
                 roll_deg=round(roll, 2),
                 pitch_deg=round(pitch, 2),
@@ -71,8 +86,13 @@ class MAVLinkNormalizer:
             vx = msg_data.get("vx", 0) / 100.0
             vy = msg_data.get("vy", 0) / 100.0
             vz = msg_data.get("vz", 0) / 100.0
-            ground_spd = math.sqrt(vx * vx + vy * vy)
 
+            # Latitude [-90, 90] & Longitude [-180, 180] Sanity Check
+            if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+                logger.warning(f"Rejected out-of-bounds GPS coordinate: lat={lat}, lon={lon}")
+                return None
+
+            ground_spd = math.sqrt(vx * vx + vy * vy)
             self._current_state.position = PositionVector(
                 latitude=round(lat, 7),
                 longitude=round(lon, 7),
@@ -108,23 +128,43 @@ class MAVLinkNormalizer:
 
 
 class TelemetryTransport:
-    """Telemetry Transport Abstraction reading MAVLink packets or Mock packets."""
+    """Telemetry Transport Abstraction managing UDP sockets or mock fallback connections."""
 
     def __init__(self, vehicle_id: str = "quad-x-001"):
         self.normalizer = MAVLinkNormalizer(vehicle_id)
         self._connected = False
+        self._connection: Optional[Any] = None
 
     @property
     def is_connected(self) -> bool:
         return self._connected
 
     def connect(self, endpoint: str = "udpin:127.0.0.1:14550") -> bool:
+        """Attempt socket binding via pymavlink to specified UDP endpoint."""
         try:
-            from pymavlink import mavutil  # noqa: F401
-            logger.info(f"Connecting MAVLink transport to {endpoint}...")
+            from pymavlink import mavutil
+            logger.info(f"Binding MAVLink UDP socket transport to {endpoint}...")
+            self._connection = mavutil.mavlink_connection(endpoint)
             self._connected = True
             return True
-        except ImportError:
-            logger.warning("pymavlink package not installed; falling back to Mock transport mode")
+        except Exception as exc:
+            logger.warning(f"MAVLink socket binding to '{endpoint}' unfulfilled: {exc}")
             self._connected = False
             return False
+
+    def poll_message(self) -> Optional[VehicleState]:
+        """Poll non-blocking MAVLink packet from socket if connected."""
+        if not self._connected or not self._connection:
+            return None
+
+        try:
+            msg = self._connection.recv_match(blocking=False)
+            if not msg:
+                return None
+
+            msg_type = msg.get_type()
+            msg_data = msg.to_dict()
+            return self.normalizer.process_message(msg_type, msg_data)
+        except Exception as exc:
+            logger.error(f"Error polling MAVLink packet: {exc}")
+            return None

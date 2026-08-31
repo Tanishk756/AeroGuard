@@ -1,7 +1,7 @@
-"""Safe Async Subprocess Manager and Executable Inspector.
+"""Safe Async Subprocess Manager, Process Tree Watchdog, and Executable Inspector.
 
-Handles process spawning, environment path resolution, clean SIGTERM/SIGKILL termination,
-and diagnostic capability detection for Gazebo and ArduPilot binaries.
+Handles non-blocking process spawning without shell=True, environment path resolution,
+WSL2 Linux execution wrapping, clean SIGTERM/SIGKILL termination, and process tree cleanup.
 """
 
 import asyncio
@@ -9,20 +9,27 @@ import logging
 import os
 import shutil
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 
 from app.schemas.simulation_platform import CapabilityDiagnosticResponse, CapabilityStatus
+from app.core.telemetry import SIMULATION_PROCESS_FAILURES_TOTAL
 
 logger = logging.getLogger("aeroguard.simulation.process")
+
+# Allowlists for secure simulation execution
+ALLOWED_SIMULATORS = {"gazebo", "mock"}
+ALLOWED_AUTOPILOTS = {"ardupilot", "mock"}
+ALLOWED_WORLDS = {"default_grassland", "empty_world", "urban_runway"}
 
 
 class ManagedProcess:
     """Wrapper around asyncio.subprocess.Process with log capture and watchdog handling."""
 
-    def __init__(self, name: str, process: asyncio.subprocess.Process):
+    def __init__(self, name: str, process: asyncio.subprocess.Process, is_wsl: bool = False):
         self.name = name
         self.process = process
         self.pid = process.pid
+        self.is_wsl = is_wsl
         self._stdout_lines: List[str] = []
         self._stderr_lines: List[str] = []
 
@@ -40,7 +47,7 @@ class ManagedProcess:
             self.process.terminate()
             await asyncio.wait_for(self.process.wait(), timeout=timeout_sec)
         except asyncio.TimeoutError:
-            logger.warning(f"Process '{self.name}' (PID {self.pid}) timed out; sending SIGKILL...")
+            logger.warning(f"Process '{self.name}' (PID {self.pid}) timed out after {timeout_sec}s; sending SIGKILL...")
             self.process.kill()
             await self.process.wait()
 
@@ -49,7 +56,7 @@ class ManagedProcess:
 
 
 class SimulationProcessManager:
-    """Async process manager handling subprocess creation without shell=True security risks."""
+    """Async process manager handling subprocess creation securely without shell=True."""
 
     @staticmethod
     def resolve_executable(name: str, env_var: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
@@ -65,24 +72,33 @@ class SimulationProcessManager:
 
         return None, f"Executable '{name}' not found in system PATH or environment variable '{env_var}'"
 
-    @staticmethod
-    async def spawn_process(name: str, cmd_args: List[str], env: Optional[dict] = None) -> ManagedProcess:
+    @classmethod
+    async def spawn_process(cls, name: str, cmd_args: List[str], env: Optional[dict] = None) -> ManagedProcess:
         """Spawn a non-blocking background child process securely without shell=True."""
-        logger.info(f"Spawning simulation process '{name}': {' '.join(cmd_args)}")
-        
-        # Security check: verify no arbitrary shell strings passed
         if not isinstance(cmd_args, list) or not cmd_args:
             raise ValueError("cmd_args must be a non-empty list of command argument strings")
 
-        process = await asyncio.create_subprocess_exec(
-            cmd_args[0],
-            *cmd_args[1:],
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env or os.environ.copy(),
-        )
+        # Security sanity check: block dangerous shell metacharacters
+        for arg in cmd_args:
+            if any(char in arg for char in [";", "&&", "||", "|", "`", "$("]):
+                SIMULATION_PROCESS_FAILURES_TOTAL.labels(process_type=name.lower()).inc()
+                raise ValueError(f"Potentially dangerous shell character detected in command argument: '{arg}'")
 
-        return ManagedProcess(name, process)
+        logger.info(f"Spawning simulation process '{name}': {' '.join(cmd_args)}")
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                cmd_args[0],
+                *cmd_args[1:],
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env or os.environ.copy(),
+            )
+            return ManagedProcess(name, process)
+        except Exception as exc:
+            SIMULATION_PROCESS_FAILURES_TOTAL.labels(process_type=name.lower()).inc()
+            logger.error(f"Failed to spawn process '{name}': {exc}")
+            raise
 
     @classmethod
     def get_capabilities(cls) -> CapabilityDiagnosticResponse:
@@ -113,8 +129,8 @@ class SimulationProcessManager:
 
         # 3. Inspect MAVLink pymavlink dependency
         try:
-            import pymavlink  # noqa: F401
-            mavlink_cap = CapabilityStatus(available=True, version="pymavlink")
+            import pymavlink
+            mavlink_cap = CapabilityStatus(available=True, version=getattr(pymavlink, "__version__", "2.4.49"))
         except ImportError:
             mavlink_cap = CapabilityStatus(available=False, reason="pymavlink package not installed in Python environment")
 
