@@ -186,6 +186,13 @@ class SimulationEngineFactory:
 
     @classmethod
     def create(cls, name: str, scenario: SimulationScenarioSpec) -> BaseSimulationAdapter:
+        # Lazy import of concrete adapters to avoid circular dependencies
+        if "gazebo" not in cls._registry:
+            from app.simulation.adapters.gazebo import GazeboHarmonicAdapter
+            from app.simulation.adapters.ardupilot import ArduPilotSITLAdapter
+            cls._registry["gazebo"] = GazeboHarmonicAdapter
+            cls._registry["ardupilot"] = ArduPilotSITLAdapter
+
         adapter_cls = cls._registry.get(name.lower())
         if not adapter_cls:
             raise ValueError(f"Unknown simulation engine adapter: '{name}'. Available: {list(cls._registry.keys())}")
