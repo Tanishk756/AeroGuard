@@ -221,6 +221,47 @@ def get_incident_export(
     )
 
 
+@router.post("/export/async", status_code=202)
+def create_async_incident_export(
+    payload: CreateIncidentExportRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_permission("incidents.export")),
+):
+    """Submit an asynchronous background task for incident export (HTTP 202 Accepted)."""
+    from app.core.tasks import task_manager
+    correlation_id = getattr(request.state, "correlation_id", None)
+    task_record = task_manager.create_task(
+        task_type="incident_export",
+        correlation_id=correlation_id,
+    )
+
+    def run_export():
+        service = IncidentExportService(db)
+        export = service.create_export(actor_user_id=actor.id, request=payload)
+        return {"export_id": export.id, "record_count": export.record_count}
+
+    task_manager.execute_async(task_record.task_id, run_export)
+    return {
+        "task_id": task_record.task_id,
+        "status": task_record.status.value,
+        "message": "Export task queued for background execution",
+    }
+
+
+@router.get("/export/tasks/{task_id}")
+def get_async_export_task_status(
+    task_id: str,
+    _: User = Depends(require_permission("incidents.export")),
+):
+    """Retrieve asynchronous task execution status and metadata by task_id."""
+    from app.core.tasks import task_manager
+    task = task_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task.to_dict()
+
+
 @router.get("/retention/policy", response_model=RetentionPolicyResponse)
 def get_retention_policy(
     db: Session = Depends(get_db),
