@@ -1,0 +1,34 @@
+{
+  "timestamp_utc": "2026-08-31T13:08:15.123456Z",
+  "sim_time_seconds": 22.4,
+  "vehicle_id": "quad-x-001",
+  "flight_mode": "STABILIZE",
+  "armed": false,
+  "position": {
+    "latitude": 37.7749000,
+    "longitude": -122.4194000,
+    "altitude_msl": 10.00,
+    "altitude_relative": 0.00
+  },
+  "velocity": {
+    "vx": 0.00,
+    "vy": 0.00,
+    "vz": 0.00,
+    "ground_speed": 0.00
+  },
+  "attitude": {
+    "roll_deg": 0.00,
+    "pitch_deg": 0.00,
+    "yaw_deg": 90.00
+  },
+  "battery": {
+    "voltage_v": 14.80,
+    "current_a": 0.00,
+    "remaining_percent": 100.0
+  },
+  "gps": {
+    "fix_type": 3,
+    "satellites_visible": 12,
+    "hdop": 0.80
+  }
+}

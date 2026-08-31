@@ -1,0 +1,28 @@
+{
+  "timestamp_utc": "2026-08-31T13:08:00Z",
+  "stage": "Stage S3 Real Gazebo + Real ArduPilot SITL Verification",
+  "host_os": "Windows 11 Home 64-bit (16GB RAM)",
+  "wsl2_runtime": {
+    "distribution": "Ubuntu-22.04.5 LTS",
+    "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2",
+    "cpu_cores": 12,
+    "available_memory_mb": 7884
+  },
+  "subsystem_status": {
+    "gazebo_harmonic": {
+      "status": "LIVE VERIFIED",
+      "executable": "WSL:/usr/bin/gz",
+      "version": "Gazebo Sim 8.15.0"
+    },
+    "ardupilot_sitl": {
+      "status": "LIVE VERIFIED",
+      "executable": "WSL:/home/tanishk/src/ardupilot/build/sitl/bin/arducopter",
+      "version": "ArduCopter 4.6.0-dev"
+    },
+    "pymavlink_transport": {
+      "status": "LIVE VERIFIED",
+      "version": "2.4.49",
+      "udp_endpoint": "udpin:127.0.0.1:14550"
+    }
+  }
+}
