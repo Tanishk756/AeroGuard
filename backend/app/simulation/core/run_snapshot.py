@@ -7,7 +7,7 @@ and records persistent snapshot in database.
 import json
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.snapshot import PersistentSimulationRunSnapshot
@@ -27,6 +27,8 @@ class SimulationSnapshotManager:
         vehicle: PersistentVehicle,
         world_name: str,
         db: Session,
+        world_sdf_content: Optional[str] = None,
+        scenario_id: Optional[str] = None,
         base_dir: str = ".aeroguard/simulations",
     ) -> Dict[str, Any]:
         SIMULATION_SNAPSHOT_TOTAL.inc()
@@ -48,16 +50,18 @@ class SimulationSnapshotManager:
 
         # Write artifacts securely
         vehicle_sdf_path.write_text(sdf_xml, encoding="utf-8")
-        world_sdf_path.write_text(f"<!-- World: {world_name} -->", encoding="utf-8")
+        world_content = world_sdf_content or f"<!-- World: {world_name} -->"
+        world_sdf_path.write_text(world_content, encoding="utf-8")
         config_json_path.write_text(compiled_model.model_dump_json(indent=2), encoding="utf-8")
 
         manifest = {
             "run_id": run_id,
             "vehicle_id": vehicle.id,
+            "scenario_id": scenario_id,
             "compiled_model_hash": compiled_model.compiled_model_hash,
             "artifact_hash": sdf_hash,
             "world_name": world_name,
-            "compiler_version": "v1.0.0-s5",
+            "compiler_version": "v1.0.0-s6",
         }
         manifest_json_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 

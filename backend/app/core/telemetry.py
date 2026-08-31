@@ -312,6 +312,43 @@ SIMULATION_FAILURE_INJECTION_TOTAL = Counter(
     registry=REGISTRY,
 )
 
+# 14. Stage S6 Scenario & World Telemetry Metrics
+SCENARIOS_CREATED_TOTAL = Counter(
+    "aeroguard_scenarios_created_total",
+    "Total scenarios created",
+    registry=REGISTRY,
+)
+
+SCENARIOS_VALIDATED_TOTAL = Counter(
+    "aeroguard_scenarios_validated_total",
+    "Total scenario validation evaluations",
+    registry=REGISTRY,
+)
+
+SCENARIO_VALIDATION_FAILURES_TOTAL = Counter(
+    "aeroguard_scenario_validation_failures_total",
+    "Total scenario validation failures",
+    registry=REGISTRY,
+)
+
+WORLD_GENERATION_TOTAL = Counter(
+    "aeroguard_world_generation_total",
+    "Total Gazebo world generation requests",
+    registry=REGISTRY,
+)
+
+WORLD_GENERATION_FAILURES_TOTAL = Counter(
+    "aeroguard_world_generation_failures_total",
+    "Total Gazebo world generation failures",
+    registry=REGISTRY,
+)
+
+SCENARIO_RUNS_TOTAL = Counter(
+    "aeroguard_scenario_runs_total",
+    "Total scenario simulation runs launched",
+    registry=REGISTRY,
+)
+
 
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""

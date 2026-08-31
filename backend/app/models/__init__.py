@@ -43,6 +43,11 @@ from app.models.hardware_registry import (
     PersistentVehicle,
 )
 from app.models.snapshot import PersistentSimulationRunSnapshot
+from app.models.scenario_world import (
+    PersistentSimulationWorld,
+    PersistentWorldObject,
+    PersistentScenarioEntity,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,

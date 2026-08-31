@@ -102,6 +102,7 @@ def test_archive_store_health_s3_unhealthy():
         assert health["reachable"] is False
 
 
+@pytest.mark.benchmark
 def test_factory_routing_performance_scale_benchmark():
     """Benchmark 1,000 factory provider resolution decisions (< 100 ms overhead)."""
     start_time = time.perf_counter()

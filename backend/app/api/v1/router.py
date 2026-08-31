@@ -24,6 +24,8 @@ from app.api.v1.routes.tracks import router as tracks_router
 from app.api.v1.routes.simulation_platform import router as simulation_platform_router
 from app.api.v1.routes.hardware_registry import router as hardware_registry_router
 from app.api.v1.routes.vehicles import router as vehicles_router
+from app.api.v1.routes.worlds import router as worlds_router
+from app.api.v1.routes.scenario_builder import router as scenario_builder_router
 from app.api.v1.routes.ws import router as ws_router
 
 router = APIRouter()
@@ -46,6 +48,8 @@ router.include_router(scenarios_router, tags=["scenarios"])
 router.include_router(simulation_platform_router, tags=["simulation_platform"])
 router.include_router(hardware_registry_router, tags=["hardware_registry"])
 router.include_router(vehicles_router, tags=["vehicles"])
+router.include_router(worlds_router, tags=["worlds"])
+router.include_router(scenario_builder_router, tags=["scenario_builder"])
 router.include_router(history_router, tags=["history"])
 router.include_router(analytics_router, tags=["analytics"])
 router.include_router(replay_router, tags=["replay"])
