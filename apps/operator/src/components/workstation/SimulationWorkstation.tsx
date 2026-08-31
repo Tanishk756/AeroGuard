@@ -192,8 +192,15 @@ export const SimulationWorkstation: React.FC = () => {
 
         {/* Telemetry Instruments & Controls */}
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '8px' }}>
-          <h3>Vehicle Telemetry</h3>
-          <div>Status: <span style={{ color: runStatus === 'RUNNING' ? '#22c55e' : '#f43f5e' }}>{runStatus}</span></div>
+          <h3>Vehicle Telemetry & Diagnostics</h3>
+          {/* Subsystem Status Indicators */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '15px', fontSize: '12px' }}>
+            <div>Simulation: <strong style={{ color: runStatus === 'RUNNING' ? '#22c55e' : runStatus === 'FAILED' ? '#f43f5e' : '#eab308' }}>{runStatus}</strong></div>
+            <div>Gazebo: <strong style={{ color: selectedEngine === 'GAZEBO' && runStatus === 'RUNNING' ? '#22c55e' : '#94a3b8' }}>{selectedEngine === 'GAZEBO' ? (capabilities?.gazebo.available ? (runStatus === 'RUNNING' ? 'RUNNING' : 'DISCONNECTED') : 'NOT AVAILABLE') : 'STANDBY'}</strong></div>
+            <div>ArduPilot: <strong style={{ color: runStatus === 'RUNNING' ? '#22c55e' : '#94a3b8' }}>{capabilities?.ardupilot_sitl.available ? (runStatus === 'RUNNING' ? 'CONNECTED' : 'DISCONNECTED') : 'NOT AVAILABLE'}</strong></div>
+            <div>MAVLink Stream: <strong style={{ color: telemetry ? '#22c55e' : '#f43f5e' }}>{telemetry ? 'ACTIVE' : 'DISCONNECTED'}</strong></div>
+          </div>
+
           <div>Mode: <strong>{telemetry?.flight_mode || 'OFFLINE'}</strong></div>
           <div>Armed: <strong>{telemetry?.armed ? 'ARMED' : 'DISARMED'}</strong></div>
           <div>Latitude: {telemetry?.position.latitude || '0.000000'}</div>
