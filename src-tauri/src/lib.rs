@@ -5,6 +5,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Build Tray Menu
             let toggle_item = MenuItemBuilder::with_id("toggle", "Open Operator Console").build(app)?;
