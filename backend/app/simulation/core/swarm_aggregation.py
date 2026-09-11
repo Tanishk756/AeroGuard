@@ -153,9 +153,13 @@ class SwarmAggregationEngine:
             else 0.0
         )
 
+        from datetime import datetime, timezone
+        ts_utc = datetime.fromtimestamp(current_time_s or 0.0, tz=timezone.utc).isoformat()
+
         return SwarmTelemetrySnapshot(
             swarm_id=swarm_id,
             snapshot_sequence=snapshot_sequence,
+            timestamp_utc=ts_utc,
             sim_time_seconds=current_time_s or 0.0,
             active_vehicle_ids=active_vids,
             vehicles_telemetry=telemetry_map,

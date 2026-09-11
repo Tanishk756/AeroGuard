@@ -52,6 +52,12 @@ class SwarmSafetyActionEngine:
                 return True
             return False
 
+        # Helper to generate deterministic decision ID
+        import hashlib
+        def _make_dec_id(key: str) -> str:
+            h = hashlib.sha256(f"{key}_{now}".encode("utf-8")).hexdigest()[:8]
+            return f"dec-{h}"
+
         # 1. Check Spatial Separation Breaches (Pairwise)
         min_dist = snapshot.pairwise_separation_stats.min_distance_m
         pair = snapshot.pairwise_separation_stats.closest_pair
@@ -63,7 +69,7 @@ class SwarmSafetyActionEngine:
                 if _can_trigger(key):
                     decisions.append(
                         SwarmSafetyActionDecision(
-                            decision_id=f"dec-{uuid.uuid4().hex[:8]}",
+                            decision_id=_make_dec_id(key),
                             swarm_id=snapshot.swarm_id,
                             vehicle_id=v1,
                             target_vehicle_id=v2,
@@ -80,7 +86,7 @@ class SwarmSafetyActionEngine:
                 if _can_trigger(key):
                     decisions.append(
                         SwarmSafetyActionDecision(
-                            decision_id=f"dec-{uuid.uuid4().hex[:8]}",
+                            decision_id=_make_dec_id(key),
                             swarm_id=snapshot.swarm_id,
                             vehicle_id=v1,
                             target_vehicle_id=v2,
@@ -100,7 +106,7 @@ class SwarmSafetyActionEngine:
             if _can_trigger(key):
                 decisions.append(
                     SwarmSafetyActionDecision(
-                        decision_id=f"dec-{uuid.uuid4().hex[:8]}",
+                        decision_id=_make_dec_id(key),
                         swarm_id=snapshot.swarm_id,
                         condition="FORMATION_DIVERGENCE",
                         severity="WARNING",
@@ -119,7 +125,7 @@ class SwarmSafetyActionEngine:
                 if _can_trigger(key):
                     decisions.append(
                         SwarmSafetyActionDecision(
-                            decision_id=f"dec-{uuid.uuid4().hex[:8]}",
+                            decision_id=_make_dec_id(key),
                             swarm_id=snapshot.swarm_id,
                             vehicle_id=leader_vehicle_id,
                             condition="LEADER_TIMEOUT_LOST",
@@ -138,7 +144,7 @@ class SwarmSafetyActionEngine:
                 if _can_trigger(key):
                     decisions.append(
                         SwarmSafetyActionDecision(
-                            decision_id=f"dec-{uuid.uuid4().hex[:8]}",
+                            decision_id=_make_dec_id(key),
                             swarm_id=snapshot.swarm_id,
                             vehicle_id=vid,
                             condition="TELEMETRY_DROPOUT",
@@ -157,7 +163,7 @@ class SwarmSafetyActionEngine:
             if _can_trigger(key):
                 decisions.append(
                     SwarmSafetyActionDecision(
-                        decision_id=f"dec-{uuid.uuid4().hex[:8]}",
+                        decision_id=_make_dec_id(key),
                         swarm_id=snapshot.swarm_id,
                         condition="COMMUNICATION_LINK_DEGRADED",
                         severity="WARNING",

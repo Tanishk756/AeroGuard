@@ -41,6 +41,8 @@ class SwarmSafetyEngine:
             Tuple of (Aggregated SwarmHealth, List of SafetyEvent instances).
         """
         now = current_time_s if current_time_s is not None else time.time()
+        from datetime import datetime, timezone
+        event_dt = datetime.fromtimestamp(now, tz=timezone.utc)
         events: List[SafetyEvent] = []
 
         if not vehicle_states:
@@ -49,6 +51,7 @@ class SwarmSafetyEngine:
                     event_type=SafetyEventType.VEHICLE_DISCONNECTED,
                     severity="CRITICAL",
                     vehicle_id="SWARM_GLOBAL",
+                    timestamp=event_dt,
                     message=f"Swarm {swarm_id} contains no registered active vehicle states.",
                 )
             ])
@@ -65,6 +68,7 @@ class SwarmSafetyEngine:
                         event_type=SafetyEventType.LEADER_LOST,
                         severity="CRITICAL",
                         vehicle_id=leader_vehicle_id,
+                        timestamp=event_dt,
                         message=f"Leader vehicle {leader_vehicle_id} telemetry is stale ({now - leader_state.last_telemetry_timestamp:.1f}s).",
                     )
                 )
@@ -74,6 +78,7 @@ class SwarmSafetyEngine:
                     event_type=SafetyEventType.LEADER_LOST,
                     severity="CRITICAL",
                     vehicle_id=leader_vehicle_id,
+                    timestamp=event_dt,
                     message=f"Designated leader vehicle {leader_vehicle_id} not found in active vehicle states.",
                 )
             )
@@ -91,6 +96,7 @@ class SwarmSafetyEngine:
                         severity="WARNING",
                         vehicle_id=vids[0],
                         target_vehicle_id=vids[1],
+                        timestamp=event_dt,
                         message=f"Slot conflict: vehicles {vids} are both assigned slot {slot_idx}.",
                     )
                 )
@@ -109,6 +115,7 @@ class SwarmSafetyEngine:
                         event_type=SafetyEventType.VEHICLE_DISCONNECTED,
                         severity="WARNING" if vstate.role != SwarmRole.LEADER else "CRITICAL",
                         vehicle_id=vid,
+                        timestamp=event_dt,
                         message=f"Vehicle {vid} disconnected. Stale telemetry ({time_diff:.1f}s).",
                     )
                 )
@@ -122,6 +129,7 @@ class SwarmSafetyEngine:
                         vehicle_id=vid,
                         distance_m=vstate.position_error_m,
                         threshold_m=2.0 * pos_tol,
+                        timestamp=event_dt,
                         message=f"Vehicle {vid} deviated from formation slot by {vstate.position_error_m:.2f}m (threshold: {2.0 * pos_tol:.2f}m).",
                     )
                 )
@@ -152,6 +160,7 @@ class SwarmSafetyEngine:
                             target_vehicle_id=v2.vehicle_id,
                             distance_m=dist,
                             threshold_m=min_sep,
+                            timestamp=event_dt,
                             message=f"Minimum separation breach between {v1.vehicle_id} and {v2.vehicle_id}: {dist:.2f}m < {min_sep:.2f}m.",
                         )
                     )

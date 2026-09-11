@@ -272,6 +272,9 @@ class SwarmEngine:
             current_time_s=now,
         )
 
+        from datetime import datetime, timezone
+        sw_dt = datetime.fromtimestamp(now, tz=timezone.utc)
+
         return SwarmState(
             swarm_id=self.config.swarm_id,
             leader_vehicle_id=self.config.leader_vehicle_id,
@@ -280,4 +283,5 @@ class SwarmEngine:
             vehicle_states=swarm_vehicle_states,
             desired_states=desired_states,
             safety_events=safety_events,
+            timestamp=sw_dt,
         )
