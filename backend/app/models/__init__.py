@@ -61,6 +61,10 @@ from app.models.swarm import (
     PersistentSwarm,
     PersistentSwarmMember,
 )
+from app.models.swarm_safety import (
+    PersistentSwarmSafetyPolicy,
+    PersistentSwarmSafetyEvent,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,
@@ -78,4 +82,5 @@ __all__ = [
     "TrackGroupHistory", "TrackHistory", "TrackState", "User", "UserStatus",
     "VALID_INCIDENT_TRANSITIONS", "can_transition", "validate_transition",
     "PersistentSwarm", "PersistentSwarmMember",
+    "PersistentSwarmSafetyPolicy", "PersistentSwarmSafetyEvent",
 ]

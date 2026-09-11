@@ -98,6 +98,23 @@ from app.schemas.swarm import (
     SwarmMemberResponse,
     SwarmResponse,
 )
+from app.schemas.swarm_telemetry import (
+    TelemetrySource,
+    SwarmVehicleTelemetry,
+    SwarmBoundingBoxENU,
+    FormationDeviationStats,
+    PairwiseSeparationStats,
+    VehicleHealthSummary,
+    TelemetryFreshnessSummary,
+    CommunicationQualitySummary,
+    SwarmTelemetrySnapshot,
+)
+from app.schemas.swarm_safety import (
+    SafetyActionType,
+    SwarmSafetyPolicyCreate,
+    SwarmSafetyPolicyResponse,
+    SwarmSafetyActionDecision,
+)
 
 __all__ = [
     "AcknowledgeIncidentRequest",
@@ -193,4 +210,17 @@ __all__ = [
     "SwarmFormationSet",
     "SwarmMemberResponse",
     "SwarmResponse",
+    "TelemetrySource",
+    "SwarmVehicleTelemetry",
+    "SwarmBoundingBoxENU",
+    "FormationDeviationStats",
+    "PairwiseSeparationStats",
+    "VehicleHealthSummary",
+    "TelemetryFreshnessSummary",
+    "CommunicationQualitySummary",
+    "SwarmTelemetrySnapshot",
+    "SafetyActionType",
+    "SwarmSafetyPolicyCreate",
+    "SwarmSafetyPolicyResponse",
+    "SwarmSafetyActionDecision",
 ]

@@ -71,3 +71,27 @@ export interface SwarmState {
   safety_events: SafetyEvent[];
   timestamp: string;
 }
+
+export interface SwarmVehicleTelemetry extends SwarmVehicleState {
+  swarm_id: string;
+  timestamp_utc: string;
+  sequence_number: number;
+  sim_time_seconds: number;
+  telemetry_age_s: number;
+  source: 'SITL' | 'MOCK' | 'HARDWARE';
+  frame_id: string;
+}
+
+export interface SwarmTelemetrySnapshot {
+  swarm_id: string;
+  snapshot_sequence: number;
+  timestamp_utc: string;
+  sim_time_seconds: number;
+  active_vehicle_ids: string[];
+  vehicles_telemetry: Record<string, SwarmVehicleTelemetry>;
+  centroid_enu: [number, number, number];
+  bounding_sphere_radius_m: number;
+  average_velocity_enu: [number, number, number];
+  health: SwarmHealth;
+  timestamp: string;
+}

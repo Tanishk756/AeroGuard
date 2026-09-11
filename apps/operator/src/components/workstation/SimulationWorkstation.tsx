@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { SwarmTactical3DMap } from './SwarmTactical3DMap';
+
 
 export interface VehicleStateVector {
   timestamp_utc: string;
@@ -239,10 +241,67 @@ export const SimulationWorkstation: React.FC = () => {
         </div>
       </div>
 
-      {/* Stage S10 Multi-Vehicle Swarm & Formation Control Panel */}
+      {/* Stage S10 & S11 Multi-Vehicle Swarm & Formation Control Panel */}
       <div style={{ marginTop: '20px', background: '#1e293b', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
-        <h3>Swarm & Formation Control Engine (Stage S10)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', fontSize: '13px' }}>
+        <h3 style={{ marginTop: 0 }}>Swarm Telemetry Fusion & 3D Tactical Map (Stage S11)</h3>
+        {/* 3D Tactical Map Viewport */}
+
+        <SwarmTactical3DMap
+          swarmState={{
+            swarm_id: 'swm-alpha-01',
+            leader_vehicle_id: 'alpha-leader-01',
+            formation_type: 'V_FORMATION',
+            health: 'HEALTHY',
+            vehicle_states: {
+              'alpha-leader-01': {
+                vehicle_id: 'alpha-leader-01',
+                autopilot_type: 'ARDUPILOT',
+                role: 'LEADER',
+                slot_index: 0,
+                current_position_enu: [0, 0, 10],
+                current_velocity_enu: [0, 0, 0],
+                current_heading_deg: 0,
+                desired_position_enu: [0, 0, 10],
+                desired_velocity_enu: [0, 0, 0],
+                position_error_m: 0,
+                health_status: 'HEALTHY',
+                last_telemetry_timestamp: Date.now() / 1000,
+              },
+              'alpha-follower-02': {
+                vehicle_id: 'alpha-follower-02',
+                autopilot_type: 'PX4',
+                role: 'FOLLOWER',
+                slot_index: 1,
+                current_position_enu: [-10, -10, 10],
+                current_velocity_enu: [0, 0, 0],
+                current_heading_deg: 0,
+                desired_position_enu: [-10, -10, 10],
+                desired_velocity_enu: [0, 0, 0],
+                position_error_m: 0.2,
+                health_status: 'HEALTHY',
+                last_telemetry_timestamp: Date.now() / 1000,
+              },
+              'alpha-follower-03': {
+                vehicle_id: 'alpha-follower-03',
+                autopilot_type: 'ARDUPILOT',
+                role: 'FOLLOWER',
+                slot_index: 2,
+                current_position_enu: [-10, 10, 10],
+                current_velocity_enu: [0, 0, 0],
+                current_heading_deg: 0,
+                desired_position_enu: [-10, 10, 10],
+                desired_velocity_enu: [0, 0, 0],
+                position_error_m: 0.1,
+                health_status: 'HEALTHY',
+                last_telemetry_timestamp: Date.now() / 1000,
+              },
+            },
+            safety_events: [],
+            timestamp: new Date().toISOString(),
+          }}
+        />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginTop: '15px', fontSize: '13px' }}>
           <div style={{ background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8' }}>Swarm Configuration</h4>
             <div>Swarm ID: <strong>swm-alpha-01</strong></div>
@@ -259,10 +318,11 @@ export const SimulationWorkstation: React.FC = () => {
             <div>Autopilot Blend: <strong>ArduPilot + PX4 (Heterogeneous)</strong></div>
           </div>
           <div style={{ background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#eab308' }}>Formation Directives</h4>
+            <h4 style={{ margin: '0 0 10px 0', color: '#eab308' }}>Safety-Action Controls</h4>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>TAKEOFF ALL</button>
               <button style={{ background: '#059669', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>HOLD FORMATION</button>
+              <button style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>REFORM SWARM</button>
               <button style={{ background: '#d97706', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>LAND ALL</button>
             </div>
           </div>

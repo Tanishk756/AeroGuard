@@ -30,6 +30,7 @@ from app.api.v1.routes.missions import router as missions_router
 from app.api.v1.routes.sensors_payloads import router as sensors_payloads_router
 from app.api.v1.routes.autopilots import router as autopilots_router
 from app.api.v1.routes.swarms import router as swarms_router
+from app.api.v1.routes.swarm_telemetry_safety import router as swarm_telemetry_safety_router
 from app.api.v1.routes.ws import router as ws_router
 
 router = APIRouter()
@@ -55,6 +56,7 @@ router.include_router(vehicles_router, tags=["vehicles"])
 router.include_router(sensors_payloads_router, tags=["sensors_payloads"])
 router.include_router(autopilots_router, tags=["autopilots"])
 router.include_router(swarms_router, tags=["swarms"])
+router.include_router(swarm_telemetry_safety_router, tags=["swarm_telemetry_safety"])
 router.include_router(worlds_router, tags=["worlds"])
 router.include_router(scenario_builder_router, tags=["scenario_builder"])
 router.include_router(missions_router, tags=["missions"])
