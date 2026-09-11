@@ -57,6 +57,10 @@ from app.models.sensor_payload import (
     PersistentSensorInstance,
     PersistentPayloadInstance,
 )
+from app.models.swarm import (
+    PersistentSwarm,
+    PersistentSwarmMember,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,
@@ -73,4 +77,5 @@ __all__ = [
     "ThreatAssessment", "ThreatLevel", "Track", "TrackAssociation", "TrackAssociationDecision",
     "TrackGroupHistory", "TrackHistory", "TrackState", "User", "UserStatus",
     "VALID_INCIDENT_TRANSITIONS", "can_transition", "validate_transition",
+    "PersistentSwarm", "PersistentSwarmMember",
 ]

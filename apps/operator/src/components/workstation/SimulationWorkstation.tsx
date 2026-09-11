@@ -238,6 +238,36 @@ export const SimulationWorkstation: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Stage S10 Multi-Vehicle Swarm & Formation Control Panel */}
+      <div style={{ marginTop: '20px', background: '#1e293b', padding: '15px', borderRadius: '8px', border: '1px solid #334155' }}>
+        <h3>Swarm & Formation Control Engine (Stage S10)</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', fontSize: '13px' }}>
+          <div style={{ background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#38bdf8' }}>Swarm Configuration</h4>
+            <div>Swarm ID: <strong>swm-alpha-01</strong></div>
+            <div>Formation: <strong>V_FORMATION</strong></div>
+            <div>Spacing: <strong>10.0m</strong></div>
+            <div>Min Separation: <strong>5.0m</strong></div>
+            <div>Leader: <strong>alpha-leader-01</strong></div>
+          </div>
+          <div style={{ background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#22c55e' }}>Swarm Health & Safety</h4>
+            <div>Aggregated Status: <strong style={{ color: '#22c55e' }}>HEALTHY</strong></div>
+            <div>Active Vehicles: <strong>3 Vehicles</strong></div>
+            <div>Safety Breaches: <strong style={{ color: '#22c55e' }}>0 Breaches</strong></div>
+            <div>Autopilot Blend: <strong>ArduPilot + PX4 (Heterogeneous)</strong></div>
+          </div>
+          <div style={{ background: '#0f172a', padding: '10px', borderRadius: '6px' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#eab308' }}>Formation Directives</h4>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>TAKEOFF ALL</button>
+              <button style={{ background: '#059669', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>HOLD FORMATION</button>
+              <button style={{ background: '#d97706', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px' }}>LAND ALL</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

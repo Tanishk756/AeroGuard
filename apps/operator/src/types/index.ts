@@ -16,3 +16,4 @@ export * from './developer';
 export * from './realtime';
 export * from './intelligence';
 export * from './incident';
+export * from './swarm';

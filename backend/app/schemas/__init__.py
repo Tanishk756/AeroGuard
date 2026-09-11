@@ -77,6 +77,27 @@ from app.schemas.scenario import (
 from app.schemas.sensor import SensorResponse, SensorSchema
 from app.schemas.threat import ThreatAssessmentPage, ThreatAssessmentResponse, ThreatAssessmentSchema
 from app.schemas.track import TrackHistoryPage, TrackHistorySchema, TrackPage, TrackResponse, TrackSchema
+from app.schemas.swarm import (
+    FormationType,
+    SwarmRole,
+    SwarmHealth,
+    SafetyEventType,
+    SwarmConstraints,
+    FormationSlot,
+    FormationConfiguration,
+    SwarmMemberConfig,
+    SwarmConfiguration,
+    SafetyEvent,
+    VehicleDesiredState,
+    SwarmVehicleState,
+    SwarmState,
+    SwarmCreate,
+    SwarmUpdate,
+    SwarmMemberAdd,
+    SwarmFormationSet,
+    SwarmMemberResponse,
+    SwarmResponse,
+)
 
 __all__ = [
     "AcknowledgeIncidentRequest",
@@ -153,4 +174,23 @@ __all__ = [
     "TrackResponse",
     "TrackSchema",
     "TriageIncidentRequest",
+    "FormationType",
+    "SwarmRole",
+    "SwarmHealth",
+    "SafetyEventType",
+    "SwarmConstraints",
+    "FormationSlot",
+    "FormationConfiguration",
+    "SwarmMemberConfig",
+    "SwarmConfiguration",
+    "SafetyEvent",
+    "VehicleDesiredState",
+    "SwarmVehicleState",
+    "SwarmState",
+    "SwarmCreate",
+    "SwarmUpdate",
+    "SwarmMemberAdd",
+    "SwarmFormationSet",
+    "SwarmMemberResponse",
+    "SwarmResponse",
 ]
