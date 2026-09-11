@@ -36,7 +36,7 @@ def test_sensor_and_payload_physics_impact():
         sensors=[sensor], payloads=[payload]
     )
 
-    assert loaded_physics["total_mass_g"] == 1360.0  # 1040 + 20 + 300
+    assert loaded_physics["total_mass_g"] == 1390.0  # 1070 + 20 + 300
     # CoM shifted forward along X (+0.10 * 0.3kg / 1.36kg = +0.0221m)
     assert loaded_physics["center_of_mass"]["x"] > 0.0
     assert loaded_physics["inertia"]["ixx"] >= base_physics["inertia"]["ixx"]

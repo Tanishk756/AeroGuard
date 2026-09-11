@@ -64,8 +64,34 @@ class RigidBodyPhysicsEngine:
         ]
 
         # 3. Center of Mass Calculation (x, y, z)
-        # Symmetry assumes CoM near origin (0, 0, 0)
-        com = {"x": 0.0, "y": 0.0, "z": 0.0}
+        com_x = 0.0
+        com_y = 0.0
+        com_z = 0.0
+
+        for s in (sensors or []):
+            m_s = (getattr(s, 'mass_g', 15.0) if hasattr(s, 'mass_g') else (s.get('mass_g', 15.0) if isinstance(s, dict) else 15.0)) / 1000.0
+            pos = getattr(s, 'position_json', None) or getattr(s, 'position', None) or (s.get('position') if isinstance(s, dict) else None) or {}
+            if isinstance(pos, dict):
+                com_x += m_s * pos.get("x", 0.0)
+                com_y += m_s * pos.get("y", 0.0)
+                com_z += m_s * pos.get("z", 0.0)
+
+        for p in (payloads or []):
+            m_p = (getattr(p, 'mass_g', 250.0) if hasattr(p, 'mass_g') else (p.get('mass_g', 250.0) if isinstance(p, dict) else 250.0)) / 1000.0
+            pos = getattr(p, 'position_json', None) or getattr(p, 'position', None) or (p.get('position') if isinstance(p, dict) else None) or {}
+            if isinstance(pos, dict):
+                com_x += m_p * pos.get("x", 0.0)
+                com_y += m_p * pos.get("y", 0.0)
+                com_z += m_p * pos.get("z", 0.0)
+
+        if total_mass_kg > 0:
+            com = {
+                "x": round(com_x / total_mass_kg, 4),
+                "y": round(com_y / total_mass_kg, 4),
+                "z": round(com_z / total_mass_kg, 4),
+            }
+        else:
+            com = {"x": 0.0, "y": 0.0, "z": 0.0}
 
         # 4. First-Order Moment of Inertia Tensor (Ixx, Iyy, Izz) in kg*m^2
         # Central hub inertia approximation
