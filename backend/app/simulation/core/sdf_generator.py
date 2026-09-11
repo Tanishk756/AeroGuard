@@ -6,6 +6,7 @@ Generates Gazebo Harmonic 8.15 XML SDF 1.9 models dynamically from CompiledVehic
 import hashlib
 from typing import Tuple
 from app.simulation.core.vehicle_compiler import CompiledVehicleModel
+from app.simulation.core.sdf_sensor_generator import GazeboSensorGenerator
 from app.core.telemetry import GAZEBO_MODEL_GENERATION_TOTAL
 
 
@@ -80,18 +81,10 @@ class GazeboVehicleGenerator:
         </geometry>
       </collision>
 
-      <!-- IMU Sensor Plugin -->
-      <sensor name="imu_sensor" type="imu">
-        <always_on>true</always_on>
-        <update_rate>250</update_rate>
-        <visualize>false</visualize>
-      </sensor>
-
-      <!-- GPS / NavSat Sensor Plugin -->
-      <sensor name="navsat_sensor" type="navsat">
-        <always_on>true</always_on>
-        <update_rate>10</update_rate>
-      </sensor>
+      <!-- Dynamic Sensors Elements -->
+      {GazeboSensorGenerator.generate_sensors_xml(getattr(model, 'sensors', [])) if getattr(model, 'sensors', None) else '''
+      <sensor name="imu_sensor" type="imu"><always_on>true</always_on><update_rate>250</update_rate></sensor>
+      <sensor name="navsat_sensor" type="navsat"><always_on>true</always_on><update_rate>10</update_rate></sensor>'''}
     </link>
 
     {motor_plugins_xml}

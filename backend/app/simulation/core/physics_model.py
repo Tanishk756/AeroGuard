@@ -19,6 +19,8 @@ class RigidBodyPhysicsEngine:
         flight_controller: PersistentHardwareComponent,
         gps: PersistentHardwareComponent = None,
         num_motors: int = 4,
+        sensors: List[Any] = None,
+        payloads: List[Any] = None,
     ) -> Dict[str, Any]:
         # 1. Component Masses in kg
         m_frame_kg = frame.mass_g / 1000.0
@@ -29,6 +31,9 @@ class RigidBodyPhysicsEngine:
         m_fc_kg = flight_controller.mass_g / 1000.0
         m_gps_kg = (gps.mass_g / 1000.0) if gps else 0.0
 
+        sensors_mass_kg = sum((getattr(s, 'mass_g', 15.0) / 1000.0) for s in (sensors or []))
+        payloads_mass_kg = sum((getattr(p, 'mass_g', 250.0) / 1000.0) for p in (payloads or []))
+
         total_mass_kg = (
             m_frame_kg
             + (m_motor_kg * num_motors)
@@ -37,6 +42,8 @@ class RigidBodyPhysicsEngine:
             + m_bat_kg
             + m_fc_kg
             + m_gps_kg
+            + sensors_mass_kg
+            + payloads_mass_kg
         )
 
         # 2. Quad-X Geometry Setup (Wheelbase & Arm Length)

@@ -398,6 +398,31 @@ MISSION_COMPLETIONS_TOTAL = Counter(
     registry=REGISTRY,
 )
 
+# 16. Stage S8 Sensor & Payload Digital Twin Metrics
+SENSORS_REGISTERED_TOTAL = Counter(
+    "aeroguard_sensors_registered_total",
+    "Total vehicle sensor instances registered",
+    registry=REGISTRY,
+)
+
+PAYLOADS_REGISTERED_TOTAL = Counter(
+    "aeroguard_payloads_registered_total",
+    "Total vehicle payload instances registered",
+    registry=REGISTRY,
+)
+
+SENSOR_FAULT_INJECTIONS_TOTAL = Counter(
+    "aeroguard_sensor_fault_injections_total",
+    "Total sensor fault injection events dispatched",
+    registry=REGISTRY,
+)
+
+SENSOR_TELEMETRY_SAMPLES_TOTAL = Counter(
+    "aeroguard_sensor_telemetry_samples_total",
+    "Total normalized sensor telemetry samples processed",
+    registry=REGISTRY,
+)
+
 
 def get_metrics_exposition() -> bytes:
     """Generate Prometheus exposition text format bytes."""

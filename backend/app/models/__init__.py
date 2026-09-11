@@ -53,6 +53,10 @@ from app.models.mission import (
     PersistentMissionItem,
     PersistentMissionRunSnapshot,
 )
+from app.models.sensor_payload import (
+    PersistentSensorInstance,
+    PersistentPayloadInstance,
+)
 from app.models.incident_export import (
     IncidentExport,
     IncidentExportFormat,

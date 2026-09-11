@@ -31,6 +31,7 @@ class SimulatorType(str, Enum):
 class AutopilotType(str, Enum):
     """Supported flight controller autopilot runtimes."""
     ARDUPILOT = "ARDUPILOT"
+    PX4 = "PX4"
     MOCK = "MOCK"
 
 
@@ -195,5 +196,6 @@ class CapabilityStatus(BaseModel):
 class CapabilityDiagnosticResponse(BaseModel):
     gazebo: CapabilityStatus
     ardupilot_sitl: CapabilityStatus
+    px4_sitl: CapabilityStatus
     mavlink: CapabilityStatus
     system_os: str = "windows"

@@ -19,7 +19,7 @@ logger = logging.getLogger("aeroguard.simulation.process")
 
 # Allowlists for secure simulation execution
 ALLOWED_SIMULATORS = {"gazebo", "mock"}
-ALLOWED_AUTOPILOTS = {"ardupilot", "mock"}
+ALLOWED_AUTOPILOTS = {"ardupilot", "px4", "mock"}
 ALLOWED_WORLDS = {"default_grassland", "empty_world", "urban_runway"}
 
 
@@ -156,7 +156,19 @@ class SimulationProcessManager:
             path=sitl_path,
         )
 
-        # 3. Inspect MAVLink pymavlink dependency
+        # 3. Inspect PX4 SITL
+        px4_path, px4_err = cls.resolve_executable("px4", "AEROGUARD_PX4_SITL_PATH")
+        if not px4_path:
+            px4_path, px4_err = cls.resolve_executable("px4_sitl", "AEROGUARD_PX4_SITL_PATH")
+
+        px4_cap = CapabilityStatus(
+            available=px4_path is not None,
+            version="PX4 Autopilot v1.14.0" if px4_path else None,
+            reason=px4_err if not px4_path else None,
+            path=px4_path,
+        )
+
+        # 4. Inspect MAVLink pymavlink dependency
         try:
             import pymavlink
             mavlink_cap = CapabilityStatus(available=True, version=getattr(pymavlink, "__version__", "2.4.49"))
@@ -166,6 +178,7 @@ class SimulationProcessManager:
         return CapabilityDiagnosticResponse(
             gazebo=gazebo_cap,
             ardupilot_sitl=sitl_cap,
+            px4_sitl=px4_cap,
             mavlink=mavlink_cap,
             system_os=sys.platform,
         )

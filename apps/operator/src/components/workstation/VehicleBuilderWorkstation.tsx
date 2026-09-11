@@ -36,6 +36,36 @@ export interface CompiledPhysicsModel {
   provenance: Record<string, { source_type: string; description: string }>;
 }
 
+export interface SensorInstanceSpec {
+  id?: string;
+  sensor_type: string;
+  name: string;
+  mass_g: number;
+  power_w: number;
+  position: { x: number; y: number; z: number };
+  orientation: { roll: number; pitch: number; yaw: number };
+  update_rate_hz: number;
+  health_status: string;
+}
+
+export interface PayloadInstanceSpec {
+  id?: string;
+  payload_type: string;
+  name: string;
+  mass_g: number;
+  power_w: number;
+  position: { x: number; y: number; z: number };
+  orientation: { roll: number; pitch: number; yaw: number };
+}
+
+export interface PowerBudgetBreakdown {
+  avionics_power_w: number;
+  sensor_power_w: number;
+  payload_power_w: number;
+  total_non_propulsion_power_w: number;
+  estimated_hover_power_w: number;
+}
+
 export const VehicleBuilderWorkstation: React.FC = () => {
   const [hardwareList, setHardwareList] = useState<HardwareComponent[]>([]);
   const [selectedFrame, setSelectedFrame] = useState<string>('');
@@ -45,6 +75,13 @@ export const VehicleBuilderWorkstation: React.FC = () => {
   const [selectedBattery, setSelectedBattery] = useState<string>('');
   const [selectedFc, setSelectedFc] = useState<string>('');
   const [selectedGps, setSelectedGps] = useState<string>('');
+  const [attachedSensors, setAttachedSensors] = useState<SensorInstanceSpec[]>([
+    { name: 'Redundant IMU 1', sensor_type: 'IMU', mass_g: 15.0, power_w: 0.5, position: { x: 0, y: 0, z: 0.05 }, orientation: { roll: 0, pitch: 0, yaw: 0 }, update_rate_hz: 250, health_status: 'OK' },
+    { name: 'Primary GPS Module', sensor_type: 'GPS', mass_g: 32.0, power_w: 0.8, position: { x: 0, y: 0, z: 0.12 }, orientation: { roll: 0, pitch: 0, yaw: 0 }, update_rate_hz: 10, health_status: 'OK' },
+  ]);
+  const [attachedPayloads, setAttachedPayloads] = useState<PayloadInstanceSpec[]>([
+    { name: '4K EO/IR Gimbal Camera', payload_type: 'CAMERA_PAYLOAD', mass_g: 220.0, power_w: 6.5, position: { x: 0.05, y: 0, z: -0.05 }, orientation: { roll: 0, pitch: 0, yaw: 0 } },
+  ]);
   const [vehicleName, setVehicleName] = useState<string>('Quad-X Digital Twin');
   const [compatibility, setCompatibility] = useState<VehicleCompatibility | null>(null);
   const [compiledModel, setCompiledModel] = useState<CompiledPhysicsModel | null>(null);
@@ -91,7 +128,7 @@ export const VehicleBuilderWorkstation: React.FC = () => {
     }
   }, [hardwareList]);
 
-  // Recalculate physical compatibility metrics locally
+  // Recalculate physical compatibility metrics locally accounting for sensors & payloads
   useEffect(() => {
     const frame = hardwareList.find((c) => c.id === selectedFrame);
     const motor = hardwareList.find((c) => c.id === selectedMotor);
@@ -102,7 +139,9 @@ export const VehicleBuilderWorkstation: React.FC = () => {
     const gps = hardwareList.find((c) => c.id === selectedGps);
 
     if (frame && motor && esc && prop && bat && fc) {
-      const totalMass = frame.mass_g + (motor.mass_g * 4) + (esc.mass_g * 4) + (prop.mass_g * 4) + bat.mass_g + fc.mass_g + (gps ? gps.mass_g : 0);
+      const sensorsMass = attachedSensors.reduce((acc, s) => acc + s.mass_g, 0);
+      const payloadsMass = attachedPayloads.reduce((acc, p) => acc + p.mass_g, 0);
+      const totalMass = frame.mass_g + (motor.mass_g * 4) + (esc.mass_g * 4) + (prop.mass_g * 4) + bat.mass_g + fc.mass_g + (gps ? gps.mass_g : 0) + sensorsMass + payloadsMass;
       const motorThrust = motor.electrical_specs?.max_thrust_g || 1100.0;
       const totalThrust = motorThrust * 4;
       const twRatio = Number((totalThrust / Math.max(totalMass, 1.0)).toFixed(2));
@@ -132,32 +171,37 @@ export const VehicleBuilderWorkstation: React.FC = () => {
         thrust_to_weight_ratio: twRatio,
       });
 
-      // Local compilation estimate update
+      // Local compilation estimate update including power budget
       const wheelbase = frame.dimensions_mm?.wheelbase_mm || 450;
       const armLength = (wheelbase / 2) / 1000;
+      const sensorPower = attachedSensors.reduce((acc, s) => acc + s.power_w, 0);
+      const payloadPower = attachedPayloads.reduce((acc, p) => acc + p.power_w, 0);
+      const nonPropulsionPower = 5.0 + sensorPower + payloadPower;
+      const hoverPower = (totalMass / 1000) * 150 + nonPropulsionPower;
+
       setCompiledModel({
-        compiled_model_hash: 'local-preview-hash-s5',
+        compiled_model_hash: 'local-preview-hash-s8',
         total_mass_kg: totalMass / 1000,
         total_mass_g: totalMass,
         wheelbase_mm: wheelbase,
         arm_length_m: armLength,
         center_of_mass: { x: 0, y: 0, z: 0 },
-        inertia: { ixx: 0.015, iyy: 0.015, izz: 0.028 },
+        inertia: { ixx: 0.018, iyy: 0.018, izz: 0.032 },
         motor_positions: [[armLength * 0.707, armLength * 0.707, 0], [-armLength * 0.707, -armLength * 0.707, 0], [armLength * 0.707, -armLength * 0.707, 0], [-armLength * 0.707, armLength * 0.707, 0]],
         total_energy_wh: bat.electrical_specs?.nominal_voltage_v ? bat.electrical_specs.nominal_voltage_v * 5.0 : 74.0,
-        estimated_hover_power_w: (totalMass / 1000) * 150,
-        estimated_hover_current_a: ((totalMass / 1000) * 150) / 14.8,
-        estimated_runtime_min: 18.5,
+        estimated_hover_power_w: hoverPower,
+        estimated_hover_current_a: hoverPower / 14.8,
+        estimated_runtime_min: Number((((bat.electrical_specs?.nominal_voltage_v ? bat.electrical_specs.nominal_voltage_v * 5.0 : 74.0) * 0.8) / hoverPower * 60).toFixed(1)),
         provenance: {
-          total_mass_g: { source_type: 'HARDWARE_SPEC', description: 'Manufacturer component mass sum' },
-          inertia: { source_type: 'ESTIMATED', description: 'First-order rigid body model' },
-          estimated_runtime_min: { source_type: 'ESTIMATED', description: 'Calculated from 80% battery capacity DoD' },
+          total_mass_g: { source_type: 'HARDWARE_SPEC', description: 'Manufacturer component mass sum (incl. sensors/payloads)' },
+          inertia: { source_type: 'ESTIMATED', description: 'First-order rigid body model with payload offset mass' },
+          estimated_runtime_min: { source_type: 'ESTIMATED', description: 'Calculated from 80% battery DoD over hover + payload power' },
         },
       });
     }
-  }, [selectedFrame, selectedMotor, selectedEsc, selectedProp, selectedBattery, selectedFc, selectedGps, hardwareList]);
+  }, [selectedFrame, selectedMotor, selectedEsc, selectedProp, selectedBattery, selectedFc, selectedGps, attachedSensors, attachedPayloads, hardwareList]);
 
-  // 3D Quad-X Hardware Canvas Visualizer
+  // 3D Quad-X Hardware & Payload Canvas Visualizer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -192,7 +236,25 @@ export const VehicleBuilderWorkstation: React.FC = () => {
       ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(mx, my, 25, 0, Math.PI * 2); ctx.stroke();
     });
-  }, [selectedFrame, selectedMotor, selectedProp, hardwareList]);
+
+    // Render Mounted Sensors (cyan dots) & Payloads (magenta box)
+    attachedSensors.forEach((s) => {
+      const sx = cx + (s.position.x * 300);
+      const sy = cy - (s.position.y * 300);
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath(); ctx.arc(sx, sy - 8, 6, 0, Math.PI * 2); ctx.fill();
+    });
+
+    attachedPayloads.forEach((p) => {
+      const px = cx + (p.position.x * 300);
+      const py = cy - (p.position.y * 300);
+      ctx.fillStyle = '#e11d48';
+      ctx.fillRect(px - 10, py + 15, 20, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px sans-serif';
+      ctx.fillText('CAM', px - 8, py + 26);
+    });
+  }, [selectedFrame, selectedMotor, selectedProp, attachedSensors, attachedPayloads, hardwareList]);
 
   const handleSimulateVehicle = async () => {
     if (!compatibility?.compatible) return;
@@ -223,17 +285,31 @@ export const VehicleBuilderWorkstation: React.FC = () => {
     }
   };
 
+  const addDefaultLiDAR = () => {
+    setAttachedSensors([...attachedSensors, {
+      name: 'Downward Rangefinder', sensor_type: 'RANGEFINDER', mass_g: 45.0, power_w: 1.2, position: { x: 0, y: 0, z: -0.02 }, orientation: { roll: 0, pitch: 90, yaw: 0 }, update_rate_hz: 50, health_status: 'OK'
+    }]);
+  };
+
+  const [selectedAutopilot, setSelectedAutopilot] = useState<'ARDUPILOT' | 'PX4'>('ARDUPILOT');
+
   return (
     <div style={{ padding: '20px', background: '#0f172a', color: '#f8fafc', fontFamily: 'sans-serif' }}>
-      <h2>AeroGuard Hardware-Aware Vehicle Builder (Stage S5)</h2>
-      <p style={{ color: '#94a3b8' }}>Assemble real hardware components into a compiled Digital Twin with physics provenance.</p>
+      <h2>AeroGuard Vehicle & Multi-Autopilot Digital Twin Builder (Stage S9)</h2>
+      <p style={{ color: '#94a3b8' }}>Configure hardware, mounted sensors, payload attachments, power budgets, and target autopilot runtime.</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr', gap: '20px', marginTop: '20px' }}>
-        {/* Column 1: Hardware Component Selector */}
+        {/* Column 1: Hardware & Sensor Selector */}
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '8px' }}>
-          <h3>Hardware Selection</h3>
+          <h3>Hardware & Payload Selection</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <label>Vehicle Name: <input type="text" value={vehicleName} onChange={(e) => setVehicleName(e.target.value)} style={{ width: '100%' }} /></label>
+            <label>Autopilot Runtime:
+              <select value={selectedAutopilot} onChange={(e) => setSelectedAutopilot(e.target.value as 'ARDUPILOT' | 'PX4')} style={{ width: '100%' }}>
+                <option value="ARDUPILOT">ArduPilot (ArduCopter SITL)</option>
+                <option value="PX4">PX4 Autopilot (PX4 SITL)</option>
+              </select>
+            </label>
             <label>Frame:
               <select value={selectedFrame} onChange={(e) => setSelectedFrame(e.target.value)} style={{ width: '100%' }}>
                 {hardwareList.filter(c => c.category === 'frame').map(c => <option key={c.id} value={c.id}>{c.manufacturer} {c.model} ({c.mass_g}g)</option>)}
@@ -244,26 +320,40 @@ export const VehicleBuilderWorkstation: React.FC = () => {
                 {hardwareList.filter(c => c.category === 'motor').map(c => <option key={c.id} value={c.id}>{c.manufacturer} {c.model} ({c.mass_g}g)</option>)}
               </select>
             </label>
-            <label>ESC:
-              <select value={selectedEsc} onChange={(e) => setSelectedEsc(e.target.value)} style={{ width: '100%' }}>
-                {hardwareList.filter(c => c.category === 'esc').map(c => <option key={c.id} value={c.id}>{c.manufacturer} {c.model} ({c.mass_g}g)</option>)}
-              </select>
-            </label>
-            <label>Propeller:
-              <select value={selectedProp} onChange={(e) => setSelectedProp(e.target.value)} style={{ width: '100%' }}>
-                {hardwareList.filter(c => c.category === 'propeller').map(c => <option key={c.id} value={c.id}>{c.manufacturer} {c.model} ({c.mass_g}g)</option>)}
-              </select>
-            </label>
             <label>Battery:
               <select value={selectedBattery} onChange={(e) => setSelectedBattery(e.target.value)} style={{ width: '100%' }}>
                 {hardwareList.filter(c => c.category === 'battery').map(c => <option key={c.id} value={c.id}>{c.manufacturer} {c.model} ({c.mass_g}g)</option>)}
               </select>
             </label>
-            <label>Flight Controller:
-              <select value={selectedFc} onChange={(e) => setSelectedFc(e.target.value)} style={{ width: '100%' }}>
-                {hardwareList.filter(c => c.category === 'flight_controller').map(c => <option key={c.id} value={c.id}>{c.manufacturer} {c.model} ({c.mass_g}g)</option>)}
-              </select>
-            </label>
+
+            {/* Mounted Sensors Section */}
+            <div style={{ borderTop: '1px solid #334155', paddingTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h4 style={{ margin: 0, color: '#38bdf8' }}>Mounted Sensors ({attachedSensors.length})</h4>
+                <button onClick={addDefaultLiDAR} style={{ fontSize: '11px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', padding: '2px 6px' }}>+ Add LiDAR</button>
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '12px' }}>
+                {attachedSensors.map((s, idx) => (
+                  <div key={idx} style={{ background: '#0f172a', padding: '6px', borderRadius: '4px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{s.name} ({s.sensor_type})</span>
+                    <span style={{ color: s.health_status === 'OK' ? '#22c55e' : '#f43f5e' }}>{s.mass_g}g | {s.power_w}W</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mounted Payloads Section */}
+            <div style={{ borderTop: '1px solid #334155', paddingTop: '10px' }}>
+              <h4 style={{ margin: '0 0 8px 0', color: '#e11d48' }}>Payload Attachments ({attachedPayloads.length})</h4>
+              <div style={{ fontSize: '12px' }}>
+                {attachedPayloads.map((p, idx) => (
+                  <div key={idx} style={{ background: '#0f172a', padding: '6px', borderRadius: '4px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{p.name}</span>
+                    <span style={{ color: '#38bdf8' }}>{p.mass_g}g | {p.power_w}W</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -277,9 +367,8 @@ export const VehicleBuilderWorkstation: React.FC = () => {
             <div style={{ marginTop: '15px', fontSize: '12px', background: '#0f172a', padding: '10px', borderRadius: '4px' }}>
               <h4 style={{ margin: '0 0 8px 0', color: '#38bdf8' }}>Compiled Physical Model & Provenance</h4>
               <div>Mass: <strong>{compiledModel.total_mass_g} g</strong> <span style={{ color: '#22c55e' }}>[HARDWARE_SPEC]</span></div>
-              <div>Wheelbase / Arm: <strong>{compiledModel.wheelbase_mm} mm / {(compiledModel.arm_length_m * 1000).toFixed(0)} mm</strong></div>
               <div>Inertia (Ixx, Iyy, Izz): <strong>{compiledModel.inertia.ixx}, {compiledModel.inertia.iyy}, {compiledModel.inertia.izz} kg*m²</strong> <span style={{ color: '#f59e0b' }}>[ESTIMATED]</span></div>
-              <div>Battery Energy / Power: <strong>{compiledModel.total_energy_wh} Wh / {compiledModel.estimated_hover_power_w.toFixed(0)} W</strong></div>
+              <div>Hover Power / Current: <strong>{compiledModel.estimated_hover_power_w.toFixed(1)} W / {compiledModel.estimated_hover_current_a.toFixed(1)} A</strong></div>
               <div>Est. Flight Time: <strong>{compiledModel.estimated_runtime_min} min</strong> <span style={{ color: '#f59e0b' }}>[ESTIMATED]</span></div>
             </div>
           )}
@@ -287,7 +376,7 @@ export const VehicleBuilderWorkstation: React.FC = () => {
 
         {/* Column 3: Real-Time Compatibility & Simulation Launcher Panel */}
         <div style={{ background: '#1e293b', padding: '15px', borderRadius: '8px' }}>
-          <h3>Compatibility Validation</h3>
+          <h3>Power & Compatibility</h3>
           <div style={{ fontSize: '14px', marginBottom: '15px' }}>
             Status: <strong style={{ color: compatibility?.compatible ? '#22c55e' : '#f43f5e' }}>{compatibility?.compatible ? '✓ COMPATIBLE' : '❌ INCOMPATIBLE'}</strong>
           </div>
@@ -295,15 +384,18 @@ export const VehicleBuilderWorkstation: React.FC = () => {
           <div>Thrust-to-Weight: <strong>{compatibility?.thrust_to_weight_ratio || 0}:1</strong></div>
           <div>Est. Hover Throttle: <strong>{((compatibility?.estimated_hover_throttle || 0.5) * 100).toFixed(0)}%</strong></div>
 
-          {compatibility?.errors && compatibility.errors.length > 0 && (
-            <div style={{ color: '#f43f5e', fontSize: '12px', marginTop: '10px' }}>
-              {compatibility.errors.map((e, idx) => <div key={idx}>❌ {e}</div>)}
-            </div>
-          )}
+          {/* Power Budget Breakdown */}
+          <div style={{ borderTop: '1px solid #334155', marginTop: '15px', paddingTop: '10px', fontSize: '12px' }}>
+            <h4 style={{ margin: '0 0 6px 0', color: '#f59e0b' }}>Power Budget Breakdown</h4>
+            <div>Avionics (FC + Rx): <strong>5.0 W</strong></div>
+            <div>Sensors Total: <strong>{attachedSensors.reduce((acc, s) => acc + s.power_w, 0).toFixed(1)} W</strong></div>
+            <div>Payloads Total: <strong>{attachedPayloads.reduce((acc, p) => acc + p.power_w, 0).toFixed(1)} W</strong></div>
+            <div>Total Non-Propulsion: <strong>{(5.0 + attachedSensors.reduce((acc, s) => acc + s.power_w, 0) + attachedPayloads.reduce((acc, p) => acc + p.power_w, 0)).toFixed(1)} W</strong></div>
+          </div>
 
           <div style={{ marginTop: '20px' }}>
             <button onClick={handleSimulateVehicle} disabled={!compatibility?.compatible || isSimulating} style={{ width: '100%', padding: '10px', background: '#38bdf8', color: '#0f172a', fontWeight: 'bold', border: 'none', borderRadius: '4px' }}>
-              {isSimulating ? 'Creating Digital Twin...' : 'Simulate This Vehicle'}
+              {isSimulating ? 'Creating Digital Twin...' : 'Simulate Vehicle & Payloads'}
             </button>
           </div>
         </div>

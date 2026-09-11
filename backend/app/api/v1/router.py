@@ -27,6 +27,8 @@ from app.api.v1.routes.vehicles import router as vehicles_router
 from app.api.v1.routes.worlds import router as worlds_router
 from app.api.v1.routes.scenario_builder import router as scenario_builder_router
 from app.api.v1.routes.missions import router as missions_router
+from app.api.v1.routes.sensors_payloads import router as sensors_payloads_router
+from app.api.v1.routes.autopilots import router as autopilots_router
 from app.api.v1.routes.ws import router as ws_router
 
 router = APIRouter()
@@ -49,6 +51,8 @@ router.include_router(scenarios_router, tags=["scenarios"])
 router.include_router(simulation_platform_router, tags=["simulation_platform"])
 router.include_router(hardware_registry_router, tags=["hardware_registry"])
 router.include_router(vehicles_router, tags=["vehicles"])
+router.include_router(sensors_payloads_router, tags=["sensors_payloads"])
+router.include_router(autopilots_router, tags=["autopilots"])
 router.include_router(worlds_router, tags=["worlds"])
 router.include_router(scenario_builder_router, tags=["scenario_builder"])
 router.include_router(missions_router, tags=["missions"])

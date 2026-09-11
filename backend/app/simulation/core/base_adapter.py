@@ -190,8 +190,10 @@ class SimulationEngineFactory:
         if "gazebo" not in cls._registry:
             from app.simulation.adapters.gazebo import GazeboHarmonicAdapter
             from app.simulation.adapters.ardupilot import ArduPilotSITLAdapter
+            from app.simulation.adapters.px4 import PX4AutopilotAdapter
             cls._registry["gazebo"] = GazeboHarmonicAdapter
             cls._registry["ardupilot"] = ArduPilotSITLAdapter
+            cls._registry["px4"] = PX4AutopilotAdapter
 
         adapter_cls = cls._registry.get(name.lower())
         if not adapter_cls:

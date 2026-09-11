@@ -27,6 +27,23 @@ class SimulationFailureInjector:
         return fault_record
 
     @classmethod
+    def inject_sensor_failure(cls, run_id: str, sensor_type: str, fault_type: str = "FAILED") -> Dict[str, Any]:
+        SIMULATION_FAILURE_INJECTION_TOTAL.inc()
+
+        fault_key = f"{run_id}_sensor_{sensor_type.lower()}"
+        fault_record = {
+            "run_id": run_id,
+            "target": f"sensor_{sensor_type.lower()}",
+            "fault_type": f"SENSOR_{sensor_type.upper()}_{fault_type.upper()}",
+            "sensor_type": sensor_type,
+            "severity": 1.0,
+            "active": True,
+        }
+
+        cls._active_faults[fault_key] = fault_record
+        return fault_record
+
+    @classmethod
     def get_active_faults(cls, run_id: str) -> List[Dict[str, Any]]:
         return [f for f in cls._active_faults.values() if f["run_id"] == run_id and f["active"]]
 
